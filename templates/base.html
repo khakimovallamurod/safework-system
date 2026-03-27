@@ -1,0 +1,353 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SafeWork System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <style>
+        .form-control,
+        .form-select {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.75rem;
+            padding: 0.55rem 0.75rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            color: #0f172a;
+            background: #ffffff;
+            transition: border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            outline: 0;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+        }
+
+        .table-head-link {
+            color: inherit;
+            text-decoration: none;
+            transition: color .2s ease;
+        }
+
+        .table-head-link:hover { color: #16a34a; }
+
+        .swal2-popup.swal-toast-small {
+            font-size: 0.82rem !important;
+            padding: 0.55rem 0.7rem !important;
+        }
+
+        .sidebar { transition: transform .25s ease, width .25s ease, min-width .25s ease; }
+        .sidebar.open { transform: translateX(0) !important; }
+
+        @media (min-width: 1024px) {
+            .app-shell.sidebar-collapsed .sidebar {
+                width: 0 !important;
+                min-width: 0 !important;
+                border-width: 0 !important;
+                overflow: hidden;
+            }
+
+            .app-shell.sidebar-collapsed .sidebar > * {
+                opacity: 0;
+                pointer-events: none;
+            }
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1055;
+            display: none;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .modal.show { display: block; }
+
+        .modal-dialog {
+            position: relative;
+            width: auto;
+            margin: 1.75rem auto;
+            max-width: 32rem;
+        }
+
+        .modal-dialog-centered {
+            min-height: calc(100% - 3.5rem);
+            display: flex;
+            align-items: center;
+        }
+
+        .modal-xl { max-width: 72rem; }
+
+        .modal-content {
+            width: 100%;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.16);
+            overflow: hidden;
+        }
+
+        .modal-header,
+        .modal-footer {
+            padding: 0.9rem 1rem;
+            border-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+        }
+
+        .modal-header { border-bottom: 1px solid #e2e8f0; }
+        .modal-body { padding: 1rem; }
+        .modal-footer { border-top: 1px solid #e2e8f0; justify-content: flex-end; }
+
+        .modal-title {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .btn-close {
+            background: transparent;
+            border: 0;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+        }
+
+        .btn-close::before { content: '✕'; }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1050;
+            background: rgba(15, 23, 42, 0.42);
+        }
+
+        .modal-backdrop.fade { opacity: 0; }
+        .modal-backdrop.show { opacity: 1; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased">
+<div class="app-shell flex min-h-screen w-full">
+    <aside id="app-sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-slate-700/40 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-100 shadow-xl lg:static lg:translate-x-0">
+        <div class="flex items-center gap-3 border-b border-slate-700/60 px-4 py-5">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/20 text-brand-500">
+                <i class="bi bi-shield-check text-lg"></i>
+            </div>
+            <span class="text-sm font-semibold tracking-wide text-slate-100">SafeWork System</span>
+        </div>
+
+        <nav class="flex-1 px-3 py-4">
+            <div class="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Menyu</div>
+            <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'dashboard' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'dashboard' %}">
+                <i class="bi bi-grid-1x2 text-base"></i> Dashboard
+            </a>
+            {% if is_super_admin %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'industries' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'industries:list' %}">
+                    <i class="bi bi-diagram-3 text-base"></i> Sohalar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'companies' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'companies:list' %}">
+                    <i class="bi bi-buildings text-base"></i> Kompaniyalar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
+                    <i class="bi bi-briefcase text-base"></i> Kasb turlari
+                </a>
+            {% elif is_company_admin %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
+                    <i class="bi bi-briefcase text-base"></i> Kasb turlari
+                </a>
+            {% endif %}
+        </nav>
+
+        <div class="mt-auto border-t border-slate-700/60 p-3">
+            <form method="post" action="{% url 'logout' %}" class="m-0">
+                {% csrf_token %}
+                <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-200">
+                    <i class="bi bi-box-arrow-right"></i> Chiqish
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-slate-950/50 lg:hidden"></div>
+
+    <div id="main-wrap" class="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:px-6">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-2 lg:gap-3">
+                    <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-slate-100 lg:hidden" id="mobile-menu-btn" type="button">
+                        <i class="bi bi-list text-lg"></i>
+                    </button>
+                    <button class="hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-slate-100 lg:inline-flex" id="desktop-menu-btn" type="button" title="Sidebarni yopish/ochish">
+                        <i id="desktop-menu-icon" class="bi bi-layout-sidebar-inset"></i>
+                    </button>
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-slate-900 lg:text-base">Boshqaruv paneli</div>
+                        <div class="hidden truncate text-xs text-slate-500 sm:block">
+                            {{ role_name|default:'Mehmon' }}
+                            {% if company_industry %}
+                                · Soha: {{ company_industry.name }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 lg:gap-3">
+                    <div class="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 sm:flex">
+                        <i class="bi bi-calendar3"></i>
+                        {% now "d.m.Y" %}
+                    </div>
+                    <div class="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 {% if is_super_admin %}border-emerald-200 bg-emerald-50{% elif is_company_admin %}border-amber-200 bg-amber-50{% else %}border-slate-200 bg-slate-50{% endif %}">
+                        <div class="flex h-8 w-8 items-center justify-center rounded-lg {% if is_super_admin %}bg-emerald-600{% elif is_company_admin %}bg-amber-600{% else %}bg-slate-700{% endif %} text-white">
+                            <i class="bi bi-person text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-semibold text-slate-800">{{ request.user.username }}</div>
+                            <div class="hidden text-[11px] text-slate-500 sm:block">{{ role_name|default:'Foydalanuvchi' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 px-4 py-5 lg:px-6 lg:py-6">
+            {% if messages %}
+                <div id="django-messages" class="hidden">
+                    {% for message in messages %}
+                        <div data-tag="{{ message.tags|default:'info' }}" data-text="{{ message|escape }}"></div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-500 lg:px-6">
+            © {% now "Y" %} SafeWork System. Barcha huquqlar himoyalangan.
+        </footer>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="{% static 'js/table_tools.js' %}"></script>
+<script>
+    const appShell = document.querySelector('.app-shell');
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    const desktopMenuBtn = document.getElementById('desktop-menu-btn');
+    const desktopMenuIcon = document.getElementById('desktop-menu-icon');
+
+    function openSidebar() {
+        if (!sidebar || !backdrop) return;
+        sidebar.classList.add('open');
+        backdrop.classList.remove('hidden');
+    }
+
+    function closeSidebar() {
+        if (!sidebar || !backdrop) return;
+        sidebar.classList.remove('open');
+        backdrop.classList.add('hidden');
+    }
+
+    function setDesktopSidebarCollapsed(collapsed) {
+        if (!appShell) return;
+        appShell.classList.toggle('sidebar-collapsed', collapsed);
+        if (desktopMenuIcon) {
+            desktopMenuIcon.className = collapsed
+                ? 'bi bi-layout-sidebar-inset-reverse'
+                : 'bi bi-layout-sidebar-inset';
+        }
+        try {
+            localStorage.setItem('sidebarCollapsedDesktop', collapsed ? '1' : '0');
+        } catch (e) {}
+    }
+
+    if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+
+    if (desktopMenuBtn) {
+        desktopMenuBtn.addEventListener('click', () => {
+            if (window.innerWidth < 1024) return;
+            const collapsed = appShell ? appShell.classList.contains('sidebar-collapsed') : false;
+            setDesktopSidebarCollapsed(!collapsed);
+        });
+    }
+
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
+    document.querySelectorAll('#app-sidebar .nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 1024) closeSidebar();
+        });
+    });
+
+    if (window.innerWidth >= 1024) {
+        let collapsed = false;
+        try {
+            collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
+        } catch (e) {}
+        setDesktopSidebarCollapsed(collapsed);
+    }
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth < 1024) {
+            if (appShell) appShell.classList.remove('sidebar-collapsed');
+            if (desktopMenuIcon) desktopMenuIcon.className = 'bi bi-layout-sidebar-inset';
+        } else {
+            let collapsed = false;
+            try {
+                collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
+            } catch (e) {}
+            setDesktopSidebarCollapsed(collapsed);
+            closeSidebar();
+        }
+    });
+
+    (function () {
+        const box = document.getElementById('django-messages');
+        if (!box || typeof Swal === 'undefined') return;
+        const toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2600,
+            timerProgressBar: true,
+            customClass: { popup: 'swal-toast-small' }
+        });
+        const iconMap = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+        box.querySelectorAll('div[data-tag]').forEach(el =>
+            toast.fire({ icon: iconMap[el.dataset.tag] || 'info', text: el.dataset.text })
+        );
+    })();
+</script>
+</body>
+</html>

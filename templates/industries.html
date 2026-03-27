@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-slate-900">
+            <i class="bi bi-diagram-3 mr-2 text-emerald-600"></i>Sohalar ro'yxati
+        </h2>
+        <div class="flex flex-wrap items-center gap-2">
+            <form class="flex" method="get">
+                <input
+                    id="industry-search"
+                    class="form-control min-w-[220px]"
+                    type="search"
+                    name="q"
+                    value="{{ q }}"
+                    placeholder="Soha qidirish"
+                    onblur="this.form.submit()"
+                />
+                <input type="hidden" name="sort" value="{{ sort }}" />
+                <input type="hidden" name="dir" value="{{ dir }}" />
+            </form>
+            {% if is_super_admin %}
+                <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#industryAddModal" type="button">
+                    <i class="bi bi-plus-circle"></i> Qo'shish
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="industry-tools" data-table-id="industry-table" data-search-id="industry-search"></div>
+
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table id="industry-table" class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-4 py-3 w-16"><a class="table-head-link" href="?q={{ q }}&sort=id&dir={% if sort == 'id' and dir == 'asc' %}desc{% else %}asc{% endif %}">#</a></th>
+                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Nomi</a></th>
+                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=created_at&dir={% if sort == 'created_at' and dir == 'asc' %}desc{% else %}asc{% endif %}">Yaratilgan sana</a></th>
+                    {% if is_super_admin %}
+                        <th class="px-4 py-3 text-right w-32">Amallar</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                {% for industry in industries %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3">
+                            <span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-slate-900">{{ industry.name }}</td>
+                        <td class="px-4 py-3 text-slate-500">{{ industry.created_at|date:'Y-m-d H:i' }}</td>
+                        {% if is_super_admin %}
+                            <td class="px-4 py-3 text-right">
+                                <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#industryEditModal{{ industry.id }}" type="button">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#industryDeleteModal{{ industry.id }}" type="button">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if is_super_admin %}4{% else %}3{% endif %}" class="px-4 py-10 text-center text-slate-400">
+                            <i class="bi bi-inbox mb-2 block text-2xl"></i>Ma'lumot topilmadi
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if is_super_admin %}
+<div class="modal fade" id="industryAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'industries:create' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Yangi soha qo'shish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+                </div>
+                <div class="modal-body">
+                    {{ form.name.label_tag }}
+                    {{ form.name }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for industry in industries %}
+<div class="modal fade" id="industryEditModal{{ industry.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'industries:edit' industry.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Soha tahrirlash</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Soha nomi</label>
+                    <input type="text" name="name" value="{{ industry.name }}" class="form-control" required />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">Yangilash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="industryDeleteModal{{ industry.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tasdiqlash</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-sm text-slate-700"><strong>{{ industry.name }}</strong> sohasini o'chirmoqchimisiz?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                <form method="post" action="{% url 'industries:delete' industry.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700" type="submit">Ha, o'chirish</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
