@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from accounts.mixins import ProfessionAccessRequiredMixin
+from accounts.mixins import ProfessionAccessRequiredMixin, ProfessionManageRequiredMixin
 from companies.models import Company
 from industries.models import Industry
 from professions.forms import ProfessionForm
@@ -30,8 +30,8 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
             sort_field = f'-{sort_field}'
 
         professions = Profession.objects.select_related('industry').prefetch_related('industry__companies').all()
-        if role['is_company_admin'] and role['company_profile']:
-            professions = professions.filter(industry=role['company_profile'].industry)
+        if role['user_profile'] and role['user_profile'].industry and not role['is_super_admin']:
+            professions = professions.filter(industry=role['user_profile'].industry)
         elif role['is_super_admin'] and company_id.isdigit():
             company = Company.objects.filter(id=company_id).first()
             if company:
@@ -56,10 +56,10 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
         return render(request, self.template_name, context)
 
 
-class ProfessionCreateView(ProfessionAccessRequiredMixin, View):
+class ProfessionCreateView(ProfessionManageRequiredMixin, View):
     def _resolve_industry(self, role, request):
-        if role['is_company_admin'] and role['company_profile']:
-            return role['company_profile'].industry
+        if role['is_org_leader'] and role['user_profile']:
+            return role['user_profile'].industry
 
         # Super admin fallback: use requested industry_id if sent,
         # otherwise first available industry.
@@ -87,20 +87,20 @@ class ProfessionCreateView(ProfessionAccessRequiredMixin, View):
         return redirect('professions:list')
 
 
-class ProfessionEditView(ProfessionAccessRequiredMixin, View):
+class ProfessionEditView(ProfessionManageRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         role = self.get_role_context()
         profession = get_object_or_404(Profession, pk=pk)
 
-        if role['is_company_admin'] and role['company_profile'] and profession.industry_id != role['company_profile'].industry_id:
+        if role['is_org_leader'] and role['user_profile'] and profession.industry_id != role['user_profile'].industry_id:
             messages.error(request, "Siz boshqa soha kasb turini tahrirlay olmaysiz.")
             return redirect('professions:list')
 
         form = ProfessionForm(request.POST, request.FILES, instance=profession)
         if form.is_valid():
             updated = form.save(commit=False)
-            if role['is_company_admin'] and role['company_profile']:
-                updated.industry = role['company_profile'].industry
+            if role['is_org_leader'] and role['user_profile']:
+                updated.industry = role['user_profile'].industry
             updated.save()
             messages.success(request, "Kasb turi tahrirlandi.")
         else:
@@ -108,12 +108,12 @@ class ProfessionEditView(ProfessionAccessRequiredMixin, View):
         return redirect('professions:list')
 
 
-class ProfessionDeleteView(ProfessionAccessRequiredMixin, View):
+class ProfessionDeleteView(ProfessionManageRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         role = self.get_role_context()
         profession = get_object_or_404(Profession, pk=pk)
 
-        if role['is_company_admin'] and role['company_profile'] and profession.industry_id != role['company_profile'].industry_id:
+        if role['is_org_leader'] and role['user_profile'] and profession.industry_id != role['user_profile'].industry_id:
             messages.error(request, "Siz boshqa soha kasb turini o'chira olmaysiz.")
             return redirect('professions:list')
 

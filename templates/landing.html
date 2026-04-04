@@ -1,0 +1,519 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SafeWork System | Multi-role platforma</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <style>
+        html { scroll-behavior: smooth; }
+
+        #main-header { transition: background 0.3s, box-shadow 0.3s; }
+        #main-header.scrolled {
+            background: rgba(255,255,255,0.97);
+            box-shadow: 0 1px 24px rgba(0,0,0,0.07);
+        }
+
+        .nav-link { position: relative; padding-bottom: 4px; }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 0; height: 2px;
+            background: #10b981;
+            border-radius: 2px;
+            transition: width 0.25s;
+        }
+        .nav-link.active::after,
+        .nav-link:hover::after { width: 100%; }
+        .nav-link.active { color: #059669; }
+
+        .stat-card:hover { transform: translateY(-4px); }
+        .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+
+        .industry-card:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(0,0,0,0.12); }
+        .industry-card { transition: transform 0.25s, box-shadow 0.25s; }
+
+        .feature-card:hover { border-color: #10b981; transform: translateY(-4px); }
+        .feature-card { transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
+        .feature-card:hover { box-shadow: 0 12px 40px rgba(16,185,129,0.1); }
+    </style>
+</head>
+<body class="bg-white text-slate-900 antialiased">
+
+<!-- ───────────────── HEADER ───────────────── -->
+<header id="main-header" class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-100">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <a href="{% url 'home' %}" class="flex items-center">
+            <img src="{% static 'images/safework-logo2.png' %}" alt="SafeWork" class="h-14 w-auto object-contain" />
+        </a>
+
+        <nav class="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+            <a href="#about"      class="nav-link transition-colors hover:text-slate-900" data-section="about">Platforma</a>
+            <a href="#features"   class="nav-link transition-colors hover:text-slate-900" data-section="features">Imkoniyatlar</a>
+            <a href="#industries" class="nav-link transition-colors hover:text-slate-900" data-section="industries">Sohalar</a>
+            <a href="#contact"    class="nav-link transition-colors hover:text-slate-900" data-section="contact">Bog'lanish</a>
+        </nav>
+
+        <div class="flex items-center gap-3">
+            <a href="{% url 'login' %}" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-500 hover:text-emerald-600">Kirish</a>
+            <a href="{% url 'register-choice' %}" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">Ro'yxatdan o'tish</a>
+        </div>
+    </div>
+</header>
+
+<!-- ───────────────── HERO ───────────────── -->
+<section class="pt-20 bg-white">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="grid items-center gap-12 py-16 lg:grid-cols-2 lg:py-24">
+
+            <div>
+                <span class="inline-block rounded-full bg-emerald-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-700 border border-emerald-100">Multi-role web platforma</span>
+                <h1 class="mt-5 text-4xl font-black leading-tight text-slate-900 sm:text-5xl lg:text-[3.25rem]">
+                    Tashkilot rahbari va ishchi uchun yagona <span class="text-emerald-600">xavfsizlik platformasi</span>.
+                </h1>
+                <p class="mt-5 text-base leading-8 text-slate-500 sm:text-lg">
+                    SafeWork System sanoat, qurilish, ishlab chiqarish va servis yo'nalishlarida kasb turlari, xavfsizlik hujjatlari va foydalanuvchi huquqlarini bir joyda boshqarishga yordam beradi.
+                </p>
+                <div class="mt-8 flex flex-wrap gap-3">
+                    <a href="{% url 'register-leader' %}" class="rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 shadow-sm">Rahbar sifatida boshlash</a>
+                    <a href="{% url 'register-worker' %}" class="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400">Ishchi sifatida ro'yxatdan o'tish</a>
+                </div>
+
+                <!-- Stats -->
+                <div class="mt-10 grid grid-cols-4 gap-3 pt-8 border-t border-slate-100">
+                    <div class="stat-card rounded-2xl bg-emerald-50 border border-emerald-100 p-4 text-center cursor-default">
+                        <div class="text-2xl font-black text-emerald-700">{{ total_industries }}</div>
+                        <div class="mt-1 text-xs font-medium text-emerald-600">Soha</div>
+                    </div>
+                    <div class="stat-card rounded-2xl bg-sky-50 border border-sky-100 p-4 text-center cursor-default">
+                        <div class="text-2xl font-black text-sky-700">{{ total_professions }}</div>
+                        <div class="mt-1 text-xs font-medium text-sky-600">Kasb turi</div>
+                    </div>
+                    <div class="stat-card rounded-2xl bg-amber-50 border border-amber-100 p-4 text-center cursor-default">
+                        <div class="text-2xl font-black text-amber-700">{{ total_leaders }}</div>
+                        <div class="mt-1 text-xs font-medium text-amber-600">Rahbar</div>
+                    </div>
+                    <div class="stat-card rounded-2xl bg-violet-50 border border-violet-100 p-4 text-center cursor-default">
+                        <div class="text-2xl font-black text-violet-700">{{ total_workers }}</div>
+                        <div class="mt-1 text-xs font-medium text-violet-600">Ishchi</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-center lg:justify-end">
+                <img src="{% static 'images/home-page.png' %}" alt="SafeWork System boshqaruv paneli" class="w-full max-w-lg rounded-2xl border border-slate-100 shadow-xl" />
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ───────────────── ABOUT ───────────────── -->
+<main>
+<section id="about" class="bg-slate-50">
+    <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-2">
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-widest text-emerald-600 mb-2">Platforma haqida</div>
+                <h2 class="text-3xl font-black leading-tight text-slate-950 sm:text-4xl">Nima uchun kerak?</h2>
+                <p class="mt-5 text-base leading-8 text-slate-500">Korxonalarda xavfsizlikka oid jarayonlar ko'pincha tarqoq bo'ladi: foydalanuvchi nazorati boshqa joyda, kasb turlari va hujjatlar boshqa joyda saqlanadi. SafeWork System shu jarayonlarni birlashtirib, tezkor va aniq boshqaruv yaratadi.</p>
+                <div class="mt-8 space-y-4">
+                    <div class="flex gap-4 rounded-2xl bg-white p-5 border border-slate-100 shadow-sm">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+                            <i class="bi bi-check2-circle text-lg text-emerald-600"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-950">Aniq ma'lumotlar</div>
+                            <p class="mt-1 text-sm leading-7 text-slate-500">Har bir foydalanuvchi o'z sohasi, tashkiloti va vazifasiga mos interfeysni ko'radi.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 rounded-2xl bg-white p-5 border border-slate-100 shadow-sm">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50">
+                            <i class="bi bi-lightning-charge text-lg text-sky-600"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-950">Qulaylik</div>
+                            <p class="mt-1 text-sm leading-7 text-slate-500">Rahbarlar boshqaradi, ishchilar esa kerakli ma'lumotlarni tez va qulay ko'radi.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="rounded-2xl bg-white p-5 border border-slate-100 shadow-sm hover:border-emerald-200 transition-colors">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 mb-4">
+                        <i class="bi bi-person-lock text-xl text-emerald-600"></i>
+                    </div>
+                    <div class="font-bold text-slate-900">Role-based access</div>
+                    <p class="mt-2 text-sm leading-7 text-slate-500">Har bir rol uchun alohida dashboard va cheklangan huquqlar.</p>
+                </div>
+                <div class="rounded-2xl bg-white p-5 border border-slate-100 shadow-sm hover:border-rose-200 transition-colors">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 mb-4">
+                        <i class="bi bi-slash-circle text-xl text-rose-500"></i>
+                    </div>
+                    <div class="font-bold text-slate-900">Bloklash nazorati</div>
+                    <p class="mt-2 text-sm leading-7 text-slate-500">Bloklangan foydalanuvchi tizimga kira olmaydi va ogohlantirish oladi.</p>
+                </div>
+                <div class="rounded-2xl bg-white p-5 border border-slate-100 shadow-sm hover:border-sky-200 transition-colors">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 mb-4">
+                        <i class="bi bi-file-earmark-pdf text-xl text-sky-600"></i>
+                    </div>
+                    <div class="font-bold text-slate-900">Nizom fayllari</div>
+                    <p class="mt-2 text-sm leading-7 text-slate-500">Kasb turlariga biriktirilgan PDF hujjatlar brauzer ichida ko'riladi.</p>
+                </div>
+                <div class="rounded-2xl bg-white p-5 border border-slate-100 shadow-sm hover:border-amber-200 transition-colors">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 mb-4">
+                        <i class="bi bi-speedometer2 text-xl text-amber-500"></i>
+                    </div>
+                    <div class="font-bold text-slate-900">Tezkor boshqaruv</div>
+                    <p class="mt-2 text-sm leading-7 text-slate-500">Qidirish, saralash va statuslar bilan kundalik operatsiyalar yengillashadi.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ───────────────── FEATURES ───────────────── -->
+<section id="features" class="bg-white">
+    <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div class="mb-12 text-center">
+            <div class="text-xs font-semibold uppercase tracking-widest text-emerald-600 mb-2">Imkoniyatlar</div>
+            <h2 class="text-3xl font-black text-slate-950 sm:text-4xl">Platforma nima taklif etadi?</h2>
+            <p class="mt-3 text-slate-500 max-w-xl mx-auto text-sm leading-7">Har bir foydalanuvchi o'z roliga mos interfeys va imkoniyatlardan foydalanadi.</p>
+        </div>
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="feature-card rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 mb-5">
+                    <i class="bi bi-shield-check text-2xl text-emerald-600"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-950">Rahbar boshqaruvi</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-500">Rahbarlar o'z sohasi, hujjatlari va kasb turlarini yagona interfeys orqali boshqaradi.</p>
+                <div class="mt-5 flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                    <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                </div>
+            </div>
+            <div class="feature-card rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 mb-5">
+                    <i class="bi bi-building-gear text-2xl text-amber-500"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-950">Rahbar dashboardi</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-500">Rahbar o'z sohasidagi kasb turlarini boshqaradi va tashkilotga mos ma'lumotlarni kuzatadi.</p>
+                <div class="mt-5 flex items-center gap-1 text-xs font-semibold text-amber-600">
+                    <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                </div>
+            </div>
+            <div class="feature-card rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 mb-5">
+                    <i class="bi bi-person-workspace text-2xl text-sky-600"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-950">Ishchi kabineti</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-500">Ishchi o'z sohasi bo'yicha xavfsizlik hujjatlari va kasb ma'lumotlarini read-only rejimda oladi.</p>
+                <div class="mt-5 flex items-center gap-1 text-xs font-semibold text-sky-600">
+                    <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                </div>
+            </div>
+            <div class="feature-card rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 mb-5">
+                    <i class="bi bi-people text-2xl text-violet-600"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-950">Foydalanuvchi nazorati</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-500">Tizimga kirgan foydalanuvchilarni ko'rish, bloklash va statusini boshqarish imkoniyati.</p>
+                <div class="mt-5 flex items-center gap-1 text-xs font-semibold text-violet-600">
+                    <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                </div>
+            </div>
+            <div class="feature-card rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 mb-5">
+                    <i class="bi bi-file-earmark-text text-2xl text-rose-500"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-950">Hujjat boshqaruvi</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-500">Kasb turlariga biriktirilgan PDF hujjatlarni yuklash va brauzer ichida namoyish etish.</p>
+                <div class="mt-5 flex items-center gap-1 text-xs font-semibold text-rose-500">
+                    <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                </div>
+            </div>
+            <div class="feature-card rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 mb-5">
+                    <i class="bi bi-phone text-2xl text-teal-600"></i>
+                </div>
+                <h3 class="text-lg font-black text-slate-950">Mobilga moslashgan</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-500">Barcha sahifalar telefon va tablet ekranlarida ham to'liq va qulay ishlaydi.</p>
+                <div class="mt-5 flex items-center gap-1 text-xs font-semibold text-teal-600">
+                    <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ───────────────── INDUSTRIES ───────────────── -->
+<section id="industries" class="bg-slate-50">
+    <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div class="mb-12 text-center">
+            <div class="text-xs font-semibold uppercase tracking-widest text-emerald-600 mb-2">Sohalar</div>
+            <h2 class="text-3xl font-black text-slate-950 sm:text-4xl">Qaysi sohalarda ishlaydi?</h2>
+            <p class="mt-3 text-slate-500 max-w-xl mx-auto text-sm leading-7">Har bir soha uchun xavfsizlik talablari, kasb turlari va mas'ul shaxslar aniq ko'rsatiladi.</p>
+        </div>
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+
+            <!-- 1. Qurilish -->
+            <article class="industry-card group overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm cursor-default">
+                <div class="relative h-52 overflow-hidden bg-amber-50 flex items-center justify-center">
+                    <img src="{% static 'images/qurilish.jpeg' %}" alt="Qurilish" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    <span class="absolute bottom-3 left-4 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold text-white">Qurilish</span>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50">
+                            <i class="bi bi-building text-amber-500 text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-950 group-hover:text-amber-600 transition-colors">Qurilish</h3>
+                    </div>
+                    <p class="text-sm leading-7 text-slate-500">Binolar, yo'llar va infratuzilma ob'ektlarini qurishda ishchilar balandlikda ishlash, elektr, og'ir texnika va yong'in xavfsizligi qoidalariga rioya qilishi shart. Har bir qurilish maydonida xavfsizlik pasporti va brigada rahbari belgilanadi.</p>
+                    <div class="mt-4 flex items-center gap-1 text-xs font-semibold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                    </div>
+                </div>
+            </article>
+
+            <!-- 2. Ishlab chiqarish -->
+            <article class="industry-card group overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm cursor-default">
+                <div class="relative h-52 overflow-hidden bg-sky-50 flex items-center justify-center">
+                    <img src="{% static 'images/ishlabchiqarish.jpeg' %}" alt="Ishlab chiqarish" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    <span class="absolute bottom-3 left-4 rounded-full bg-sky-600 px-3 py-1 text-xs font-bold text-white">Ishlab chiqarish</span>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50">
+                            <i class="bi bi-gear text-sky-600 text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-950 group-hover:text-sky-600 transition-colors">Ishlab chiqarish</h3>
+                    </div>
+                    <p class="text-sm leading-7 text-slate-500">Zavodlar, fabrikalar va sanoat korxonalarida stanoklar, kimyoviy moddalar va mexanizmlar bilan ishlash maxsus tayyorgarlik talab qiladi. Ishchilar individual himoya vositalari (IHV) bilan ta'minlanishi va xavfli zonalar belgilanishi majburiy.</p>
+                    <div class="mt-4 flex items-center gap-1 text-xs font-semibold text-sky-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                    </div>
+                </div>
+            </article>
+
+            <!-- 3. Energetika -->
+            <article class="industry-card group overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm cursor-default">
+                <div class="relative h-52 overflow-hidden bg-emerald-50 flex items-center justify-center">
+                    <img src="{% static 'images/energetika.jpeg' %}" alt="Energetika" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    <span class="absolute bottom-3 left-4 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">Energetika</span>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">
+                            <i class="bi bi-lightning-charge text-emerald-600 text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-950 group-hover:text-emerald-600 transition-colors">Energetika</h3>
+                    </div>
+                    <p class="text-sm leading-7 text-slate-500">Elektr stansiyalari, transformator qurilmalari va yuqori kuchlanishli liniyalarda xizmat ko'rsatuvchi mutaxassislar uchun elektr xavfsizligi guruhi va maxsus yo'l-yo'riqnoma majburiy. Ruxsatnoma tizimi (naряд-допуск) qat'iy qo'llaniladi.</p>
+                    <div class="mt-4 flex items-center gap-1 text-xs font-semibold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                    </div>
+                </div>
+            </article>
+
+            <!-- 4. Konchilik va tog'-kon -->
+            <article class="industry-card group overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm cursor-default">
+                <div class="relative h-52 overflow-hidden bg-stone-100 flex items-center justify-center">
+                    <img src="{% static 'images/konchilik.jpeg' %}" alt="Konchilik" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    <span class="absolute bottom-3 left-4 rounded-full bg-stone-700 px-3 py-1 text-xs font-bold text-white">Konchilik</span>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100">
+                            <i class="bi bi-minecart-loaded text-stone-600 text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-950 group-hover:text-stone-700 transition-colors">Konchilik va tog'-kon</h3>
+                    </div>
+                    <p class="text-sm leading-7 text-slate-500">Yer osti konlarida ishlash eng yuqori xavf toifasiga kiradi. Gaz nazorati, ventilatsiya tizimi, favqulodda evakuatsiya rejasi va har bir smenada tibbiy ko'rik o'tkazish bu sohaning asosiy xavfsizlik talablaridir.</p>
+                    <div class="mt-4 flex items-center gap-1 text-xs font-semibold text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                    </div>
+                </div>
+            </article>
+
+            <!-- 5. Transport va logistika -->
+            <article class="industry-card group overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm cursor-default">
+                <div class="relative h-52 overflow-hidden bg-violet-50 flex items-center justify-center">
+                    <img src="{% static 'images/logistika.jpeg' %}" alt="Transport" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+                    <span class="absolute bottom-3 left-4 rounded-full bg-violet-600 px-3 py-1 text-xs font-bold text-white">Transport</span>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50">
+                            <i class="bi bi-truck text-violet-600 text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-950 group-hover:text-violet-600 transition-colors">Transport va logistika</h3>
+                    </div>
+                    <p class="text-sm leading-7 text-slate-500">Yuk tashuvchi haydovchilar, omborxona operatorlari va ekspeditorlar uchun yo'l harakati qoidalari, yuk ko'tarish me'yorlari va omborda xavfsiz harakat qilish tartibi belgilangan. Tibbiy ruxsat va texnik ko'rik majburiy.</p>
+                    <div class="mt-4 flex items-center gap-1 text-xs font-semibold text-violet-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span>Batafsil</span><i class="bi bi-arrow-right"></i>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<!-- ───────────────── CONTACT ───────────────── -->
+<section id="contact" class="bg-white">
+    <div class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div class="mb-12 text-center">
+            <div class="text-xs font-semibold uppercase tracking-widest text-emerald-600 mb-2">Bog'lanish</div>
+            <h2 class="text-3xl font-black text-slate-950 sm:text-4xl">Biz bilan bog'laning</h2>
+            <p class="mt-3 text-slate-500 max-w-xl mx-auto text-sm leading-7">Savollaringiz bo'lsa yoki hamkorlik qilmoqchi bo'lsangiz, quyidagi ma'lumotlar orqali murojaat qiling.</p>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-3">
+            <!-- Contact cards -->
+            <div class="space-y-4">
+                <div class="flex items-start gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:border-emerald-200 hover:shadow-md transition-all">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+                        <i class="bi bi-geo-alt text-xl text-emerald-600"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Manzil</div>
+                        <div class="font-semibold text-slate-900 text-sm">Samarqand Boulevard</div>
+                        <div class="text-sm text-slate-500">Toshkent shahri, O'zbekiston</div>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:border-sky-200 hover:shadow-md transition-all">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-50">
+                        <i class="bi bi-telephone text-xl text-sky-600"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Telefon</div>
+                        <a href="tel:+998901234567" class="font-semibold text-slate-900 text-sm hover:text-sky-600 transition-colors">+998 90 123 45 67</a>
+                        <div class="text-sm text-slate-500">Dushanba–Juma, 9:00–18:00</div>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:border-amber-200 hover:shadow-md transition-all">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50">
+                        <i class="bi bi-envelope text-xl text-amber-500"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Email</div>
+                        <a href="mailto:info@safework.uz" class="font-semibold text-slate-900 text-sm hover:text-amber-600 transition-colors">info@safework.uz</a>
+                        <div class="text-sm text-slate-500">24 soat ichida javob beramiz</div>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:border-violet-200 hover:shadow-md transition-all">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50">
+                        <i class="bi bi-send text-xl text-violet-600"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">Telegram</div>
+                        <a href="https://t.me/safework_uz" target="_blank" class="font-semibold text-slate-900 text-sm hover:text-violet-600 transition-colors">@safework_uz</a>
+                        <div class="text-sm text-slate-500">Tezkor aloqa uchun</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="lg:col-span-2 overflow-hidden rounded-2xl border border-slate-100 shadow-sm" style="min-height:380px;">
+                <iframe
+                    src="https://www.google.com/maps?q=Samarqand+Darvoza+Boulevard+Tashkent+Uzbekistan&output=embed"
+                    width="100%"
+                    height="100%"
+                    style="border:0; min-height:380px;"
+                    allowfullscreen=""
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    title="Samarqand Boulevard, Toshkent">
+                </iframe>
+            </div>
+        </div>
+    </div>
+</section>
+</main>
+
+<!-- ───────────────── FOOTER ───────────────── -->
+<footer class="bg-slate-900 text-slate-300">
+    <div class="mx-auto max-w-7xl px-4 pt-14 pb-8 sm:px-6 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-4 pb-10 border-b border-white/10">
+
+            <!-- Brand -->
+            <div class="lg:col-span-2">
+                <img src="{% static 'images/safework-logo2.png' %}" alt="SafeWork" class="h-10 w-auto object-contain brightness-0 invert" />
+                <p class="mt-4 text-sm leading-7 text-slate-400 max-w-sm">Sanoat, qurilish va ishlab chiqarish korxonalari uchun xavfsizlik boshqaruv platformasi.</p>
+                <div class="mt-5 flex gap-3">
+                    <a href="#" class="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 hover:bg-emerald-600 transition-colors">
+                        <i class="bi bi-telegram text-sm"></i>
+                    </a>
+                    <a href="#" class="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 hover:bg-emerald-600 transition-colors">
+                        <i class="bi bi-instagram text-sm"></i>
+                    </a>
+                    <a href="#" class="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 hover:bg-emerald-600 transition-colors">
+                        <i class="bi bi-linkedin text-sm"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Links -->
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Sahifalar</div>
+                <ul class="space-y-3 text-sm">
+                    <li><a href="#about"      class="hover:text-emerald-400 transition-colors">Platforma haqida</a></li>
+                    <li><a href="#features"   class="hover:text-emerald-400 transition-colors">Imkoniyatlar</a></li>
+                    <li><a href="#industries" class="hover:text-emerald-400 transition-colors">Sohalar</a></li>
+                    <li><a href="#contact"    class="hover:text-emerald-400 transition-colors">Bog'lanish</a></li>
+                </ul>
+            </div>
+
+            <!-- Actions -->
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Kirish</div>
+                <ul class="space-y-3 text-sm">
+                    <li><a href="{% url 'login' %}"           class="hover:text-emerald-400 transition-colors">Tizimga kirish</a></li>
+                    <li><a href="{% url 'register-leader' %}" class="hover:text-emerald-400 transition-colors">Rahbar ro'yxati</a></li>
+                    <li><a href="{% url 'register-worker' %}" class="hover:text-emerald-400 transition-colors">Ishchi ro'yxati</a></li>
+                </ul>
+                <div class="mt-6">
+                    <div class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-2">Aloqa</div>
+                    <div class="text-sm">+998 90 123 45 67</div>
+                    <div class="text-sm text-slate-400">info@safework.uz</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-500">
+            <div>© {% now "Y" %} SafeWork System. Barcha huquqlar himoyalangan.</div>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-slate-300 transition-colors">Maxfiylik siyosati</a>
+                <a href="#" class="hover:text-slate-300 transition-colors">Foydalanish shartlari</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script>
+    const header = document.getElementById('main-header');
+    window.addEventListener('scroll', () => {
+        header.classList.toggle('scrolled', window.scrollY > 10);
+    });
+
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link[data-section]');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.dataset.section === entry.target.id);
+                });
+            }
+        });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+    sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

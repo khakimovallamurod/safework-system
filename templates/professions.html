@@ -7,7 +7,7 @@
             <h2 class="text-lg font-semibold text-slate-900">
                 <i class="bi bi-briefcase mr-2 text-emerald-600"></i>Kasb turlari
             </h2>
-            {% if is_company_admin and company_industry %}
+            {% if user_profile and company_industry %}
                 <p class="mt-1 text-sm text-slate-500">Sizning sohangiz: <strong>{{ company_industry.name }}</strong></p>
             {% endif %}
         </div>
@@ -35,9 +35,11 @@
                 <input type="hidden" name="sort" value="{{ sort }}" />
                 <input type="hidden" name="dir" value="{{ dir }}" />
             </form>
-            <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#professionAddModal" type="button">
-                <i class="bi bi-plus-circle"></i> Qo'shish
-            </button>
+            {% if can_manage_professions %}
+                <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#professionAddModal" type="button">
+                    <i class="bi bi-plus-circle"></i> Qo'shish
+                </button>
+            {% endif %}
         </div>
     </div>
 
@@ -55,7 +57,7 @@
                     {% endif %}
                     <th class="px-4 py-3">Nizom</th>
                     <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}{% if is_super_admin %}&company_id={{ selected_company_id }}{% endif %}&sort=created_at&dir={% if sort == 'created_at' and dir == 'asc' %}desc{% else %}asc{% endif %}">Yaratilgan</a></th>
-                    <th class="px-4 py-3 text-right w-32">Amallar</th>
+                    <th class="px-4 py-3 text-right w-32">{% if can_manage_professions %}Amallar{% else %}Holat{% endif %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
@@ -106,8 +108,12 @@
                         </td>
                         <td class="px-4 py-3 text-slate-500">{{ profession.created_at|date:'Y-m-d H:i' }}</td>
                         <td class="px-4 py-3 text-right">
-                            <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#professionEditModal{{ profession.id }}" type="button"><i class="bi bi-pencil-square"></i></button>
-                            <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#professionDeleteModal{{ profession.id }}" type="button"><i class="bi bi-trash"></i></button>
+                            {% if can_manage_professions %}
+                                <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#professionEditModal{{ profession.id }}" type="button"><i class="bi bi-pencil-square"></i></button>
+                                <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#professionDeleteModal{{ profession.id }}" type="button"><i class="bi bi-trash"></i></button>
+                            {% else %}
+                                <span class="inline-flex rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">Ko'rish</span>
+                            {% endif %}
                         </td>
                     </tr>
                 {% empty %}
@@ -122,6 +128,7 @@
     </div>
 </div>
 
+{% if can_manage_professions %}
 <div class="modal fade" id="professionAddModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -145,8 +152,10 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 {% for profession in professions %}
+{% if can_manage_professions %}
 <div class="modal fade" id="professionEditModal{{ profession.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -194,6 +203,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 {% if profession.nizom_file %}
 <div class="modal fade" id="professionFileModal{{ profession.id }}" tabindex="-1" aria-hidden="true">

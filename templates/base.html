@@ -157,11 +157,10 @@
 <body class="bg-slate-100 text-slate-900 antialiased">
 <div class="app-shell flex min-h-screen w-full">
     <aside id="app-sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-slate-700/40 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-100 shadow-xl lg:static lg:translate-x-0">
-        <div class="flex items-center gap-3 border-b border-slate-700/60 px-4 py-5">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/20 text-brand-500">
-                <i class="bi bi-shield-check text-lg"></i>
+        <div class="flex items-center border-b border-slate-700/60 px-5 py-5">
+            <div class="flex h-16 items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-sm">
+                <img src="{% static 'images/safework-logo2.png' %}" alt="SafeWork logo" class="h-12 w-auto object-contain" />
             </div>
-            <span class="text-sm font-semibold tracking-wide text-slate-100">SafeWork System</span>
         </div>
 
         <nav class="flex-1 px-3 py-4">
@@ -170,16 +169,16 @@
                 <i class="bi bi-grid-1x2 text-base"></i> Dashboard
             </a>
             {% if is_super_admin %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'users' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'users' %}">
+                    <i class="bi bi-people text-base"></i> Foydalanuvchilar
+                </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'industries' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'industries:list' %}">
                     <i class="bi bi-diagram-3 text-base"></i> Sohalar
-                </a>
-                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'companies' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'companies:list' %}">
-                    <i class="bi bi-buildings text-base"></i> Kompaniyalar
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
                     <i class="bi bi-briefcase text-base"></i> Kasb turlari
                 </a>
-            {% elif is_company_admin %}
+            {% elif is_org_leader or is_worker %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
                     <i class="bi bi-briefcase text-base"></i> Kasb turlari
                 </a>

@@ -6,15 +6,23 @@
     <i class="bi bi-shield-check text-lg"></i>
     <div>
         <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-600">Faol profil</div>
-        <div class="text-sm font-semibold">Super Admin</div>
+        <div class="text-sm font-semibold">Boshqaruv</div>
     </div>
 </div>
-{% elif is_company_admin %}
+{% elif is_org_leader %}
 <div class="mb-5 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
     <i class="bi bi-building-check text-lg"></i>
     <div>
         <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-600">Faol profil</div>
-        <div class="text-sm font-semibold">Kompaniya egasi</div>
+        <div class="text-sm font-semibold">Tashkilot rahbari</div>
+    </div>
+</div>
+{% elif is_worker %}
+<div class="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-800">
+    <i class="bi bi-person-badge text-lg"></i>
+    <div>
+        <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-600">Faol profil</div>
+        <div class="text-sm font-semibold">Ishchi</div>
     </div>
 </div>
 {% endif %}
@@ -32,20 +40,29 @@
     </div>
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5">
         <div class="flex items-center gap-4">
-            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-2xl text-amber-600"><i class="bi bi-buildings"></i></div>
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-2xl text-amber-600"><i class="bi bi-building-check"></i></div>
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Jami kompaniyalar</div>
-                <div class="text-3xl font-extrabold text-slate-900">{{ total_companies }}</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rahbarlar</div>
+                <div class="text-3xl font-extrabold text-slate-900">{{ total_leaders }}</div>
             </div>
         </div>
     </div>
-    {% elif is_company_admin %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 md:col-span-2">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-50 text-2xl text-sky-600"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ishchilar / Yangi rahbarlar</div>
+                <div class="text-lg font-bold text-slate-900">{{ total_workers }} ishchi, {{ new_leaders }} ta yangi rahbar</div>
+            </div>
+        </div>
+    </div>
+    {% elif is_org_leader %}
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
         <div class="flex items-center gap-4">
             <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-building"></i></div>
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Kompaniya</div>
-                <div class="text-lg font-bold text-slate-900">{{ company_name }}</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tashkilot</div>
+                <div class="text-lg font-bold text-slate-900">{{ organization_name }}</div>
             </div>
         </div>
     </div>
@@ -67,6 +84,34 @@
             </div>
         </div>
     </div>
+    {% elif is_worker %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-50 text-2xl text-sky-600"><i class="bi bi-building"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tashkilot</div>
+                <div class="text-lg font-bold text-slate-900">{{ organization_name }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-diagram-3"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sizning sohangiz</div>
+                <div class="text-lg font-bold text-slate-900">{{ company_industry_name }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-2">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-violet-50 text-2xl text-violet-600"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Jamoa va kasblar</div>
+                <div class="text-lg font-bold text-slate-900">{{ worker_colleagues_count }} ishchi, {{ industry_profession_count }} ta kasb turi</div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 </div>
 
@@ -77,11 +122,11 @@
     </div>
     <p class="text-sm text-slate-600">
         {% if is_super_admin %}
-            Siz <strong>super admin</strong> rolidasiz. Qo'shish, tahrirlash va o'chirish amallari sizga ochiq.
-        {% elif is_company_admin %}
-            Siz <strong>kompaniya egasi</strong> rolidasiz. Sohangiz: <strong>{{ company_industry_name }}</strong>. Kasb turlarini boshqarishingiz mumkin.
+            Siz boshqaruv panelidasiz.
+        {% elif is_org_leader %}
+            Siz <strong>tashkilot rahbari</strong> rolidasiz. Sohangiz: <strong>{{ company_industry_name }}</strong>. Kasb turlarini boshqarishingiz mumkin.
         {% else %}
-            Siz <strong>oddiy foydalanuvchi</strong> rolidasiz. Ma'lumotlarni ko'rish va qidirish mumkin.
+            Siz <strong>ishchi</strong> rolidasiz. O'z sohangiz bo'yicha kasb turlarini ko'rish va kerakli ma'lumotlarni olish mumkin.
         {% endif %}
     </p>
 </div>

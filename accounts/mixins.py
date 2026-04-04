@@ -10,16 +10,21 @@ class RoleContextMixin:
     def get_role_context(self):
         user = self.request.user
         try:
-            company = user.company_profile
+            profile = user.profile
         except ObjectDoesNotExist:
-            company = None
-        is_company_admin = company is not None and not user.is_superuser
+            profile = None
+        is_org_leader = profile is not None and profile.role == 'organization_leader' and not user.is_superuser
+        is_worker = profile is not None and profile.role == 'worker' and not user.is_superuser
         return {
             'is_super_admin': user.is_superuser,
-            'is_company_admin': is_company_admin,
-            'role_name': 'Super admin' if user.is_superuser else ('Kompaniya egasi' if is_company_admin else 'Foydalanuvchi'),
-            'company_profile': company,
-            'company_industry': company.industry if company else None,
+            'is_org_leader': is_org_leader,
+            'is_worker': is_worker,
+            'is_company_admin': is_org_leader,
+            'role_name': 'Boshqaruv' if user.is_superuser else ('Tashkilot rahbari' if is_org_leader else 'Ishchi'),
+            'user_profile': profile,
+            'company_profile': None,
+            'company_industry': profile.industry if profile else None,
+            'can_manage_professions': user.is_superuser or is_org_leader,
         }
 
 
@@ -27,8 +32,8 @@ class AuthenticatedRequiredMixin(LoginRequiredMixin, RoleContextMixin):
     login_url = 'login'
 
 
-class SuperuserActionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    """Restricts mutating actions to super admin only."""
+class SuperuserActionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
+    """Restricts mutating actions to internal management users only."""
 
     login_url = 'login'
 
@@ -37,13 +42,13 @@ class SuperuserActionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:
-            messages.error(self.request, "Bu amal faqat super admin uchun.")
+            messages.error(self.request, "Bu amal siz uchun yopiq.")
             return redirect('dashboard')
         return redirect('login')
 
 
 class ProfessionAccessRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
-    """Allows only super admin or company admin users."""
+    """Allows authenticated users with one of the configured roles."""
 
     login_url = 'login'
 
@@ -51,7 +56,7 @@ class ProfessionAccessRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Rol
         if self.request.user.is_superuser:
             return True
         try:
-            return self.request.user.company_profile is not None
+            return self.request.user.profile is not None
         except ObjectDoesNotExist:
             return False
 
@@ -59,4 +64,18 @@ class ProfessionAccessRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Rol
         if self.request.user.is_authenticated:
             messages.error(self.request, "Bu bo'lim siz uchun yopiq.")
             return redirect('dashboard')
+        return redirect('login')
+
+
+class ProfessionManageRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
+    login_url = 'login'
+
+    def test_func(self):
+        role = self.get_role_context()
+        return role['is_super_admin'] or role['is_org_leader']
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            messages.error(self.request, "Kasb turlarini boshqarish huquqi sizda mavjud emas.")
+            return redirect('professions:list')
         return redirect('login')

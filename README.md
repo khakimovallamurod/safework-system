@@ -1,24 +1,28 @@
 # SafeWork System
 
-SafeWork System - Django asosida qurilgan ichki boshqaruv tizimi.
-Tizimda super admin va kompaniya egasi rollari bo'yicha soha, kompaniya va kasb turlari boshqariladi.
+SafeWork System - Django asosida qurilgan multi-role web platforma.
+Tizimda `Tashkilot rahbari` va `Ishchi` rollari bo'yicha alohida dashboard, autentifikatsiya va huquqlar boshqaruvi mavjud.
 
 ## Asosiy imkoniyatlar
 
-- Login/logout orqali autentifikatsiya
+- Landing page:
+  - platforma haqida ma'lumot
+  - imkoniyatlar
+  - navbar va footer
+  - bog'lanish va manzil bo'limi
+  - sohalarni rasmlar bilan ko'rsatish
+- Login/logout va ro'yxatdan o'tish
 - Rolga asoslangan kirish (RBAC)
-- Super admin uchun:
-  - `Sohalar` CRUD (qo'shish, tahrirlash, o'chirish, qidirish, saralash)
-  - `Kompaniyalar` CRUD (login/parol auto generatsiya bilan)
-  - `Kasb turlari` CRUD va kompaniya bo'yicha filter
-- Kompaniya egasi uchun:
-  - Faqat o'z sohasidagi `Kasb turlari`ni ko'rish va boshqarish
+- Tashkilot rahbari uchun:
+  - faqat o'z sohasidagi `Kasb turlari`ni ko'rish va boshqarish
+- Ishchi uchun:
+  - o'z sohasi bo'yicha `Kasb turlari`ni ko'rish
 - Kasb turiga PDF nizom yuklash
   - Faqat `.pdf`
   - Maksimal hajm: `1MB`
 - Dashboard statistikasi:
-  - Super admin: jami sohalar va kompaniyalar soni
-  - Kompaniya egasi: kompaniya nomi, soha nomi, kasb turlari soni
+  - Tashkilot rahbari: tashkilot nomi, soha nomi, kasb turlari soni
+  - Ishchi: tashkilot, soha, jamoa va kasb turlari soni
 
 ## Texnologiyalar
 
@@ -32,7 +36,7 @@ Tizimda super admin va kompaniya egasi rollari bo'yicha soha, kompaniya va kasb 
 ## Loyiha tuzilmasi
 
 - `core/` - global Django sozlamalari (`settings.py`, `urls.py`)
-- `accounts/` - login/logout, dashboard, role mixinlar
+- `accounts/` - login/logout, register, dashboard, user profile va role mixinlar
 - `industries/` - sohalar moduli
 - `companies/` - kompaniyalar moduli
 - `professions/` - kasb turlari va nizom fayllari moduli
@@ -63,19 +67,13 @@ pip install -r requerments.txt
 4. Migratsiyalarni qo'llang:
 
 ```bash
-python manage.py migrate
+venv/bin/python manage.py migrate
 ```
 
-5. Super admin yarating:
+5. Serverni ishga tushiring:
 
 ```bash
-python manage.py createsuperuser
-```
-
-6. Serverni ishga tushiring:
-
-```bash
-python manage.py runserver
+venv/bin/python manage.py runserver
 ```
 
 ## Muhit o'zgaruvchilari (ixtiyoriy)
@@ -92,13 +90,13 @@ Agar berilmasa, default qiymatlar ishlatiladi.
 
 - Home: `http://127.0.0.1:8000/`
 - Login: `http://127.0.0.1:8000/login/`
+- Register tanlash: `http://127.0.0.1:8000/register/`
 - Dashboard: `http://127.0.0.1:8000/dashboard/`
 - Sohalar: `http://127.0.0.1:8000/industries/`
-- Kompaniyalar: `http://127.0.0.1:8000/companies/`
 - Kasb turlari: `http://127.0.0.1:8000/professions/`
 
 ## Eslatma
 
-- Yangi kompaniya yaratilganda `username` va `password` avtomatik generatsiya qilinadi.
-- Kompaniya o'chirilsa, unga bog'langan Django user ham o'chiriladi.
+- `Tashkilot rahbari` va `Ishchi` o'zlari ro'yxatdan o'tadi.
+- Bloklangan foydalanuvchi login vaqtida ogohlantirish oladi va tizimga kira olmaydi.
 - `Kasb turlari` uchun fayl validatsiyasi model darajasida ishlaydi (`pdf`, `<=1MB`).
