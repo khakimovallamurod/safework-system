@@ -1,6 +1,7 @@
 from django.urls import path
 
 from accounts.views import (
+    AiAssistantView,
     AdminLoginView,
     AdminLogoutView,
     DashboardView,
@@ -20,6 +21,7 @@ urlpatterns = [
     path('register/leader/', OrganizationLeaderRegisterView.as_view(), name='register-leader'),
     path('register/worker/', WorkerRegisterView.as_view(), name='register-worker'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('dashboard/ai-assistant/', AiAssistantView.as_view(), name='ai-assistant'),
     path('users/', UserManagementView.as_view(), name='users'),
     path('users/<int:pk>/toggle-block/', ToggleUserBlockView.as_view(), name='toggle-block'),
 ]
