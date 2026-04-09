@@ -162,6 +162,12 @@
             flex-direction: column;
             align-items: flex-end;
             gap: 0.75rem;
+            pointer-events: none;
+        }
+
+        .ai-assistant__panel,
+        .ai-assistant__toggle {
+            pointer-events: auto;
         }
 
         .ai-assistant__panel {
@@ -459,178 +465,204 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="{% static 'js/table_tools.js' %}"></script>
 <script>
-    const appShell = document.querySelector('.app-shell');
-    const sidebar = document.getElementById('app-sidebar');
-    const backdrop = document.getElementById('sidebar-backdrop');
-    const menuBtn = document.getElementById('mobile-menu-btn');
-    const desktopMenuBtn = document.getElementById('desktop-menu-btn');
-    const desktopMenuIcon = document.getElementById('desktop-menu-icon');
-
-    function openSidebar() {
-        if (!sidebar || !backdrop) return;
-        sidebar.classList.add('open');
-        backdrop.classList.remove('hidden');
-    }
-
-    function closeSidebar() {
-        if (!sidebar || !backdrop) return;
-        sidebar.classList.remove('open');
-        backdrop.classList.add('hidden');
-    }
-
-    function setDesktopSidebarCollapsed(collapsed) {
-        if (!appShell) return;
-        appShell.classList.toggle('sidebar-collapsed', collapsed);
-        if (desktopMenuIcon) {
-            desktopMenuIcon.className = collapsed
-                ? 'bi bi-layout-sidebar-inset-reverse'
-                : 'bi bi-layout-sidebar-inset';
-        }
-        try {
-            localStorage.setItem('sidebarCollapsedDesktop', collapsed ? '1' : '0');
-        } catch (e) {}
-    }
-
-    if (menuBtn) menuBtn.addEventListener('click', openSidebar);
-
-    if (desktopMenuBtn) {
-        desktopMenuBtn.addEventListener('click', () => {
-            if (window.innerWidth < 1024) return;
-            const collapsed = appShell ? appShell.classList.contains('sidebar-collapsed') : false;
-            setDesktopSidebarCollapsed(!collapsed);
-        });
-    }
-
-    if (backdrop) backdrop.addEventListener('click', closeSidebar);
-
-    document.querySelectorAll('#app-sidebar .nav-link').forEach(link => {
-        link.addEventListener('click', () => {
-            if (window.innerWidth < 1024) closeSidebar();
-        });
-    });
-
-    if (window.innerWidth >= 1024) {
-        let collapsed = false;
-        try {
-            collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
-        } catch (e) {}
-        setDesktopSidebarCollapsed(collapsed);
-    }
-
-    window.addEventListener('resize', () => {
-        if (window.innerWidth < 1024) {
-            if (appShell) appShell.classList.remove('sidebar-collapsed');
-            if (desktopMenuIcon) desktopMenuIcon.className = 'bi bi-layout-sidebar-inset';
-        } else {
-            let collapsed = false;
-            try {
-                collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
-            } catch (e) {}
-            setDesktopSidebarCollapsed(collapsed);
-            closeSidebar();
-        }
-    });
-
+    // Sidebar toggle initialization
     (function () {
-        const box = document.getElementById('django-messages');
-        if (!box || typeof Swal === 'undefined') return;
-        const toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 2600,
-            timerProgressBar: true,
-            customClass: { popup: 'swal-toast-small' }
-        });
-        const iconMap = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
-        box.querySelectorAll('div[data-tag]').forEach(el =>
-            toast.fire({ icon: iconMap[el.dataset.tag] || 'info', text: el.dataset.text })
-        );
-    })();
+        try {
+            const appShell = document.querySelector('.app-shell');
+            const sidebar = document.getElementById('app-sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            const desktopMenuBtn = document.getElementById('desktop-menu-btn');
+            const desktopMenuIcon = document.getElementById('desktop-menu-icon');
 
-    (function () {
-        const toggleBtn = document.getElementById('ai-assistant-toggle');
-        const panel = document.getElementById('ai-assistant-panel');
-        const closeBtn = document.getElementById('ai-assistant-close');
-        const sendBtn = document.getElementById('ai-assistant-send');
-        const input = document.getElementById('ai-assistant-input');
-        const messages = document.getElementById('ai-assistant-messages');
-        const status = document.getElementById('ai-assistant-status');
-
-        if (!toggleBtn || !panel || !sendBtn || !input || !messages || !status) return;
-
-        const endpoint = "{% url 'ai-assistant' %}";
-
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return '';
-        }
-
-        function addMessage(text, type) {
-            const item = document.createElement('div');
-            item.className = `ai-assistant__message ai-assistant__message--${type}`;
-            item.textContent = String(text || '')
-                .replace(/\*\*/g, '')
-                .replace(/(^|\n)[*-]\s+/g, '$1')
-                .replace(/`/g, '');
-            messages.appendChild(item);
-            messages.scrollTop = messages.scrollHeight;
-        }
-
-        function setOpen(open) {
-            panel.classList.toggle('is-hidden', !open);
-            toggleBtn.classList.toggle('hidden', open);
-            if (open) {
-                setTimeout(() => input.focus(), 120);
+            function openSidebar() {
+                if (!sidebar || !backdrop) return;
+                sidebar.style.transform = 'translateX(0)';
+                backdrop.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
             }
-        }
 
-        async function sendMessage() {
-            const text = input.value.trim();
-            if (!text) return;
+            function closeSidebar() {
+                if (!sidebar || !backdrop) return;
+                sidebar.style.transform = '';
+                backdrop.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
 
-            addMessage(text, 'user');
-            input.value = '';
-            input.style.height = 'auto';
-            sendBtn.disabled = true;
-            status.textContent = 'Javob tayyorlanmoqda...';
+            function setDesktopSidebarCollapsed(collapsed) {
+                if (!appShell) return;
+                appShell.classList.toggle('sidebar-collapsed', collapsed);
+                if (desktopMenuIcon) {
+                    desktopMenuIcon.className = collapsed
+                        ? 'bi bi-layout-sidebar-inset-reverse'
+                        : 'bi bi-layout-sidebar-inset';
+                }
+                try {
+                    localStorage.setItem('sidebarCollapsedDesktop', collapsed ? '1' : '0');
+                } catch (e) {}
+            }
 
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken'),
-                    },
-                    body: JSON.stringify({ message: text }),
+            if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+
+            if (desktopMenuBtn) {
+                desktopMenuBtn.addEventListener('click', () => {
+                    if (window.innerWidth < 1024) return;
+                    const collapsed = appShell ? appShell.classList.contains('sidebar-collapsed') : false;
+                    setDesktopSidebarCollapsed(!collapsed);
                 });
-                const data = await response.json();
-                addMessage(data.message || "Javobni o'qib bo'lmadi.", 'bot');
-                status.textContent = data.ok ? 'Tayyor' : (data.message || "Xatolik yuz berdi");
-            } catch (e) {
-                addMessage("Xizmatga ulanib bo'lmadi. Keyinroq yana urinib ko'ring.", 'bot');
-                status.textContent = 'Ulanish xatosi';
-            } finally {
-                sendBtn.disabled = false;
             }
-        }
 
-        toggleBtn.addEventListener('click', () => setOpen(true));
-        if (closeBtn) closeBtn.addEventListener('click', () => setOpen(false));
-        sendBtn.addEventListener('click', sendMessage);
-        input.addEventListener('input', () => {
-            input.style.height = 'auto';
-            input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
-        });
-        input.addEventListener('keydown', event => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
+            if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
+            document.querySelectorAll('#app-sidebar .nav-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 1024) closeSidebar();
+                });
+            });
+
+            if (window.innerWidth >= 1024) {
+                let collapsed = false;
+                try {
+                    collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
+                } catch (e) {}
+                setDesktopSidebarCollapsed(collapsed);
             }
-        });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth < 1024) {
+                    if (appShell) appShell.classList.remove('sidebar-collapsed');
+                    if (desktopMenuIcon) desktopMenuIcon.className = 'bi bi-layout-sidebar-inset';
+                } else {
+                    let collapsed = false;
+                    try {
+                        collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
+                    } catch (e) {}
+                    setDesktopSidebarCollapsed(collapsed);
+                    closeSidebar();
+                }
+            });
+        } catch (error) {
+            console.error('Sidebar initialization error:', error);
+        }
     })();
+
+    // Django messages display
+    (function () {
+        try {
+            const box = document.getElementById('django-messages');
+            if (!box || typeof Swal === 'undefined') return;
+            const toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2600,
+                timerProgressBar: true,
+                customClass: { popup: 'swal-toast-small' }
+            });
+            const iconMap = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+            box.querySelectorAll('div[data-tag]').forEach(el =>
+                toast.fire({ icon: iconMap[el.dataset.tag] || 'info', text: el.dataset.text })
+            );
+        } catch (error) {
+            console.error('Messages display error:', error);
+        }
+    })();
+
+    // AI Assistant initialization
+    (function () {
+        try {
+            const toggleBtn = document.getElementById('ai-assistant-toggle');
+            const panel = document.getElementById('ai-assistant-panel');
+            const closeBtn = document.getElementById('ai-assistant-close');
+            const sendBtn = document.getElementById('ai-assistant-send');
+            const input = document.getElementById('ai-assistant-input');
+            const messages = document.getElementById('ai-assistant-messages');
+            const status = document.getElementById('ai-assistant-status');
+
+            if (!toggleBtn || !panel || !sendBtn || !input || !messages || !status) return;
+
+            const endpoint = "{% url 'ai-assistant' %}";
+
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(';').shift();
+                return '';
+            }
+
+            function addMessage(text, type) {
+                const item = document.createElement('div');
+                item.className = `ai-assistant__message ai-assistant__message--${type}`;
+                item.textContent = String(text || '')
+                    .replace(/\*\*/g, '')
+                    .replace(/(^|\n)[*-]\s+/g, '$1')
+                    .replace(/`/g, '');
+                messages.appendChild(item);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            function setOpen(open) {
+                panel.classList.toggle('is-hidden', !open);
+                toggleBtn.classList.toggle('hidden', open);
+                if (open) {
+                    setTimeout(() => input.focus(), 120);
+                }
+            }
+
+            async function sendMessage() {
+                const text = input.value.trim();
+                if (!text) return;
+
+                addMessage(text, 'user');
+                input.value = '';
+                input.style.height = 'auto';
+                sendBtn.disabled = true;
+                status.textContent = 'Javob tayyorlanmoqda...';
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                        },
+                        body: JSON.stringify({ message: text }),
+                    });
+                    let data = {};
+                    try { data = await response.json(); } catch (_) {}
+                    if (!response.ok) {
+                        addMessage(data.message || "AI xizmati hozirda mavjud emas. Keyinroq urinib ko'ring.", 'bot');
+                        status.textContent = 'Xizmat mavjud emas';
+                    } else {
+                        addMessage(data.message || "Javobni o'qib bo'lmadi.", 'bot');
+                        status.textContent = data.ok ? 'Tayyor' : (data.message || "Xatolik yuz berdi");
+                    }
+                } catch (e) {
+                    addMessage("Xizmatga ulanib bo'lmadi. Keyinroq yana urinib ko'ring.", 'bot');
+                    status.textContent = 'Ulanish xatosi';
+                } finally {
+                    sendBtn.disabled = false;
+                }
+            }
+
+            toggleBtn.addEventListener('click', () => setOpen(true));
+            if (closeBtn) closeBtn.addEventListener('click', () => setOpen(false));
+            sendBtn.addEventListener('click', sendMessage);
+            input.addEventListener('input', () => {
+                input.style.height = 'auto';
+                input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+            });
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    sendMessage();
+                }
+            });
+        } catch (error) {
+            console.error('AI assistant error:', error);
+        }
+    })();
+
 </script>
 </body>
 </html>

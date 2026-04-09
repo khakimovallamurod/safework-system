@@ -28,7 +28,7 @@
             </form>
             {% endif %}
             <form class="flex" method="get">
-                <input id="profession-search" class="form-control min-w-[240px]" type="search" name="q" value="{{ q }}" placeholder="Kasb turi qidirish" onblur="this.form.submit()" />
+                <input id="profession-search" class="form-control min-w-[240px]" type="search" name="q" value="{{ q }}" placeholder="Kasb turi qidirish" />
                 {% if is_super_admin %}
                     <input type="hidden" name="company_id" value="{{ selected_company_id }}" />
                 {% endif %}

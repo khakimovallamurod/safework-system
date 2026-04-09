@@ -96,43 +96,45 @@ def _build_project_ai_context(user, role_context):
 
 
 def _ask_gemini(prompt):
-    endpoint = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
-    )
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": prompt,
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 400,
-        },
-    }
-    req = urlrequest.Request(
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urlrequest.urlopen(req, timeout=25) as response:
-        body = json.loads(response.read().decode("utf-8"))
+    _FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-flash-lite-latest']
+    models_to_try = [settings.GEMINI_MODEL]
+    for fb in _FALLBACK_MODELS:
+        if fb not in models_to_try:
+            models_to_try.append(fb)
 
-    candidates = body.get("candidates") or []
-    if not candidates:
-        raise ValueError("AI yordamchi bo'sh javob qaytardi.")
-
-    parts = candidates[0].get("content", {}).get("parts", [])
-    text = "\n".join(part.get("text", "").strip() for part in parts if part.get("text")).strip()
-    if not text:
-        raise ValueError("AI yordamchi matnli javob qaytarmadi.")
-    return text
+    last_exc = None
+    for model in models_to_try:
+        endpoint = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model}:generateContent?key={settings.GEMINI_API_KEY}"
+        )
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 400},
+        }
+        req = urlrequest.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlrequest.urlopen(req, timeout=25) as response:
+                body = json.loads(response.read().decode("utf-8"))
+            candidates = body.get("candidates") or []
+            if not candidates:
+                raise ValueError("AI yordamchi bo'sh javob qaytardi.")
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text = "\n".join(part.get("text", "").strip() for part in parts if part.get("text")).strip()
+            if not text:
+                raise ValueError("AI yordamchi matnli javob qaytarmadi.")
+            return text
+        except error.HTTPError as exc:
+            if exc.code in (503, 429):
+                last_exc = exc
+                continue
+            raise
+    raise last_exc
 
 
 def _humanize_ai_http_error(detail_text, status_code):

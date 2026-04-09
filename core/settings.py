@@ -113,5 +113,7 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'
+
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
