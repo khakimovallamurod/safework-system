@@ -1,5 +1,7 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 
 from accounts.mixins import ProfessionAccessRequiredMixin, ProfessionManageRequiredMixin
@@ -106,6 +108,43 @@ class ProfessionEditView(ProfessionManageRequiredMixin, View):
         else:
             messages.error(request, "Kasb turi tahririda xatolik bor.")
         return redirect('professions:list')
+
+
+class ProfessionPdfView(ProfessionAccessRequiredMixin, View):
+    """Kasb nizomi PDF — alohida sahifa."""
+
+    template_name = 'accounts/guideline_pdf_view.html'
+
+    def get(self, request, pk, *args, **kwargs):
+        profession = get_object_or_404(Profession, pk=pk)
+        if not profession.nizom_file:
+            messages.error(request, 'Nizom fayli topilmadi.')
+            return redirect('professions:list')
+
+        role = self.get_role_context()
+        if role['user_profile'] and role['user_profile'].industry and not role['is_super_admin']:
+            if profession.industry_id != role['user_profile'].industry_id:
+                messages.error(request, 'Ruxsat yo‘q.')
+                return redirect('professions:list')
+
+        back_url = request.GET.get('next') or reverse('professions:list')
+        if not url_has_allowed_host_and_scheme(
+            back_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            back_url = reverse('professions:list')
+
+        title = f'{profession.name} — Nizom'
+        context = role | {
+            'guideline': profession,
+            'pdf_title': title,
+            'pdf_url': profession.nizom_file.url,
+            'back_url': back_url,
+            'page_title': title,
+            'receipt': None,
+        }
+        return render(request, self.template_name, context)
 
 
 class ProfessionDeleteView(ProfessionManageRequiredMixin, View):

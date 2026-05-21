@@ -1,6 +1,12 @@
 from django.urls import path
 
-from professions.views import ProfessionCreateView, ProfessionDeleteView, ProfessionEditView, ProfessionListView
+from professions.views import (
+    ProfessionCreateView,
+    ProfessionDeleteView,
+    ProfessionEditView,
+    ProfessionListView,
+    ProfessionPdfView,
+)
 
 app_name = 'professions'
 
@@ -9,4 +15,5 @@ urlpatterns = [
     path('create/', ProfessionCreateView.as_view(), name='create'),
     path('<int:pk>/edit/', ProfessionEditView.as_view(), name='edit'),
     path('<int:pk>/delete/', ProfessionDeleteView.as_view(), name='delete'),
+    path('<int:pk>/nizom/', ProfessionPdfView.as_view(), name='pdf'),
 ]

@@ -1,0 +1,8 @@
+<span class="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+    <i class="bi bi-bell text-base"></i>
+    {% if unread_notifications_count %}
+    <span class="absolute -right-2 -top-1.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold leading-none text-white shadow-sm ring-2 ring-slate-800" aria-label="{{ unread_notifications_count }} ta o'qilmagan">
+        {% if unread_notifications_count > 99 %}99+{% else %}{{ unread_notifications_count }}{% endif %}
+    </span>
+    {% endif %}
+</span>

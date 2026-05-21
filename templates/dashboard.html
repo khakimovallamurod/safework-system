@@ -17,12 +17,36 @@
         <div class="text-sm font-semibold">Tashkilot rahbari</div>
     </div>
 </div>
+{% elif is_section_admin %}
+<div class="mb-5 flex items-center gap-3 rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-teal-800">
+    <i class="bi bi-person-workspace text-lg"></i>
+    <div>
+        <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-teal-600">Faol profil</div>
+        <div class="text-sm font-semibold">Bo‘lim nazoratchisi</div>
+    </div>
+</div>
+{% elif is_department_admin %}
+<div class="mb-5 flex items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-violet-800">
+    <i class="bi bi-building-gear text-lg"></i>
+    <div>
+        <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-600">Faol profil</div>
+        <div class="text-sm font-semibold">Boshqarma nazoratchisi</div>
+    </div>
+</div>
+{% elif is_section_member %}
+<div class="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-800">
+    <i class="bi bi-person-badge text-lg"></i>
+    <div>
+        <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-600">Faol profil</div>
+        <div class="text-sm font-semibold">Xodim</div>
+    </div>
+</div>
 {% elif is_worker %}
 <div class="mb-5 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sky-800">
     <i class="bi bi-person-badge text-lg"></i>
     <div>
         <div class="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-600">Faol profil</div>
-        <div class="text-sm font-semibold">Ishchi</div>
+        <div class="text-sm font-semibold">Xodim</div>
     </div>
 </div>
 {% endif %}
@@ -84,6 +108,99 @@
             </div>
         </div>
     </div>
+    {% elif is_section_admin %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-teal-50 text-2xl text-teal-600"><i class="bi bi-building"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Boshqarma</div>
+                <div class="text-lg font-bold text-slate-900">{{ department_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-diagram-2"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bo‘lim</div>
+                <div class="text-lg font-bold text-slate-900">{{ section_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-2">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-50 text-2xl text-sky-600"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bo‘lim xodimlari</div>
+                <div class="text-3xl font-extrabold text-slate-900">{{ section_workers_count }}</div>
+            </div>
+        </div>
+    </div>
+    {% elif is_section_member %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-violet-50 text-2xl text-violet-600"><i class="bi bi-building"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Boshqarma</div>
+                <div class="text-lg font-bold text-slate-900">{{ department_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-diagram-2"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bo‘lim</div>
+                <div class="text-lg font-bold text-slate-900">{{ section_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-2">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-2xl text-amber-600"><i class="bi bi-person-badge"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bo‘lim nazoratchisi</div>
+                <div class="text-lg font-bold text-slate-900">{{ section_supervisor_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    {% elif is_department_admin %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-violet-50 text-2xl text-violet-600"><i class="bi bi-building"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Boshqarma</div>
+                <div class="text-lg font-bold text-slate-900">{{ department_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-diagram-2"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bo‘limlar</div>
+                <div class="text-3xl font-extrabold text-slate-900">{{ sections_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-2xl text-amber-600"><i class="bi bi-building-check"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tashkilot</div>
+                <div class="text-lg font-bold text-slate-900">{{ organization_name|default:'-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
+        <div class="flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-50 text-2xl text-sky-600"><i class="bi bi-people"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Boshqarma xodimlari</div>
+                <div class="text-3xl font-extrabold text-slate-900">{{ department_workers_count }}</div>
+            </div>
+        </div>
+    </div>
     {% elif is_worker %}
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1">
         <div class="flex items-center gap-4">
@@ -125,8 +242,14 @@
             Siz boshqaruv panelidasiz.
         {% elif is_org_leader %}
             Siz <strong>tashkilot rahbari</strong> rolidasiz. Sohangiz: <strong>{{ company_industry_name }}</strong>. Kasb turlarini boshqarishingiz mumkin.
+        {% elif is_department_admin %}
+            Siz <strong>boshqarma nazoratchisi</strong> sifatidasiz. Boshqarma: <strong>{{ department_name }}</strong>. Bo‘limlarni «Bo‘limlar» menyusidan boshqaring.
+        {% elif is_section_admin %}
+            Siz <strong>bo‘lim nazoratchisi</strong> sifatidasiz. Bo‘lim: <strong>{{ section_name }}</strong>. Xodimlarni «Xodimlar» menyusidan boshqaring.
+        {% elif is_section_member %}
+            Siz <strong>xodim</strong> sifatidasiz. Boshqarma: <strong>{{ department_name }}</strong>, bo‘lim: <strong>{{ section_name }}</strong>, nazoratchi: <strong>{{ section_supervisor_name }}</strong>.
         {% else %}
-            Siz <strong>ishchi</strong> rolidasiz. O'z sohangiz bo'yicha kasb turlarini ko'rish va kerakli ma'lumotlarni olish mumkin.
+            Siz <strong>xodim</strong> rolidasiz. O'z sohangiz bo'yicha kasb turlarini ko'rish va kerakli ma'lumotlarni olish mumkin.
         {% endif %}
     </p>
 </div>

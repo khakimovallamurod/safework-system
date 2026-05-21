@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 42px;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75rem;
+        padding: 0.35rem 0.5rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 28px;
+        color: #0f172a;
+        font-size: 0.875rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .select2-dropdown { border-color: #cbd5e1; border-radius: 0.75rem; overflow: hidden; }
+</style>
+
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900">
+                <i class="bi bi-building mr-2 text-emerald-600"></i>Boshqarmalar
+            </h2>
+            <p class="mt-1 text-sm text-slate-500">Tashkilot boshqarmalarini qo‘shing, nazoratchisini belgilang va boshqaring.</p>
+        </div>
+        <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#departmentAddModal" type="button">
+            <i class="bi bi-plus-circle"></i> Yangi boshqarma
+        </button>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-4 py-3 w-16">#</th>
+                    <th class="px-4 py-3">Boshqarma nomi</th>
+                    <th class="px-4 py-3">Nazoratchi</th>
+                    <th class="px-4 py-3">Qo‘shilgan sana va vaqt</th>
+                    <th class="px-4 py-3 text-right w-32">Amallar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                {% for department in departments %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3">
+                            <span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span>
+                        </td>
+                        <td class="px-4 py-3 font-medium text-slate-900">{{ department.name }}</td>
+                        <td class="px-4 py-3">
+                            {% if department.supervisor %}
+                                <div class="font-medium text-slate-900">{{ department.supervisor.profile.full_name }}</div>
+                                <div class="text-xs text-slate-500">{{ department.supervisor.username }}</div>
+                            {% else %}
+                                <span class="text-xs text-slate-400">Belgilanmagan</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-slate-500">{{ department.created_at|date:'d.m.Y H:i' }}</td>
+                        <td class="px-4 py-3 text-right">
+                            <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#departmentEditModal{{ department.id }}" type="button" title="Tahrirlash">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#departmentDeleteModal{{ department.id }}" type="button" title="O‘chirish">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-10 text-center text-slate-400">
+                            <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha boshqarmalar yo‘q
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="departmentAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'department-admins' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Yangi boshqarma qo‘shish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+                </div>
+                <div class="modal-body space-y-3">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_name">{{ form.name.label }}</label>
+                    {{ form.name }}
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_supervisor">{{ form.supervisor.label }}</label>
+                    {{ form.supervisor }}
+                    {% if workers_count == 0 %}
+                        <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            Tashkilotingizga biriktirilgan xodim topilmadi. Avval xodim ro‘yxatdan o‘tkazing.
+                        </p>
+                    {% endif %}
+                    <p class="text-xs text-slate-500">
+                        <i class="bi bi-clock mr-1"></i>Qo‘shilgan sana va vaqt avtomatik joriy vaqt bilan saqlanadi.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for department in departments %}
+<div class="modal fade" id="departmentEditModal{{ department.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'department-edit' department.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Boshqarmani tahrirlash</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+                </div>
+                <div class="modal-body space-y-3">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshqarma nomi</label>
+                    <input type="text" name="name" value="{{ department.name }}" class="form-control" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshqarma nazoratchisi</label>
+                    <select name="supervisor" class="worker-select2 form-control" required data-current-supervisor="{{ department.supervisor_id|default:'' }}">
+                        {% for worker in department.supervisor_choices %}
+                            <option value="{{ worker.pk }}" {% if department.supervisor_id == worker.pk %}selected{% endif %}>
+                                {{ worker.profile.full_name }} ({{ worker.username }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">Yangilash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="departmentDeleteModal{{ department.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Tasdiqlash</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-sm text-slate-700">
+                    <strong>{{ department.name }}</strong> boshqarmasini o‘chirmoqchimisiz? Nazoratchi va bog‘langan xodimlar ishchi sifatida qayta belgilanadi.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                <form method="post" action="{% url 'department-delete' department.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700" type="submit">Ha, o‘chirish</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof jQuery === 'undefined' || !jQuery.fn.select2) return;
+
+        function initWorkerSelect2(root) {
+            const $root = root ? jQuery(root) : jQuery(document);
+            $root.find('.worker-select2').each(function () {
+                const $el = jQuery(this);
+                if ($el.hasClass('select2-hidden-accessible')) return;
+                const modal = $el.closest('.modal');
+                $el.select2({
+                    width: '100%',
+                    placeholder: 'Xodimni qidiring va tanlang',
+                    allowClear: false,
+                    dropdownParent: modal.length ? modal : jQuery('body'),
+                });
+            });
+        }
+
+        function syncSupervisorSelect(modal) {
+            jQuery(modal).find('.worker-select2').each(function () {
+                const $el = jQuery(this);
+                const currentId = this.dataset.currentSupervisor;
+                const selectedOption = this.querySelector('option[selected]');
+                const value = currentId || (selectedOption ? selectedOption.value : '');
+                if (value) {
+                    $el.val(value).trigger('change.select2');
+                }
+            });
+        }
+
+        initWorkerSelect2();
+        document.querySelectorAll('.modal').forEach(function (modal) {
+            modal.addEventListener('shown.bs.modal', function () {
+                initWorkerSelect2(modal);
+                syncSupervisorSelect(modal);
+            });
+        });
+    });
+</script>
+{% endblock %}

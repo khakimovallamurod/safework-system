@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <div class="mb-6">
+        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-emerald-700">
+            <i class="bi bi-arrow-left"></i> Ortga
+        </a>
+        <h1 class="mt-3 text-xl font-semibold text-slate-900">
+            <i class="bi bi-person-badge mr-2 text-emerald-600"></i>Akkaunt sahifasi
+        </h1>
+    </div>
+
+    <form method="post" action="{% url 'profile' %}" enctype="multipart/form-data" class="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+        {% csrf_token %}
+
+        <div class="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+            <label for="profile-photo-input" class="group relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-white hover:ring-2 hover:ring-emerald-400/50">
+                {% if profile_photo_url %}
+                    <img src="{{ profile_photo_url }}" alt="" class="h-full w-full object-cover" id="profile-preview-img" />
+                {% else %}
+                    <span class="flex h-full w-full items-center justify-center bg-slate-100" id="profile-preview-placeholder">
+                        <i class="bi bi-camera text-xl text-slate-400 group-hover:text-emerald-600"></i>
+                    </span>
+                    <img src="" alt="" class="hidden h-full w-full object-cover" id="profile-preview-img" />
+                {% endif %}
+            </label>
+            <input type="file" name="profile_photo" id="profile-photo-input" accept="image/jpeg,image/png,image/webp" class="sr-only" />
+            <div class="min-w-0 text-sm text-slate-600">
+                <p class="font-semibold text-slate-900">Profil rasmi</p>
+                <p class="text-xs text-slate-500">JPG, PNG yoki WEBP, 3 MB gacha</p>
+                {% if profile_photo_url %}
+                    <label class="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-rose-600 hover:text-rose-700">
+                        <input type="checkbox" name="remove_photo" value="1" class="rounded border-slate-300 text-rose-600" />
+                        Rasmni olib tashlash
+                    </label>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Ism</label>
+                <input type="text" name="first_name" value="{{ form.first_name.value|default:request.user.first_name }}" maxlength="150" required class="form-control w-full" />
+            </div>
+            <div>
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Familya</label>
+                <input type="text" name="last_name" value="{{ form.last_name.value|default:request.user.last_name }}" maxlength="150" required class="form-control w-full" />
+            </div>
+            <div class="sm:col-span-2">
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Sharifi</label>
+                <input type="text" name="middle_name" value="{{ form.middle_name.value|default:user_profile.middle_name }}" maxlength="255" class="form-control w-full" />
+            </div>
+            <div class="sm:col-span-2">
+                <label class="mb-1.5 block text-sm font-medium text-slate-700">Telefon raqam</label>
+                <input type="tel" name="phone" value="{{ form.phone.value|default:user_profile.phone_number|default:request.user.username }}" required class="form-control w-full" inputmode="tel" />
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+            <p class="mb-3 text-sm font-semibold text-slate-800">Parolni o‘zgartirish</p>
+            <div class="space-y-3">
+                <input type="password" name="password1" autocomplete="new-password" class="form-control w-full" placeholder="Yangi parol" />
+                <input type="password" name="password2" autocomplete="new-password" class="form-control w-full" placeholder="Parolni tasdiqlang" />
+                <p class="text-xs text-slate-500">O‘zgartirmasangiz bo‘sh qoldiring</p>
+            </div>
+        </div>
+
+        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700">
+            <i class="bi bi-check2-circle"></i> Saqlash
+        </button>
+    </form>
+</div>
+
+<script>
+document.getElementById('profile-photo-input')?.addEventListener('change', function () {
+    const file = this.files && this.files[0];
+    const img = document.getElementById('profile-preview-img');
+    const ph = document.getElementById('profile-preview-placeholder');
+    if (!file || !img) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+        img.src = reader.result;
+        img.classList.remove('hidden');
+        if (ph) ph.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

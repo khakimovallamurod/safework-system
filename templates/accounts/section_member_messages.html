@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'accounts/includes/inbox_ack_styles.html' %}
+<style>
+    .msg-viewer-modal .modal-content { height: min(88dvh, 820px); display: flex; flex-direction: column; }
+    .msg-viewer-modal .modal-body { flex: 1; min-height: 0; padding: 0; background: #f1f5f9; }
+    .msg-viewer-viewport { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+    .msg-viewer-stage {
+        transform-origin: top center;
+        transition: transform 0.08s ease-out;
+        padding: 1rem;
+        will-change: transform;
+    }
+    .msg-viewer-card {
+        max-width: 40rem;
+        margin: 0 auto;
+        border-radius: 1rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        padding: 1.25rem;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+</style>
+
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <h2 class="text-lg font-semibold text-slate-900">
+        <i class="bi bi-envelope mr-2 text-emerald-600"></i>Xabarnomalar
+    </h2>
+    <p class="mt-1 text-sm text-slate-500">Bo‘lim nazoratchisidan kelgan xabarlar — o‘qing va tasdiqlang</p>
+
+    <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-4 py-3">Sarlavha</th>
+                    <th class="px-4 py-3">O‘qish</th>
+                    <th class="px-4 py-3">Holat</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for receipt in receipts %}
+                <tr class="{% if receipt.is_read %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-slate-900">{{ receipt.message.title }}</div>
+                        <div class="mt-0.5 text-xs text-slate-500">{{ receipt.message.created_at|date:'d.m.Y H:i' }}</div>
+                    </td>
+                    <td class="px-4 py-3">
+                        <button
+                            type="button"
+                            class="message-read-btn inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100"
+                            data-msg-title="{{ receipt.message.title|escapejs }}"
+                            data-msg-body="{{ receipt.message.body|escapejs }}"
+                            data-msg-sender="{{ receipt.message.sender.profile.full_name|default:receipt.message.sender.username|escapejs }}"
+                            data-acknowledged="{% if receipt.is_read %}1{% else %}0{% endif %}"
+                            data-ack-url="{% url 'section-member-message-read' receipt.id %}"
+                        >
+                            <i class="bi bi-eye"></i> O‘qish
+                        </button>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if receipt.is_read %}
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                            <i class="bi bi-check-circle-fill"></i> Tanishilgan
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                            <i class="bi bi-exclamation-circle-fill"></i> Tanishilmagan
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="px-4 py-10 text-center text-slate-400">
+                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha xabarlar yo‘q
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade msg-viewer-modal" id="messageReadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-lg">
+        <div class="modal-content">
+            <div class="modal-header shrink-0 border-b border-slate-200 py-2.5 px-3">
+                <div class="min-w-0 flex-1 pe-2">
+                    <h5 class="truncate text-sm font-semibold text-slate-900" id="msgModalTitle">Xabar</h5>
+                    <p class="truncate text-[11px] text-slate-500" id="msgModalSender"></p>
+                </div>
+                <div class="flex shrink-0 items-center gap-1">
+                    <button type="button" id="msgZoomOut" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"><i class="bi bi-zoom-out"></i></button>
+                    <span id="msgZoomLabel" class="min-w-[2.75rem] text-center text-[11px] font-semibold text-slate-600">100%</span>
+                    <button type="button" id="msgZoomIn" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"><i class="bi bi-zoom-in"></i></button>
+                    <button type="button" class="btn-close ms-1" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="msg-viewer-viewport" id="msgViewport">
+                    <div class="msg-viewer-stage" id="msgStage">
+                        <article class="msg-viewer-card">
+                            <h6 class="mb-2 text-base font-semibold text-slate-900" id="msgBodyTitle"></h6>
+                            <div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-700" id="msgBodyText"></div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer shrink-0 flex-col items-stretch gap-3 border-t border-slate-200 bg-white p-3 sm:p-4 ack-footer-panel">
+                <div id="msgAcceptPanel" class="hidden w-full space-y-3">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50/60">
+                        <input type="checkbox" id="msgAgreeCheckbox" class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/25" />
+                        <span class="text-sm leading-snug text-slate-800">
+                            <span class="font-semibold text-slate-900">Roziman, o‘qidim</span>
+                            <span class="mt-0.5 block text-xs text-slate-500">Xabar mazmuni bilan tanishdim va rozi ekanligimni tasdiqlayman</span>
+                        </span>
+                    </label>
+                    <form method="post" id="msgAcceptForm" class="m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+                        <input type="hidden" name="agree" value="1" id="msgAgreeHidden" disabled />
+                        <button type="submit" id="msgUnderstandBtn" disabled class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition enabled:hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
+                            <i class="bi bi-check2-circle text-lg"></i> Tushundim
+                        </button>
+                    </form>
+                </div>
+                <div id="msgAcceptedBanner" class="hidden w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">
+                    <i class="bi bi-patch-check-fill mr-1"></i> Tanishilgan
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('messageReadModal');
+    if (!modalEl) return;
+
+    const stage = document.getElementById('msgStage');
+    const viewport = document.getElementById('msgViewport');
+    const acceptPanel = document.getElementById('msgAcceptPanel');
+    const acceptedBanner = document.getElementById('msgAcceptedBanner');
+    const agreeCheckbox = document.getElementById('msgAgreeCheckbox');
+    const understandBtn = document.getElementById('msgUnderstandBtn');
+    const acceptForm = document.getElementById('msgAcceptForm');
+    const agreeHidden = document.getElementById('msgAgreeHidden');
+    const zoomLabel = document.getElementById('msgZoomLabel');
+
+    let zoom = 1;
+    const ZOOM_MIN = 0.6, ZOOM_MAX = 2.5, ZOOM_STEP = 0.1;
+    let pinchStartDist = 0, pinchStartZoom = 1;
+
+    function setZoom(v) {
+        zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v));
+        if (stage) stage.style.transform = 'scale(' + zoom + ')';
+        if (zoomLabel) zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function touchDistance(touches) {
+        return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+    }
+
+    if (viewport) {
+        viewport.addEventListener('touchstart', function (e) {
+            if (e.touches.length === 2) { pinchStartDist = touchDistance(e.touches); pinchStartZoom = zoom; }
+        }, { passive: true });
+        viewport.addEventListener('touchmove', function (e) {
+            if (e.touches.length === 2 && pinchStartDist > 0) {
+                e.preventDefault();
+                setZoom(pinchStartZoom * (touchDistance(e.touches) / pinchStartDist));
+            }
+        }, { passive: false });
+        viewport.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)); }
+        }, { passive: false });
+    }
+
+    document.getElementById('msgZoomIn')?.addEventListener('click', function () { setZoom(zoom + ZOOM_STEP); });
+    document.getElementById('msgZoomOut')?.addEventListener('click', function () { setZoom(zoom - ZOOM_STEP); });
+
+    function syncBtn() {
+        const c = agreeCheckbox && agreeCheckbox.checked;
+        if (understandBtn) understandBtn.disabled = !c;
+        if (agreeHidden) agreeHidden.disabled = !c;
+    }
+    agreeCheckbox?.addEventListener('change', syncBtn);
+
+    document.querySelectorAll('.message-read-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.getElementById('msgModalTitle').textContent = btn.dataset.msgTitle || 'Xabar';
+            document.getElementById('msgModalSender').textContent = 'Yuboruvchi: ' + (btn.dataset.msgSender || '—');
+            document.getElementById('msgBodyTitle').textContent = btn.dataset.msgTitle || '';
+            document.getElementById('msgBodyText').textContent = btn.dataset.msgBody || '';
+
+            setZoom(1);
+            if (agreeCheckbox) agreeCheckbox.checked = false;
+            syncBtn();
+
+            const done = btn.dataset.acknowledged === '1';
+            if (done) {
+                acceptPanel?.classList.add('hidden');
+                acceptedBanner?.classList.remove('hidden');
+            } else {
+                acceptPanel?.classList.remove('hidden');
+                acceptedBanner?.classList.add('hidden');
+                if (acceptForm) acceptForm.action = btn.dataset.ackUrl || '';
+            }
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        });
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        setZoom(1);
+        if (agreeCheckbox) agreeCheckbox.checked = false;
+        syncBtn();
+    });
+});
+</script>
+{% endblock %}

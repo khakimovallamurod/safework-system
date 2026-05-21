@@ -330,20 +330,65 @@
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
                     <i class="bi bi-briefcase text-base"></i> Kasb turlari
                 </a>
-            {% elif is_org_leader or is_worker %}
+            {% elif is_org_leader or is_worker and not is_section_member %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
                     <i class="bi bi-briefcase text-base"></i> Kasb turlari
                 </a>
             {% endif %}
+            {% if is_section_member %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'worker-messages-inbox' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'worker-messages-inbox' %}">
+                    {% include 'accounts/includes/nav_notification_badge.html' %}
+                    <span>Xabarnomalar</span>
+                </a>
+            {% endif %}
+            {% if is_org_leader %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'department-admins' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'department-admins' %}">
+                    <i class="bi bi-building text-base"></i> Boshqarmalar
+                </a>
+            {% elif is_department_admin %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'section-admins' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'section-admins' %}">
+                    <i class="bi bi-diagram-2 text-base"></i> Bo‘limlar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'entry-guidelines' or request.resolver_match.url_name == 'entry-guideline-edit' or request.resolver_match.url_name == 'entry-guideline-send' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'entry-guidelines' %}">
+                    <i class="bi bi-file-earmark-pdf text-base"></i> Kirish yo‘riqnomalari
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'guideline-status' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'guideline-status' %}">
+                    <i class="bi bi-clipboard2-check text-base"></i> Yo‘riqnomalar holati
+                </a>
+            {% elif is_section_admin %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'section-workers' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'section-workers' %}">
+                    <i class="bi bi-people text-base"></i> Xodimlar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'internal-guidelines' or request.resolver_match.url_name == 'internal-guideline-edit' or request.resolver_match.url_name == 'internal-guideline-send' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'internal-guidelines' %}">
+                    <i class="bi bi-journal-text text-base"></i> Ichki yo‘riqnomalar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'internal-guideline-status' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'internal-guideline-status' %}">
+                    <i class="bi bi-clipboard2-check text-base"></i> Yo‘riqnomalar holati
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'work-practices' or request.resolver_match.url_name == 'work-practice-edit' or request.resolver_match.url_name == 'work-practice-delete' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'work-practices' %}">
+                    <i class="bi bi-briefcase text-base"></i> Ish amaliyotlari
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'notifications-inbox' or request.resolver_match.url_name == 'guideline-inbox' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'notifications-inbox' %}">
+                    {% include 'accounts/includes/nav_notification_badge.html' %}
+                    <span>Xabarnomalar</span>
+                </a>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+            <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'profile' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'profile' %}">
+                <i class="bi bi-person-badge text-base"></i> Akkaunt sahifasi
+            </a>
+            {% endif %}
         </nav>
 
         <div class="mt-auto border-t border-slate-700/60 p-3">
-            <form method="post" action="{% url 'logout' %}" class="m-0">
-                {% csrf_token %}
-                <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-200">
-                    <i class="bi bi-box-arrow-right"></i> Chiqish
-                </button>
-            </form>
+            {% if request.user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600/80 bg-white/5 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-red-400/50 hover:bg-red-500/15 hover:text-red-200">
+                        <i class="bi bi-box-arrow-right"></i> Chiqish
+                    </button>
+                </form>
+            {% endif %}
         </div>
     </aside>
 
@@ -361,30 +406,30 @@
                     </button>
                     <div class="min-w-0">
                         <div class="truncate text-sm font-semibold text-slate-900 lg:text-base">Boshqaruv paneli</div>
-                        <div class="hidden truncate text-xs text-slate-500 sm:block">
-                            {{ role_name|default:'Mehmon' }}
-                            {% if company_industry %}
-                                · Soha: {{ company_industry.name }}
-                            {% endif %}
-                        </div>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 lg:gap-3">
-                    <div class="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 sm:flex">
-                        <i class="bi bi-calendar3"></i>
-                        {% now "d.m.Y" %}
+                {% if request.user.is_authenticated %}
+                <div class="header-user-strip flex shrink-0 items-stretch overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                    <div class="flex items-center gap-1.5 border-r border-slate-100 bg-slate-50/80 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 sm:px-3">
+                        <i class="bi bi-calendar3 shrink-0 text-slate-400"></i>
+                        <span class="whitespace-nowrap">{% now "d.m.Y" %}</span>
                     </div>
-                    <div class="flex items-center gap-2 rounded-xl border px-2.5 py-1.5 {% if is_super_admin %}border-emerald-200 bg-emerald-50{% elif is_company_admin %}border-amber-200 bg-amber-50{% else %}border-slate-200 bg-slate-50{% endif %}">
-                        <div class="flex h-8 w-8 items-center justify-center rounded-lg {% if is_super_admin %}bg-emerald-600{% elif is_company_admin %}bg-amber-600{% else %}bg-slate-700{% endif %} text-white">
-                            <i class="bi bi-person text-sm"></i>
-                        </div>
-                        <div>
-                            <div class="text-xs font-semibold text-slate-800">{{ request.user.username }}</div>
-                            <div class="hidden text-[11px] text-slate-500 sm:block">{{ role_name|default:'Foydalanuvchi' }}</div>
-                        </div>
+                    <div class="flex items-center justify-center px-2 py-1">
+                        {% if profile_photo_url %}
+                            <img src="{{ profile_photo_url }}" alt="" class="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-emerald-100 sm:h-9 sm:w-9" />
+                        {% else %}
+                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-xs font-bold text-white ring-2 ring-emerald-100 sm:h-9 sm:w-9 sm:text-sm">
+                                {{ profile_display_name|default:request.user.username|slice:":1"|upper }}
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="flex min-w-0 max-w-[7.5rem] flex-col justify-center px-2.5 py-1 sm:max-w-[10rem] sm:px-3">
+                        <p class="truncate text-[9px] font-semibold uppercase leading-tight tracking-wide text-emerald-600 sm:text-[10px]">{{ role_name|default:'Foydalanuvchi' }}</p>
+                        <p class="truncate text-xs font-semibold leading-snug text-slate-900 sm:text-sm">{{ profile_short_name|default:request.user.username }}</p>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </header>
 
