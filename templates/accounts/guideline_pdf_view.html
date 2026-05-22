@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .pdf-page-shell {
+        display: flex;
+        flex-direction: column;
+        min-height: calc(100dvh - 8.5rem);
+        margin: -1.25rem -1rem 0;
+    }
+    @media (min-width: 1024px) {
+        .pdf-page-shell { margin: -1.5rem -1.5rem 0; }
+    }
+    .pdf-page-viewport {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x pan-y;
+        background: #e2e8f0;
+    }
+    .pdf-page-stage {
+        transform-origin: top center;
+        transition: transform 0.08s ease-out;
+        padding: 1rem;
+        will-change: transform;
+    }
+    .pdf-page-frame {
+        display: block;
+        width: 100%;
+        max-width: 56rem;
+        margin: 0 auto;
+        min-height: 75dvh;
+        border: 0;
+        border-radius: 0.75rem;
+        background: #fff;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.1);
+    }
+</style>
+
+<div class="pdf-page-shell">
+    <div class="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{{ back_url }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800">
+                <i class="bi bi-arrow-left"></i> Ortga
+            </a>
+            <div class="min-w-0 flex-1">
+                <h1 class="truncate text-base font-semibold text-slate-900">{{ pdf_title|default:guideline.name }}</h1>
+                <p class="text-[11px] text-slate-500">PDF · ikki barmoq yoki tugmalar bilan masshtab</p>
+            </div>
+            <div class="flex items-center gap-1">
+                <button type="button" id="pdfZoomOut" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"><i class="bi bi-zoom-out"></i></button>
+                <span id="pdfZoomLabel" class="min-w-[3rem] text-center text-xs font-semibold text-slate-600">100%</span>
+                <button type="button" id="pdfZoomIn" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"><i class="bi bi-zoom-in"></i></button>
+                <button type="button" id="pdfZoomReset" class="hidden rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 sm:inline-flex">Asl</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pdf-page-viewport" id="pdfViewport">
+        <div class="pdf-page-stage" id="pdfStage">
+            <iframe src="{{ pdf_url }}#toolbar=0&navpanes=0&view=FitH" class="pdf-page-frame" title="{{ pdf_title|default:guideline.name }}"></iframe>
+        </div>
+    </div>
+
+    {% if receipt and not receipt.is_acknowledged %}
+    <div class="shrink-0 border-t border-slate-200 bg-white p-4">
+        <form method="post" action="{{ acknowledge_url }}" class="mx-auto max-w-lg space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ back_url }}" />
+            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50/60">
+                <input type="checkbox" name="agree" value="1" required class="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/25" id="pdfAgreeCheckbox" />
+                <span class="text-sm text-slate-800">
+                    <span class="font-semibold text-slate-900">Roziman, o‘qidim</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">Yo‘riqnoma bilan tanishdim va rozi ekanligimni tasdiqlayman</span>
+                </span>
+            </label>
+            <button type="submit" id="pdfUnderstandBtn" disabled class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition enabled:hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
+                <i class="bi bi-check2-circle text-lg"></i> Tushundim
+            </button>
+        </form>
+    </div>
+    {% elif receipt and receipt.is_acknowledged %}
+    <div class="shrink-0 border-t border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">
+        <i class="bi bi-patch-check-fill mr-1"></i> Qabul qilingan
+    </div>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    const stage = document.getElementById('pdfStage');
+    const viewport = document.getElementById('pdfViewport');
+    const zoomLabel = document.getElementById('pdfZoomLabel');
+    const agree = document.getElementById('pdfAgreeCheckbox');
+    const understand = document.getElementById('pdfUnderstandBtn');
+    let zoom = 1;
+    const ZOOM_MIN = 0.4, ZOOM_MAX = 3, ZOOM_STEP = 0.12;
+    let pinchStartDist = 0, pinchStartZoom = 1;
+
+    function setZoom(v) {
+        zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v));
+        if (stage) stage.style.transform = 'scale(' + zoom + ')';
+        if (zoomLabel) zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function touchDistance(t) {
+        return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    }
+
+    if (viewport) {
+        viewport.addEventListener('touchstart', function (e) {
+            if (e.touches.length === 2) { pinchStartDist = touchDistance(e.touches); pinchStartZoom = zoom; }
+        }, { passive: true });
+        viewport.addEventListener('touchmove', function (e) {
+            if (e.touches.length === 2 && pinchStartDist > 0) {
+                e.preventDefault();
+                setZoom(pinchStartZoom * (touchDistance(e.touches) / pinchStartDist));
+            }
+        }, { passive: false });
+        viewport.addEventListener('wheel', function (e) {
+            if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)); }
+        }, { passive: false });
+    }
+
+    document.getElementById('pdfZoomIn')?.addEventListener('click', function () { setZoom(zoom + ZOOM_STEP); });
+    document.getElementById('pdfZoomOut')?.addEventListener('click', function () { setZoom(zoom - ZOOM_STEP); });
+    document.getElementById('pdfZoomReset')?.addEventListener('click', function () { setZoom(1); });
+
+    if (agree && understand) {
+        function syncBtn() { understand.disabled = !agree.checked; }
+        agree.addEventListener('change', syncBtn);
+        syncBtn();
+    }
+})();
+</script>
+{% endblock %}
