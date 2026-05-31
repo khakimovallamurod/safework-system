@@ -31,12 +31,12 @@
                 <i class="bi bi-briefcase mr-2 text-violet-600"></i>Ish amaliyotlari
             </h2>
             <p class="mt-1 text-sm text-slate-500">
-                {% if section %}Bo‘lim: <strong>{{ section.name }}</strong> — ma’sul xodimlar faqat shu bo‘lim xodimlari{% else %}Bo‘lim topilmadi.{% endif %}
+                {% if section %}Bo'lim: <strong>{{ section.name }}</strong> — ma'sul xodimlar faqat shu bo'lim xodimlari{% else %}Sizga biriktirilgan yoki siz yaratgan ish amaliyotlari ro'yxati{% endif %}
             </p>
         </div>
-        {% if section %}
+        {% if can_manage_work_practices and section %}
         <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700">
-            <i class="bi bi-plus-circle"></i> Qo‘shish
+            <i class="bi bi-plus-circle"></i> Qo'shish
         </button>
         {% endif %}
     </div>
@@ -50,9 +50,11 @@
                     <th class="px-4 py-3">Nomi</th>
                     <th class="px-4 py-3">Boshlanish vaqti</th>
                     <th class="px-4 py-3">Tugash vaqti</th>
-                    <th class="px-4 py-3">Ma’sul xodimlar</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3">Mas'ul</th>
+                    <th class="px-4 py-3">Amaliyot o'tovchilar</th>
                     <th class="px-4 py-3">Izoh</th>
-                    <th class="px-4 py-3 text-right w-28">Amallar</th>
+                    <th class="px-4 py-3 text-right w-44">Amallar</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
@@ -60,8 +62,18 @@
                 <tr class="hover:bg-slate-50 align-top">
                     <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span></td>
                     <td class="px-4 py-3 font-medium text-slate-900">{{ practice.name }}</td>
-                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ practice.start_time|date:'d.m.Y H:i' }}</td>
-                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ practice.end_time|date:'d.m.Y H:i' }}</td>
+                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ practice.start_time|date:"d.m.Y H:i" }}</td>
+                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ practice.end_time|date:"d.m.Y H:i" }}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-medium {{ practice.status_class }}">{{ practice.status_label }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">
+                        {% if practice.responsible_user %}
+                        <span class="inline-flex rounded-lg bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</span>
+                        {% else %}
+                        <span class="text-xs text-slate-400">Belgilanmagan</span>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3 text-slate-700">
                         {% for assignee in practice.assignees.all %}
                         <span class="mb-1 mr-1 inline-flex rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{{ assignee.user.profile.full_name|default:assignee.user.username }}</span>
@@ -71,18 +83,33 @@
                     </td>
                     <td class="px-4 py-3 text-slate-500 max-w-xs">{{ practice.notes|default:'—'|truncatechars:80 }}</td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
+                        {% if can_manage_work_practices %}
+                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-300 text-sky-600 transition hover:bg-sky-50" data-bs-toggle="modal" data-bs-target="#practiceAssignModal{{ practice.id }}" title="Amaliyotchi biriktirish">
+                            <i class="bi bi-person-plus"></i>
+                        </button>
                         <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#practiceEditModal{{ practice.id }}" title="Tahrirlash">
                             <i class="bi bi-pencil-square"></i>
                         </button>
-                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#practiceDeleteModal{{ practice.id }}" title="O‘chirish">
+                        {% if practice.status_label == 'Jarayonda' %}
+                        <form method="post" action="{% url 'work-practice-finish' practice.id %}" class="mr-1 inline-block">
+                            {% csrf_token %}
+                            <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-300 text-emerald-700 transition hover:bg-emerald-50" title="Tugatish">
+                                <i class="bi bi-check2-circle"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#practiceDeleteModal{{ practice.id }}" title="O'chirish">
                             <i class="bi bi-trash"></i>
                         </button>
+                        {% else %}
+                        <span class="text-xs text-slate-400">—</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha ish amaliyotlari yo‘q
+                    <td colspan="9" class="px-4 py-10 text-center text-slate-400">
+                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha ish amaliyotlari yo'q
                     </td>
                 </tr>
                 {% endfor %}
@@ -92,7 +119,262 @@
     {% endif %}
 </div>
 
-{% if section %}
+{% if not can_manage_work_practices %}
+
+{% if participant_practices %}
+<div class="mt-6">
+  <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-violet-600 text-xs"><i class="bi bi-person-workspace"></i></span>
+    Amaliyot o'tovchi sifatida
+  </h3>
+  <div class="space-y-4">
+    {% for practice in participant_practices %}
+    <div class="rounded-2xl border bg-white shadow-sm overflow-hidden
+                {% if practice.is_ended %}border-slate-200{% elif practice.is_last_day %}border-amber-300{% else %}border-violet-200{% endif %}">
+
+      <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <h4 class="text-sm font-bold text-slate-800">{{ practice.name }}</h4>
+            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ practice.status_class }}">{{ practice.status_label }}</span>
+            {% if practice.is_last_day %}
+            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"><i class="bi bi-clock-history"></i> Oxirgi kun!</span>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
+            <span><i class="bi bi-play-circle mr-0.5 text-emerald-400"></i>{{ practice.start_time|date:"d.m.Y" }}</span>
+            <span><i class="bi bi-stop-circle mr-0.5 text-rose-400"></i>{{ practice.end_time|date:"d.m.Y" }}</span>
+            {% if practice.responsible_user %}
+            <span><i class="bi bi-person-check mr-0.5 text-sky-400"></i>Mas'ul: {{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="flex-shrink-0 text-center">
+          {% if practice.is_ended %}
+          <div class="inline-flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-slate-100 text-slate-400">
+            <i class="bi bi-check2-all text-lg"></i>
+            <span class="text-[9px] font-semibold mt-0.5">Tugadi</span>
+          </div>
+          {% elif practice.is_last_day %}
+          <div class="inline-flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-amber-100 text-amber-700">
+            <span class="text-xl font-black leading-none">0</span>
+            <span class="text-[9px] font-semibold mt-0.5">kun qoldi</span>
+          </div>
+          {% elif practice.days_left is not None %}
+          <div class="inline-flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-violet-50 text-violet-600">
+            <span class="text-xl font-black leading-none">{{ practice.days_left }}</span>
+            <span class="text-[9px] font-semibold mt-0.5">kun qoldi</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if practice.available_tests %}
+      <div class="border-t border-amber-200 bg-amber-50 px-5 py-3">
+        <p class="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2"><i class="bi bi-journal-check mr-1"></i>Testlar</p>
+        <div class="space-y-2">
+          {% for test in practice.available_tests %}
+          <div class="flex items-center justify-between gap-3 rounded-xl bg-white border border-amber-200 px-4 py-3">
+            <div>
+              <p class="text-sm font-semibold text-slate-800">{{ test.name }}</p>
+              <p class="text-xs text-slate-400">{{ test.duration }} daq · {{ test.attempts_allowed }} urinish · {{ test.questions_count }} savol</p>
+            </div>
+            <a href="{% url 'companies:quiz_start' practice_pk=practice.id test_pk=test.id %}"
+               class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition whitespace-nowrap">
+              <i class="bi bi-play-fill"></i> Boshlash
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% elif practice.is_last_day or practice.is_ended %}
+      <div class="border-t border-slate-100 bg-slate-50 px-5 py-2.5">
+        <p class="text-xs text-slate-400 flex items-center gap-1"><i class="bi bi-info-circle"></i> Bu amaliyot uchun test belgilanmagan.</p>
+      </div>
+      {% endif %}
+
+      {% if practice.my_attempts %}
+      <div class="border-t border-slate-100 px-5 py-3">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2"><i class="bi bi-clock-history mr-1"></i>O'tilgan testlar</p>
+        <div class="space-y-1.5">
+          {% for att in practice.my_attempts %}
+          <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="inline-flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0
+                {% if att.score >= 60 %}bg-emerald-100 text-emerald-600{% else %}bg-rose-100 text-rose-500{% endif %}">
+                {% if att.score >= 60 %}<i class="bi bi-check-lg text-xs"></i>{% else %}<i class="bi bi-x-lg text-xs"></i>{% endif %}
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-slate-700 truncate">{{ att.test.name }}</p>
+                <p class="text-[11px] text-slate-400">{{ att.started_at|date:"d.m.Y H:i" }}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-sm font-bold {% if att.score >= 60 %}text-emerald-600{% else %}text-rose-500{% endif %}">{{ att.score }}%</span>
+              <a href="{% url 'companies:quiz_result' attempt_pk=att.id %}"
+                 class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition whitespace-nowrap">
+                <i class="bi bi-eye text-xs"></i> Natija
+              </a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if responsible_practices %}
+<div class="mt-6">
+  <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+    <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-sky-100 text-sky-600 text-xs"><i class="bi bi-person-check"></i></span>
+    Mas'ul sifatida nazorat qiladigan amaliyotlar
+  </h3>
+  <div class="space-y-4">
+    {% for practice in responsible_practices %}
+    <div class="rounded-2xl border border-sky-200 bg-white shadow-sm overflow-hidden">
+      <div class="px-5 py-3.5 bg-sky-50 border-b border-sky-100 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <span class="text-sm font-bold text-slate-800">{{ practice.name }}</span>
+          <span class="ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ practice.status_class }}">{{ practice.status_label }}</span>
+        </div>
+        <button type="button" data-bs-toggle="modal" data-bs-target="#practiceMsgModal{{ practice.id }}"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 transition">
+          <i class="bi bi-send"></i> Xabar yuborish
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs divide-y divide-slate-100">
+          <thead class="bg-slate-50 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-4 py-2">Amaliyotchi</th>
+              <th class="px-4 py-2">Login</th>
+              <th class="px-4 py-2 text-center">Jami xabar</th>
+              <th class="px-4 py-2 text-center">O'qilgan</th>
+              <th class="px-4 py-2 text-center">O'qilmagan</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50">
+            {% for trainee in practice.trainee_stats %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-2 text-slate-800 font-medium">{{ trainee.user.profile.full_name|default:trainee.user.username }}</td>
+              <td class="px-4 py-2 text-slate-500">{{ trainee.user.username }}</td>
+              <td class="px-4 py-2 text-center text-slate-600">{{ trainee.total }}</td>
+              <td class="px-4 py-2 text-center text-emerald-600 font-semibold">{{ trainee.read }}</td>
+              <td class="px-4 py-2 text-center text-rose-500 font-semibold">{{ trainee.unread }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="px-4 py-4 text-center text-slate-400">Amaliyotchi biriktirilmagan</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if practice.responsible_messages %}
+      <div class="border-t border-slate-100 px-5 py-3 space-y-2">
+        {% for msg in practice.responsible_messages %}
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div class="text-xs font-semibold text-slate-700">{{ msg.title }}</div>
+          <p class="mt-1 text-xs text-slate-500">{{ msg.body }}</p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            {% for r in msg.receipts.all %}
+            <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] {% if r.is_read %}bg-emerald-100 text-emerald-700{% else %}bg-rose-100 text-rose-600{% endif %}">
+              {{ r.user.profile.full_name|default:r.user.username }}: {% if r.is_read %}o'qidi{% else %}o'qimadi{% endif %}
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% if practice_inbox %}
+<div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4">
+    <h3 class="mb-3 text-sm font-semibold text-slate-900">Menga yuborilgan amaliyot xabarlari</h3>
+    <div class="space-y-2">
+        {% for item in practice_inbox %}
+        <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="text-sm font-semibold text-slate-900">{{ item.message.title }}</div>
+                <span class="inline-flex rounded-lg px-2 py-0.5 text-xs {% if item.is_read %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                    {% if item.is_read %}O'qildi{% else %}Yangi{% endif %}
+                </span>
+            </div>
+            <p class="mt-1 text-sm text-slate-600">{{ item.message.body }}</p>
+            <div class="mt-2 text-xs text-slate-500">
+                Amaliyot: {{ item.message.practice.name }} | Yuboruvchi: {{ item.message.sender.profile.full_name|default:item.message.sender.username }} | {{ item.message.created_at|date:"d.m.Y H:i" }}
+            </div>
+            {% if not item.is_read %}
+            <form method="post" action="{% url 'work-practice-message-read' item.id %}" class="mt-2">
+                {% csrf_token %}
+                <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">O'qiganimni tasdiqlash</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if practices %}
+{% for practice in practices %}
+{% if practice.is_responsible %}
+<div class="modal fade" id="practiceMsgModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="{% url 'work-practice-send-message' practice.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Xabar yuborish: {{ practice.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body space-y-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Xabar</label>
+                        <textarea name="body" rows="4" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required></textarea>
+                    </div>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="radio" name="recipient_scope" value="all" checked />
+                            Hammasiga yuborish
+                        </label>
+                        <label class="inline-flex items-center gap-2 text-sm">
+                            <input type="radio" name="recipient_scope" value="selected" />
+                            Tanlanganlarga yuborish
+                        </label>
+                    </div>
+                    <div class="recipient-select-wrap hidden">
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Amaliyotchilar</label>
+                        <select name="recipient_ids" class="worker-select2 form-control" multiple>
+                            {% for trainee in practice.assignees.all %}
+                            <option value="{{ trainee.user_id }}">{{ trainee.user.profile.full_name|default:trainee.user.username }} ({{ trainee.user.username }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
+                    <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">Yuborish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if can_manage_work_practices and section %}
 <div class="modal fade" id="practiceAddModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -118,13 +400,16 @@
                         </div>
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Ma’sul xodimlar</label>
-                        <select name="workers" class="worker-select2 form-control" multiple required>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Mas'ul xodim (1 ta)</label>
+                        <select name="responsible_user" class="worker-select2 form-control" required>
+                            <option value="">Mas'ulni tanlang</option>
                             {% for worker in section_workers %}
                             <option value="{{ worker.pk }}">{{ worker.profile.full_name }} ({{ worker.username }})</option>
                             {% endfor %}
                         </select>
-                        <p class="mt-1 text-xs text-slate-500">Bir yoki bir nechta xodimni tanlang</p>
+                    </div>
+                    <div>
+                        <p class="mt-1 text-xs text-slate-500">Amaliyot yaratilgach, “Amaliyotchi biriktirish” orqali bir nechta ishchini qo'shasiz</p>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-slate-700">Izoh</label>
@@ -143,6 +428,34 @@
 </div>
 
 {% for practice in practices %}
+<div class="modal fade" id="practiceAssignModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="{% url 'work-practice-assign-workers' practice.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Amaliyotchi biriktirish: {{ practice.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="mb-1.5 mt-3 block text-sm font-medium text-slate-700">Amaliyot o'tovchilar</label>
+                    <select name="workers" class="worker-select2 form-control" multiple data-selected-workers="{% for a in practice.assignees.all %}{{ a.user_id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                        {% for worker in section_workers %}
+                        {% if worker.pk != practice.responsible_user_id %}
+                        <option value="{{ worker.pk }}"{% for a in practice.assignees.all %}{% if a.user_id == worker.pk %} selected{% endif %}{% endfor %}>{{ worker.profile.full_name }} ({{ worker.username }})</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
+                    <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="practiceEditModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -160,20 +473,12 @@
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish vaqti</label>
-                            <input type="datetime-local" name="start_time" value="{{ practice.start_time|date:'Y-m-d' }}T{{ practice.start_time|date:'H:i' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
+                            <input type="datetime-local" name="start_time" value="{{ practice.start_time|date:"Y-m-d" }}T{{ practice.start_time|date:"H:i" }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
                         </div>
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-slate-700">Tugash vaqti</label>
-                            <input type="datetime-local" name="end_time" value="{{ practice.end_time|date:'Y-m-d' }}T{{ practice.end_time|date:'H:i' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
+                            <input type="datetime-local" name="end_time" value="{{ practice.end_time|date:"Y-m-d" }}T{{ practice.end_time|date:"H:i" }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
                         </div>
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Ma’sul xodimlar</label>
-                        <select name="workers" class="worker-select2 form-control" multiple required data-selected-workers="{% for a in practice.assignees.all %}{{ a.user_id }}{% if not forloop.last %},{% endif %}{% endfor %}">
-                            {% for worker in section_workers %}
-                            <option value="{{ worker.pk }}"{% for a in practice.assignees.all %}{% if a.user_id == worker.pk %} selected{% endif %}{% endfor %}>{{ worker.profile.full_name }} ({{ worker.username }})</option>
-                            {% endfor %}
-                        </select>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-slate-700">Izoh</label>
@@ -192,13 +497,13 @@
 <div class="modal fade" id="practiceDeleteModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">O‘chirish</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body text-sm text-slate-700"><strong>{{ practice.name }}</strong> o‘chirilsinmi?</div>
+            <div class="modal-header"><h5 class="modal-title">O'chirish</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body text-sm text-slate-700"><strong>{{ practice.name }}</strong> o'chirilsinmi?</div>
             <div class="modal-footer">
                 <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
                 <form method="post" action="{% url 'work-practice-delete' practice.id %}" class="m-0">
                     {% csrf_token %}
-                    <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white">Ha, o‘chirish</button>
+                    <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white">Ha, o'chirish</button>
                 </form>
             </div>
         </div>
@@ -240,11 +545,31 @@
             });
         }
 
+        function bindRecipientScope(modal) {
+            const root = modal || document;
+            root.querySelectorAll('form[action*="send-message/"]').forEach(function (form) {
+                const wrap = form.querySelector('.recipient-select-wrap');
+                const allRadio = form.querySelector('input[name="recipient_scope"][value="all"]');
+                const selectedRadio = form.querySelector('input[name="recipient_scope"][value="selected"]');
+                if (!wrap || !allRadio || !selectedRadio) return;
+
+                const update = function () {
+                    wrap.classList.toggle('hidden', !selectedRadio.checked);
+                };
+
+                allRadio.addEventListener('change', update);
+                selectedRadio.addEventListener('change', update);
+                update();
+            });
+        }
+
         initWorkerSelect2();
+        bindRecipientScope(document);
         document.querySelectorAll('.modal').forEach(function (modal) {
             modal.addEventListener('shown.bs.modal', function () {
                 initWorkerSelect2(modal);
                 syncWorkerSelect(modal);
+                bindRecipientScope(modal);
             });
         });
     });

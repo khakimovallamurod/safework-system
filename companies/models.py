@@ -23,6 +23,7 @@ class Company(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Companies'
+        db_table = 'tashkilot'
 
     def __str__(self):
         return self.company_name
@@ -88,6 +89,7 @@ class Department(models.Model):
         ordering = ['name']
         verbose_name_plural = 'Departments'
         unique_together = ('leader', 'name')
+        db_table = 'boshqarma'
 
     def __str__(self):
         return self.name
@@ -114,6 +116,7 @@ class Section(models.Model):
         ordering = ['name']
         verbose_name_plural = 'Sections'
         unique_together = ('department', 'name')
+        db_table = 'bolim'
 
     def __str__(self):
         return self.name
@@ -135,6 +138,7 @@ class SectionMembership(models.Model):
     class Meta:
         ordering = ['-assigned_at']
         verbose_name_plural = 'Section memberships'
+        db_table = 'azo'
         constraints = [
             models.UniqueConstraint(fields=['user'], name='unique_section_member_per_user'),
         ]
@@ -161,6 +165,7 @@ class SectionMessage(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Section messages'
+        db_table = 'xabar'
 
     def __str__(self):
         return self.title
@@ -183,6 +188,7 @@ class SectionMessageReceipt(models.Model):
     class Meta:
         unique_together = ('message', 'user')
         verbose_name_plural = 'Section message receipts'
+        db_table = 'xabar_holat'
 
     def __str__(self):
         return f'{self.user_id} ← {self.message_id}'
@@ -209,6 +215,7 @@ class EntryGuideline(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Entry guidelines'
+        db_table = 'kirish_nizom'
 
     def __str__(self):
         return self.name
@@ -230,6 +237,7 @@ class GuidelineDispatch(models.Model):
     class Meta:
         ordering = ['-sent_at']
         verbose_name_plural = 'Guideline dispatches'
+        db_table = 'nizom_yuborish'
 
     def __str__(self):
         return f'{self.guideline.name} ({self.sent_at:%d.%m.%Y})'
@@ -267,6 +275,7 @@ class GuidelineDispatchRecipient(models.Model):
 
     class Meta:
         ordering = ['section__name', 'user__profile__full_name']
+        db_table = 'nizom_qabul'
         constraints = [
             models.UniqueConstraint(fields=['dispatch', 'user'], name='unique_guideline_recipient_per_dispatch'),
         ]
@@ -297,6 +306,7 @@ class SectionInternalGuideline(models.Model):
     class Meta:
         ordering = ['-created_at']
         verbose_name_plural = 'Section internal guidelines'
+        db_table = 'ichki_nizom'
 
     def __str__(self):
         return self.name
@@ -318,6 +328,7 @@ class SectionInternalGuidelineDispatch(models.Model):
     class Meta:
         ordering = ['-sent_at']
         verbose_name_plural = 'Section internal guideline dispatches'
+        db_table = 'ichki_nizom_yuborish'
 
     def __str__(self):
         return f'{self.guideline.name} ({self.sent_at:%d.%m.%Y})'
@@ -339,6 +350,7 @@ class SectionInternalGuidelineRecipient(models.Model):
 
     class Meta:
         ordering = ['user__profile__full_name', 'user__username']
+        db_table = 'ichki_nizom_qabul'
         constraints = [
             models.UniqueConstraint(
                 fields=['dispatch', 'user'],
@@ -361,6 +373,14 @@ class SectionWorkPractice(models.Model):
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     notes = models.TextField(blank=True)
+    responsible_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='responsible_work_practices',
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -368,12 +388,20 @@ class SectionWorkPractice(models.Model):
         blank=True,
         related_name='created_work_practices',
     )
+    closed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='closed_work_practices',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-start_time', '-created_at']
         verbose_name_plural = 'Section work practices'
+        db_table = 'ish_amaliyot'
 
     def __str__(self):
         return self.name
@@ -392,6 +420,7 @@ class SectionWorkPracticeAssignee(models.Model):
     )
 
     class Meta:
+        db_table = 'ish_amaliyot_azo'
         constraints = [
             models.UniqueConstraint(
                 fields=['practice', 'user'],
@@ -402,3 +431,284 @@ class SectionWorkPracticeAssignee(models.Model):
 
     def __str__(self):
         return f'{self.user_id} → {self.practice_id}'
+
+
+class SectionWorkPracticeMessage(models.Model):
+    practice = models.ForeignKey(
+        SectionWorkPractice,
+        on_delete=models.CASCADE,
+        related_name='practice_messages',
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_work_practice_messages',
+    )
+    title = models.CharField(max_length=255)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'amaliyot_xabar'
+        verbose_name_plural = 'Work practice messages'
+
+    def __str__(self):
+        return self.title
+
+
+class SectionWorkPracticeMessageReceipt(models.Model):
+    message = models.ForeignKey(
+        SectionWorkPracticeMessage,
+        on_delete=models.CASCADE,
+        related_name='receipts',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='work_practice_message_receipts',
+    )
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'amaliyot_xabar_holat'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['message', 'user'],
+                name='unique_work_practice_message_recipient',
+            ),
+        ]
+        verbose_name_plural = 'Work practice message receipts'
+
+    def __str__(self):
+        return f'{self.user_id} ← {self.message_id}'
+
+
+class WorkPracticeTest(models.Model):
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.CASCADE,
+        related_name='practice_tests'
+    )
+    name = models.CharField(max_length=255, verbose_name="Test nomi")
+    duration = models.PositiveIntegerField(verbose_name="Davomiyligi (daqiqa)")
+    attempts_allowed = models.PositiveIntegerField(verbose_name="Urinishlar soni")
+    questions_count = models.PositiveIntegerField(verbose_name="Savollar soni")
+    is_active = models.BooleanField(default=True, verbose_name="Status")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'amaliyot_test'
+        verbose_name_plural = 'Work practice tests'
+
+    def __str__(self):
+        return self.name
+
+
+class WorkPracticeTestQuestion(models.Model):
+    test = models.ForeignKey(
+        WorkPracticeTest,
+        on_delete=models.CASCADE,
+        related_name='questions'
+    )
+    text = models.TextField(verbose_name="Savol matni")
+    option_1 = models.CharField(max_length=255, verbose_name="1-variant")
+    option_2 = models.CharField(max_length=255, verbose_name="2-variant")
+    option_3 = models.CharField(max_length=255, verbose_name="3-variant")
+    correct_option = models.IntegerField(
+        choices=[(1, '1-variant'), (2, '2-variant'), (3, '3-variant')],
+        verbose_name="To'g'ri variant"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        db_table = 'amaliyot_test_savol'
+        verbose_name_plural = 'Work practice test questions'
+
+    def __str__(self):
+        return f"Savol {self.id}"
+
+
+class WorkPracticeTestAttempt(models.Model):
+    practice = models.ForeignKey(
+        SectionWorkPractice,
+        on_delete=models.CASCADE,
+        related_name='test_attempts'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='practice_test_attempts'
+    )
+    test = models.ForeignKey(
+        WorkPracticeTest,
+        on_delete=models.CASCADE,
+        related_name='attempts'
+    )
+    score = models.IntegerField(null=True, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        db_table = 'amaliyot_test_urinish'
+        verbose_name_plural = 'Work practice test attempts'
+
+    def __str__(self):
+        return f"{self.user} - {self.test.name} ({self.score})"
+
+
+class WorkPracticeTestPermission(models.Model):
+    """Test qaysi ish amaliyotlariga ruxsat berilganligi"""
+    test = models.ForeignKey(
+        WorkPracticeTest,
+        on_delete=models.CASCADE,
+        related_name='practice_permissions'
+    )
+    practice = models.ForeignKey(
+        SectionWorkPractice,
+        on_delete=models.CASCADE,
+        related_name='test_permissions'
+    )
+
+    class Meta:
+        unique_together = ['test', 'practice']
+        db_table = 'amaliyot_test_ruxsat'
+        verbose_name_plural = 'Work practice test permissions'
+
+    def __str__(self):
+        return f"{self.test.name} → {self.practice.name}"
+
+
+class WorkPracticeTestAttemptAnswer(models.Model):
+    attempt = models.ForeignKey(
+        WorkPracticeTestAttempt,
+        on_delete=models.CASCADE,
+        related_name='answers'
+    )
+    question = models.ForeignKey(
+        WorkPracticeTestQuestion,
+        on_delete=models.CASCADE
+    )
+    selected_option = models.IntegerField()
+    is_correct = models.BooleanField()
+
+    class Meta:
+        unique_together = ['attempt', 'question']
+        db_table = 'amaliyot_test_javob'
+
+
+# ─────────────────────────────────────────────────────────────
+#  BOSHQARMA DARAJASIDAGI BILIMNI BAHOLASH (Department Assessment)
+# ─────────────────────────────────────────────────────────────
+
+class DepartmentAssessment(models.Model):
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        related_name='assessments',
+        verbose_name="Boshqarma",
+    )
+    name = models.CharField(max_length=255, verbose_name="Test nomi")
+    duration = models.PositiveIntegerField(verbose_name="Davomiyligi (daqiqa)")
+    questions_count = models.PositiveIntegerField(verbose_name="Savollar soni")
+    attempts_allowed = models.PositiveIntegerField(default=1, verbose_name="Urinishlar soni")
+    notes = models.TextField(blank=True, verbose_name="Izoh")
+    is_active = models.BooleanField(default=False, verbose_name="Faol")
+    is_published = models.BooleanField(default=False, verbose_name="Joriy qilingan")
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='created_assessments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'boshqarma_baholash'
+        verbose_name_plural = 'Department assessments'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def question_count_ok(self):
+        return self.questions.count() >= self.questions_count
+
+
+class DepartmentAssessmentQuestion(models.Model):
+    assessment = models.ForeignKey(
+        DepartmentAssessment, on_delete=models.CASCADE, related_name='questions',
+    )
+    text = models.TextField(verbose_name="Savol matni")
+    option_1 = models.CharField(max_length=500, verbose_name="A variant")
+    option_2 = models.CharField(max_length=500, verbose_name="B variant")
+    option_3 = models.CharField(max_length=500, verbose_name="C variant")
+    correct_option = models.IntegerField(
+        choices=[(1, 'A'), (2, 'B'), (3, 'C')],
+        verbose_name="To'g'ri variant",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        db_table = 'boshqarma_baholash_savol'
+
+    def __str__(self):
+        return f"Savol {self.id} — {self.assessment.name}"
+
+
+class DepartmentAssessmentNotification(models.Model):
+    assessment = models.ForeignKey(
+        DepartmentAssessment, on_delete=models.CASCADE, related_name='notifications',
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='dept_assessment_notifications',
+    )
+    is_confirmed = models.BooleanField(default=False)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['assessment', 'user']
+        db_table = 'boshqarma_baholash_xabar'
+
+    def __str__(self):
+        return f"{self.assessment.name} → {self.user}"
+
+
+class DepartmentAssessmentAttempt(models.Model):
+    assessment = models.ForeignKey(
+        DepartmentAssessment, on_delete=models.CASCADE, related_name='attempts',
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='dept_assessment_attempts',
+    )
+    score = models.IntegerField(null=True, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        db_table = 'boshqarma_baholash_urinish'
+
+    def __str__(self):
+        return f"{self.user} — {self.assessment.name} ({self.score}%)"
+
+
+class DepartmentAssessmentAttemptAnswer(models.Model):
+    attempt = models.ForeignKey(
+        DepartmentAssessmentAttempt, on_delete=models.CASCADE, related_name='dept_answers',
+    )
+    question = models.ForeignKey(DepartmentAssessmentQuestion, on_delete=models.CASCADE)
+    selected_option = models.IntegerField()
+    is_correct = models.BooleanField()
+
+    class Meta:
+        unique_together = ['attempt', 'question']
+        db_table = 'boshqarma_baholash_javob'

@@ -45,7 +45,7 @@ def phone_widget_attrs(placeholder='90 123 45 67'):
             'autocomplete': 'tel-national',
             'maxlength': '12',
             'data-phone-input': 'uz',
-            'class': attrs['class'] + ' pl-[4.75rem]',
+            'class': attrs['class'] + ' pl-[3.65rem]',
         }
     )
     return attrs
@@ -414,7 +414,7 @@ class SectionCreateForm(forms.Form):
         self.dept_admin = kwargs.pop('dept_admin', None)
         super().__init__(*args, **kwargs)
         if self.dept_admin:
-            self.fields['supervisor'].queryset = get_department_workers_queryset(self.dept_admin)
+            self.fields['supervisor'].queryset = get_section_supervisor_choices(self.dept_admin)
             self.fields['supervisor'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
@@ -790,4 +790,3 @@ class SectionWorkPracticeForm(forms.ModelForm):
         if start and end and end <= start:
             raise ValidationError('Tugash vaqti boshlanish vaqtidan keyin bo‘lishi kerak.')
         return cleaned
-

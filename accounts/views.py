@@ -51,6 +51,7 @@ from accounts.mixins import (
     DepartmentSupervisorOnlyMixin,
     OrgLeaderRequiredMixin,
     SectionAdminRequiredMixin,
+    WorkPracticeAccessRequiredMixin,
     SectionMemberRequiredMixin,
     SuperuserActionRequiredMixin,
 )
@@ -68,8 +69,13 @@ from companies.models import (
     SectionMembership,
     SectionWorkPractice,
     SectionWorkPracticeAssignee,
+    SectionWorkPracticeMessage,
+    SectionWorkPracticeMessageReceipt,
     SectionMessage,
     SectionMessageReceipt,
+    WorkPracticeTest,
+    WorkPracticeTestAttempt,
+    WorkPracticeTestPermission,
 )
 from industries.models import Industry
 from professions.models import Profession
@@ -410,6 +416,37 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
                     is_read=False,
                     message__section=section,
                 ).count()
+                
+                # Check for ended practices to show tests
+                ended_practices = SectionWorkPractice.objects.filter(
+                    assignees__user=self.request.user,
+                    end_time__lte=timezone.now()
+                )
+                available_tests = []
+                for practice in ended_practices:
+                    tests = WorkPracticeTest.objects.filter(section=section, is_active=True)
+                    for test in tests:
+                        attempts_count = WorkPracticeTestAttempt.objects.filter(
+                            practice=practice, user=self.request.user, test=test
+                        ).count()
+                        
+                        best_score = None
+                        if attempts_count > 0:
+                            best_attempt = WorkPracticeTestAttempt.objects.filter(
+                                practice=practice, user=self.request.user, test=test
+                            ).order_by('-score').first()
+                            if best_attempt:
+                                best_score = best_attempt.score
+                        
+                        if attempts_count < test.attempts_allowed:
+                            available_tests.append({
+                                'practice': practice,
+                                'test': test,
+                                'attempts_left': test.attempts_allowed - attempts_count,
+                                'best_score': best_score,
+                            })
+                
+                context['available_tests'] = available_tests
         elif role_context['user_profile'] and role_context['user_profile'].industry:
             profile = role_context['user_profile']
             context['organization_name'] = profile.organization_name
@@ -1429,10 +1466,20 @@ class GuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
             .select_related('dispatch__guideline', 'section')
             .order_by('-dispatch__sent_at')
         )
+        from companies.models import DepartmentAssessmentNotification
+        assessment_notifs = (
+            DepartmentAssessmentNotification.objects.filter(
+                user=self.request.user,
+                assessment__is_published=True,
+            )
+            .select_related('assessment')
+            .order_by('-created_at')
+        )
         context.update(
             self.get_role_context()
             | {
                 'receipts': receipts,
+                'assessment_notifs': assessment_notifs,
                 'page_title': 'Xabarnomalar',
             }
         )
@@ -1715,10 +1762,20 @@ class WorkerGuidelinesInboxView(SectionMemberRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from companies.models import DepartmentAssessmentNotification
+        assessment_notifs = (
+            DepartmentAssessmentNotification.objects.filter(
+                user=self.request.user,
+                assessment__is_published=True,
+            )
+            .select_related('assessment')
+            .order_by('-created_at')
+        )
         context.update(
             self.get_role_context()
             | {
                 'inbox_items': _build_worker_guideline_inbox_items(self.request),
+                'assessment_notifs': assessment_notifs,
                 'page_title': 'Xabarnomalar',
             }
         )
@@ -1859,15 +1916,35 @@ def _work_practices_for_section(section):
                 queryset=SectionWorkPracticeAssignee.objects.select_related('user__profile'),
             )
         )
-        .select_related('created_by')
+        .select_related('created_by', 'responsible_user', 'responsible_user__profile')
+    )
+
+
+def _work_practices_for_user(user):
+    return (
+        SectionWorkPractice.objects.filter(
+            Q(created_by=user) | Q(responsible_user=user) | Q(assignees__user=user)
+        )
+        .prefetch_related(
+            Prefetch(
+                'assignees',
+                queryset=SectionWorkPracticeAssignee.objects.select_related('user__profile'),
+            )
+        )
+        .select_related('created_by', 'section', 'responsible_user', 'responsible_user__profile')
+        .distinct()
+        .order_by('-start_time', '-created_at')
     )
 
 
 def _sync_work_practice_assignees(practice, worker_ids, section):
     valid_ids = set(get_section_workers_for_internal_guidelines(section).values_list('pk', flat=True))
-    chosen = sorted({int(uid) for uid in worker_ids if str(uid).isdigit() and int(uid) in valid_ids})
-    if not chosen:
+    cleaned = [int(uid) for uid in worker_ids if str(uid).isdigit()]
+    if practice.responsible_user_id:
+        cleaned = [uid for uid in cleaned if uid != practice.responsible_user_id]
+    if any(uid not in valid_ids for uid in cleaned):
         return False
+    chosen = sorted(set(cleaned))
     SectionWorkPracticeAssignee.objects.filter(practice=practice).exclude(user_id__in=chosen).delete()
     existing = set(
         SectionWorkPracticeAssignee.objects.filter(practice=practice).values_list('user_id', flat=True)
@@ -1882,48 +1959,182 @@ def _sync_work_practice_assignees(practice, worker_ids, section):
     return True
 
 
-class SectionWorkPracticeListView(SectionAdminRequiredMixin, TemplateView):
+def _set_work_practice_responsible(practice, responsible_id, section):
+    if not responsible_id or not str(responsible_id).isdigit():
+        return False
+    rid = int(responsible_id)
+    valid_ids = set(get_section_workers_for_internal_guidelines(section).values_list('pk', flat=True))
+    if rid not in valid_ids:
+        return False
+    practice.responsible_user_id = rid
+    practice.save(update_fields=['responsible_user'])
+    return True
+
+
+def _work_practice_status(practice):
+    now = timezone.now()
+    if practice.closed_at:
+        return "Tugatildi", "bg-slate-100 text-slate-700"
+    if practice.end_time and practice.end_time <= now:
+        return "Avto tugatildi", "bg-amber-100 text-amber-800"
+    return "Jarayonda", "bg-emerald-100 text-emerald-700"
+
+
+def _work_practice_messages_for_responsible(practice):
+    messages_qs = practice.practice_messages.prefetch_related(
+        Prefetch(
+            'receipts',
+            queryset=SectionWorkPracticeMessageReceipt.objects.select_related('user__profile').order_by(
+                'user__profile__full_name',
+                'user__username',
+            ),
+        )
+    ).order_by('-created_at')
+    items = list(messages_qs[:30])
+    for message in items:
+        total = len(message.receipts.all())
+        read = sum(1 for receipt in message.receipts.all() if receipt.is_read)
+        message.total_count = total
+        message.read_count = read
+        message.unread_count = max(total - read, 0)
+    return items
+
+
+def _responsible_trainee_stats(practice):
+    stats = []
+    receipts = SectionWorkPracticeMessageReceipt.objects.filter(message__practice=practice).select_related('user')
+    read_counts = {}
+    total_counts = {}
+    for receipt in receipts:
+        uid = receipt.user_id
+        total_counts[uid] = total_counts.get(uid, 0) + 1
+        if receipt.is_read:
+            read_counts[uid] = read_counts.get(uid, 0) + 1
+
+    for assignee in practice.assignees.all():
+        user = assignee.user
+        total = total_counts.get(user.id, 0)
+        read = read_counts.get(user.id, 0)
+        stats.append(
+            {
+                'user': user,
+                'total': total,
+                'read': read,
+                'unread': max(total - read, 0),
+            }
+        )
+    return stats
+
+
+class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView):
     template_name = 'accounts/work_practices.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        section = _section_for_admin_or_redirect(self.request)
-        if not section:
-            return context
+        role = self.get_role_context()
+        section = get_section_admin_section(self.request.user) if role.get('is_section_admin') else None
+
+        if section:
+            practices = list(_work_practices_for_section(section))
+            section_workers = get_section_workers_for_internal_guidelines(section)
+        else:
+            practices = list(_work_practices_for_user(self.request.user))
+            section_workers = User.objects.none()
+        now = timezone.now()
+        today = now.date()
+        is_member = not role.get('is_section_admin', False)
+
+        for practice in practices:
+            practice.status_label, practice.status_class = _work_practice_status(practice)
+            practice.is_responsible = practice.responsible_user_id == self.request.user.id
+            practice.assignee_count = len(practice.assignees.all())
+            if practice.is_responsible:
+                practice.responsible_messages = _work_practice_messages_for_responsible(practice)
+                practice.trainee_stats = _responsible_trainee_stats(practice)
+
+            # Days remaining counter (for participant cards)
+            if practice.end_time:
+                end_date = practice.end_time.date()
+                delta = (end_date - today).days
+                practice.days_left = delta          # 0 = oxirgi kun, <0 = tugagan
+                practice.is_last_day = (delta == 0)
+                practice.is_ended = (delta < 0 or practice.closed_at is not None)
+            else:
+                practice.days_left = None
+                practice.is_last_day = False
+                practice.is_ended = False
+
+            # Available tests: only on last day or after practice ends, only for non-responsible members
+            is_assignee = not practice.is_responsible  # responsible person sees trainee view
+            if is_member and is_assignee and (practice.is_last_day or practice.is_ended):
+                practice.available_tests = list(
+                    WorkPracticeTest.objects.filter(
+                        practice_permissions__practice=practice,
+                        is_active=True
+                    ).distinct()
+                )
+            else:
+                practice.available_tests = []
+
+            # Completed attempts for this practice (participant view)
+            if is_member and is_assignee:
+                practice.my_attempts = list(
+                    WorkPracticeTestAttempt.objects.filter(
+                        practice=practice,
+                        user=self.request.user,
+                        finished_at__isnull=False,
+                    ).select_related('test').order_by('-started_at')
+                )
+
+        # Split for template clarity
+        participant_practices = [p for p in practices if not p.is_responsible]
+        responsible_practices = [p for p in practices if p.is_responsible]
 
         context.update(
-            self.get_role_context()
+            role
             | {
                 'section': section,
-                'practices': list(_work_practices_for_section(section)),
+                'practices': practices,
+                'participant_practices': participant_practices,
+                'responsible_practices': responsible_practices,
                 'form': SectionWorkPracticeForm(),
-                'section_workers': get_section_workers_for_internal_guidelines(section),
+                'section_workers': section_workers,
+                'can_manage_work_practices': role.get('is_section_admin', False),
+                'practice_inbox': SectionWorkPracticeMessageReceipt.objects.filter(user=self.request.user)
+                .select_related(
+                    'message',
+                    'message__practice',
+                    'message__sender',
+                    'message__sender__profile',
+                    'message__practice__responsible_user__profile',
+                )
+                .order_by('-message__created_at')[:50],
                 'page_title': 'Ish amaliyotlari',
             }
         )
         return context
 
     def post(self, request, *args, **kwargs):
+        if not self.get_role_context().get('is_section_admin'):
+            messages.error(request, "Ish amaliyoti qo‘shish huquqi sizda yo‘q.")
+            return redirect('work-practices')
         section = _section_for_admin_or_redirect(request)
         if not section:
             return redirect('dashboard')
 
         form = SectionWorkPracticeForm(request.POST)
-        worker_ids = request.POST.getlist('workers')
-        if not worker_ids:
-            messages.error(request, 'Kamida bitta ma’sul xodim tanlang.')
-            return redirect('work-practices')
+        responsible_id = request.POST.get('responsible_user')
 
         if form.is_valid():
             practice = form.save(commit=False)
             practice.section = section
             practice.created_by = request.user
             practice.save()
-            if _sync_work_practice_assignees(practice, worker_ids, section):
-                messages.success(request, 'Ish amaliyoti yuborildi.')
-            else:
+            if not _set_work_practice_responsible(practice, responsible_id, section):
                 practice.delete()
-                messages.error(request, 'Tanlangan xodimlar bo‘limga tegishli emas.')
+                messages.error(request, "Yangi amaliyotda bitta mas’ul xodim tanlash majburiy.")
+                return redirect('work-practices')
+            messages.success(request, 'Ish amaliyoti yaratildi. Endi "Amaliyotchi biriktirish" orqali amaliyotchilarni belgilang.')
         else:
             for field, errors in form.errors.items():
                 label = form.fields.get(field).label if field in form.fields else field
@@ -1943,20 +2154,118 @@ class SectionWorkPracticeEditView(SectionAdminRequiredMixin, View):
             messages.error(request, 'Ish amaliyoti topilmadi.')
             return redirect('work-practices')
 
-        worker_ids = request.POST.getlist('workers')
-        if not worker_ids:
-            messages.error(request, 'Kamida bitta ma’sul xodim tanlang.')
-            return redirect('work-practices')
-
         form = SectionWorkPracticeForm(request.POST, instance=practice)
         if form.is_valid():
             form.save()
-            if _sync_work_practice_assignees(practice, worker_ids, section):
-                messages.success(request, 'Ish amaliyoti yangilandi.')
-            else:
-                messages.error(request, 'Tanlangan xodimlar bo‘limga tegishli emas.')
+            messages.success(request, 'Ish amaliyoti yangilandi.')
         else:
             messages.error(request, 'Tahrirlashda xatolik bor.')
+        return redirect('work-practices')
+
+
+class SectionWorkPracticeAssignWorkersView(SectionAdminRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        section = _section_for_admin_or_redirect(request)
+        if not section:
+            return redirect('dashboard')
+
+        practice = _work_practices_for_section(section).filter(pk=pk).first()
+        if not practice:
+            messages.error(request, 'Ish amaliyoti topilmadi.')
+            return redirect('work-practices')
+
+        worker_ids = request.POST.getlist('workers')
+
+        if _sync_work_practice_assignees(practice, worker_ids, section):
+            messages.success(request, "Amaliyotchilar biriktirildi.")
+        else:
+            messages.error(request, 'Tanlangan xodimlar bo‘limga tegishli emas.')
+        return redirect('work-practices')
+
+
+class SectionWorkPracticeFinishView(SectionAdminRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        section = _section_for_admin_or_redirect(request)
+        if not section:
+            return redirect('dashboard')
+
+        practice = _work_practices_for_section(section).filter(pk=pk).first()
+        if not practice:
+            messages.error(request, 'Ish amaliyoti topilmadi.')
+            return redirect('work-practices')
+
+        if practice.closed_at:
+            messages.info(request, "Ish amaliyoti allaqachon tugatilgan.")
+            return redirect('work-practices')
+
+        practice.closed_at = timezone.now()
+        practice.closed_by = request.user
+        practice.save(update_fields=['closed_at', 'closed_by'])
+        messages.success(request, "Ish amaliyoti boshqaruvchi tomonidan tugatildi.")
+        return redirect('work-practices')
+
+
+class SectionWorkPracticeMessageSendView(AuthenticatedRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        practice = SectionWorkPractice.objects.prefetch_related('assignees').filter(pk=pk).first()
+        if not practice:
+            messages.error(request, "Ish amaliyoti topilmadi.")
+            return redirect('work-practices')
+
+        if practice.responsible_user_id != request.user.id:
+            messages.error(request, "Bu amaliyot uchun xabar yuborish huquqi sizda yo‘q.")
+            return redirect('work-practices')
+
+        assignee_ids = set(practice.assignees.values_list('user_id', flat=True))
+        if not assignee_ids:
+            messages.error(request, "Bu amaliyotga hali amaliyotchilar biriktirilmagan.")
+            return redirect('work-practices')
+
+        title = (request.POST.get('title') or '').strip()
+        body = (request.POST.get('body') or '').strip()
+        scope = request.POST.get('recipient_scope')
+        selected_raw = request.POST.getlist('recipient_ids')
+
+        if not body:
+            messages.error(request, "Xabar matnini to‘ldiring.")
+            return redirect('work-practices')
+
+        if scope == 'all':
+            recipient_ids = sorted(assignee_ids)
+        else:
+            selected_ids = {int(x) for x in selected_raw if str(x).isdigit()}
+            recipient_ids = sorted(selected_ids & assignee_ids)
+
+        if not recipient_ids:
+            messages.error(request, "Kamida bitta amaliyotchini tanlang.")
+            return redirect('work-practices')
+
+        message = SectionWorkPracticeMessage.objects.create(
+            practice=practice,
+            sender=request.user,
+            title=title or 'Xabar',
+            body=body,
+        )
+        SectionWorkPracticeMessageReceipt.objects.bulk_create(
+            [SectionWorkPracticeMessageReceipt(message=message, user_id=user_id) for user_id in recipient_ids],
+            ignore_conflicts=True,
+        )
+        messages.success(request, "Xabar yuborildi.")
+        return redirect('work-practices')
+
+
+class SectionWorkPracticeMessageReadView(AuthenticatedRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        receipt = SectionWorkPracticeMessageReceipt.objects.select_related('user').filter(pk=pk).first()
+        if not receipt or receipt.user_id != request.user.id:
+            messages.error(request, "Xabar holati topilmadi.")
+            return redirect('work-practices')
+
+        if not receipt.is_read:
+            receipt.is_read = True
+            receipt.read_at = timezone.now()
+            receipt.save(update_fields=['is_read', 'read_at'])
+            messages.success(request, "Xabar o‘qilgan deb belgilandi.")
         return redirect('work-practices')
 
 

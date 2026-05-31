@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block head %}
+<style>
+  .v-card { display:flex; align-items:center; gap:12px; padding:11px 16px; border:1.5px solid #e2e8f0; border-radius:12px; background:#fff; cursor:pointer; transition:border-color .15s,background .15s,box-shadow .15s; }
+  .v-card:hover { border-color:#a5b4fc; background:#fafaff; }
+  .v-card.sel { border-color:#6366f1; background:#eef2ff; box-shadow:0 0 0 3px rgba(99,102,241,.1); }
+  .v-radio { width:20px; height:20px; border-radius:50%; border:2px solid #cbd5e1; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:border-color .15s,background .15s; }
+  .v-card.sel .v-radio { border-color:#6366f1; background:#6366f1; }
+  .v-dot { width:8px; height:8px; border-radius:50%; background:#fff; opacity:0; transform:scale(0); transition:opacity .15s,transform .15s; }
+  .v-card.sel .v-dot { opacity:1; transform:scale(1); }
+  .v-badge { width:26px; height:26px; border-radius:7px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#64748b; flex-shrink:0; transition:background .15s,color .15s; }
+  .v-card.sel .v-badge { background:#c7d2fe; color:#4338ca; }
+  .v-inp { flex:1; min-width:0; height:36px; padding:0 10px; border:none; background:transparent; font-size:14px; font-weight:500; color:#1e293b; outline:none; }
+  .v-inp::placeholder { color:#cbd5e1; font-weight:400; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:760px">
+  <div class="mb-4 flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-bold text-slate-800">Savol qo'shish</h2>
+      <p class="text-sm text-slate-400 mt-0.5">Test: <span class="font-semibold text-slate-600">{{ assessment.name }}</span></p>
+    </div>
+    <a href="{% url 'assessment-detail' assessment.pk %}"
+       class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-500 hover:bg-slate-50 transition">
+      <i class="bi bi-arrow-left"></i> Orqaga
+    </a>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+    <form method="post" id="qform">
+      {% csrf_token %}
+      <div class="mb-6">
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Savol matni</label>
+        <textarea name="text" id="qtext" rows="3" required
+                  class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-[15px] text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-none leading-relaxed"
+                  placeholder="Savol matnini kiriting..."></textarea>
+      </div>
+
+      <div class="border-t border-slate-100 pt-5 mb-5">
+        <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Javob variantlari</p>
+        <p class="text-xs text-slate-400 mb-4">To'g'ri javobni belgilash uchun variant kartasiga bosing.</p>
+        <input type="hidden" name="correct_option" id="correct_option" value="">
+        <div class="space-y-2.5" id="v-list">
+          <div class="v-card" data-n="1" onclick="pickV(1)">
+            <div class="v-radio"><div class="v-dot"></div></div>
+            <div class="v-badge">A</div>
+            <input class="v-inp" type="text" name="option_1" placeholder="A-variant matnini kiriting" onclick="event.stopPropagation();pickV(1)" required>
+          </div>
+          <div class="v-card" data-n="2" onclick="pickV(2)">
+            <div class="v-radio"><div class="v-dot"></div></div>
+            <div class="v-badge">B</div>
+            <input class="v-inp" type="text" name="option_2" placeholder="B-variant matnini kiriting" onclick="event.stopPropagation();pickV(2)" required>
+          </div>
+          <div class="v-card" data-n="3" onclick="pickV(3)">
+            <div class="v-radio"><div class="v-dot"></div></div>
+            <div class="v-badge">C</div>
+            <input class="v-inp" type="text" name="option_3" placeholder="C-variant matnini kiriting" onclick="event.stopPropagation();pickV(3)" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+        <button type="submit" name="save_and_add"
+                class="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+          <i class="bi bi-plus-lg"></i> Keyingi savol
+        </button>
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 h-10 px-6 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-500 transition shadow-sm shadow-indigo-500/20">
+          <i class="bi bi-check2-circle"></i> Saqlash
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function pickV(n) {
+  document.querySelectorAll('#v-list .v-card').forEach(c => c.classList.remove('sel'));
+  document.querySelector('#v-list .v-card[data-n="' + n + '"]').classList.add('sel');
+  document.getElementById('correct_option').value = n;
+}
+document.getElementById('qform').addEventListener('submit', function(e) {
+  if (!document.getElementById('correct_option').value) {
+    e.preventDefault();
+    alert("To'g'ri javobni tanlang!");
+  }
+});
+</script>
+{% endblock %}

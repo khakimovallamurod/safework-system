@@ -18,11 +18,31 @@ class RoleContextMixin:
         is_section_admin = profile is not None and profile.role == 'section_admin' and not user.is_superuser
         is_worker = profile is not None and profile.role == 'worker' and not user.is_superuser
         is_section_member = False
+        can_view_work_practices = False
         if is_worker and user.is_authenticated:
             from companies.models import SectionMembership
             is_section_member = SectionMembership.objects.filter(user=user).exists()
+        has_dept_assessment = False
+        if user.is_authenticated:
+            from companies.models import DepartmentAssessmentNotification
+            has_dept_assessment = (
+                is_department_admin
+                or DepartmentAssessmentNotification.objects.filter(
+                    user=user,
+                    assessment__is_published=True,
+                    assessment__is_active=True,
+                ).exists()
+            )
+        if user.is_authenticated:
+            from companies.models import SectionWorkPractice, SectionWorkPracticeAssignee
+            can_view_work_practices = (
+                is_section_admin
+                or SectionWorkPracticeAssignee.objects.filter(user=user).exists()
+                or SectionWorkPractice.objects.filter(responsible_user=user).exists()
+                or SectionWorkPractice.objects.filter(created_by=user).exists()
+            )
         if user.is_superuser:
-            role_name = 'Boshqaruv'
+            role_name = 'Super admin'
         elif is_org_leader:
             role_name = 'Tashkilot rahbari'
         elif is_department_admin:
@@ -53,6 +73,7 @@ class RoleContextMixin:
             'is_worker': is_worker,
             'is_company_admin': is_org_leader,
             'role_name': role_name,
+            'can_view_work_practices': can_view_work_practices,
             'user_profile': profile,
             'profile_photo_url': profile_photo_url,
             'profile_display_name': profile_display_name,
@@ -60,6 +81,7 @@ class RoleContextMixin:
             'company_profile': None,
             'company_industry': profile.industry if profile else None,
             'can_manage_professions': user.is_superuser or is_org_leader,
+            'has_dept_assessment': has_dept_assessment,
         }
 
 
@@ -180,5 +202,18 @@ class SectionMemberRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleCo
     def handle_no_permission(self):
         if self.request.user.is_authenticated:
             messages.error(self.request, "Bu sahifa faqat bo‘lim xodimlari uchun.")
+            return redirect('dashboard')
+        return redirect('login')
+
+
+class WorkPracticeAccessRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
+    login_url = 'login'
+
+    def test_func(self):
+        return self.get_role_context().get('can_view_work_practices', False)
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            messages.error(self.request, "Ish amaliyotlari sahifasi siz uchun yopiq.")
             return redirect('dashboard')
         return redirect('login')

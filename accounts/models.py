@@ -7,12 +7,14 @@ User = get_user_model()
 
 
 class UserProfile(models.Model):
+    ROLE_SUPER_ADMIN = 'super_admin'
     ROLE_ORG_LEADER = 'organization_leader'
     ROLE_DEPARTMENT_ADMIN = 'department_admin'
     ROLE_SECTION_ADMIN = 'section_admin'
     ROLE_WORKER = 'worker'
 
     ROLE_CHOICES = [
+        (ROLE_SUPER_ADMIN, 'Super admin'),
         (ROLE_ORG_LEADER, 'Tashkilot rahbari'),
         (ROLE_DEPARTMENT_ADMIN, 'Boshqarma admini'),
         (ROLE_SECTION_ADMIN, 'Bo‘lim admini'),
@@ -50,10 +52,19 @@ class UserProfile(models.Model):
         related_name='team_members',
     )
     is_new_registration = models.BooleanField(default=False)
+    practice_qualified = models.BooleanField(
+        default=False,
+        verbose_name="Amaliyotdan o'tgan (ishlashga yaroqli)"
+    )
+    assessment_qualified = models.BooleanField(
+        null=True, blank=True, default=None,
+        verbose_name="Bilim baholashdan o'tgan (None=sinalmagan, True=o'tdi, False=o'tmadi)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
+        db_table = 'foydalanuvchi'
 
     def __str__(self):
         return f'{self.full_name} ({self.get_role_display()})'

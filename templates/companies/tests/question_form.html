@@ -1,0 +1,411 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════ TOKENS ═══════════════════════ */
+.qp { font-family: 'Inter', -apple-system, sans-serif; }
+
+/* ═══════════════════════ HEADER ══════════════════════ */
+.qp-h1 {
+  font-size: 22px; font-weight: 800; color: #0f172a;
+  letter-spacing: -.03em; line-height: 1.2; margin: 0 0 4px;
+}
+.qp-sub {
+  font-size: 13px; font-weight: 500; color: #94a3b8; margin: 0;
+}
+.qp-sub b { font-weight: 600; color: #475569; }
+
+.qp-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 14px;
+  font-size: 13px; font-weight: 600;
+  color: #475569; background: #fff;
+  border: 1.5px solid #e2e8f0; border-radius: 10px;
+  text-decoration: none; white-space: nowrap;
+  transition: color .15s, background .15s, border-color .15s, transform .15s;
+}
+.qp-back:hover {
+  color: #0f172a; background: #f8fafc;
+  border-color: #cbd5e1; transform: translateX(-2px);
+}
+
+/* ═══════════════════════ CARD ════════════════════════ */
+.qp-card {
+  background: #fff;
+  border: 1px solid #e8edf3;
+  border-radius: 22px;
+  box-shadow: 0 4px 6px -1px rgba(15,23,42,.04),
+              0 12px 40px -4px rgba(15,23,42,.08);
+  padding: 36px;
+}
+
+/* ═══════════════════════ SECTION LABEL ═══════════════ */
+.sec-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase;
+  color: #94a3b8; margin: 0 0 14px;
+}
+.sec-label::after {
+  content: ''; flex: 1; height: 1px; background: #f1f5f9;
+}
+
+/* ═══════════════════════ RICH TEXT EDITOR ════════════ */
+.rte-wrap {
+  border: 1.5px solid #e2e8f0; border-radius: 14px;
+  background: #fff; overflow: hidden;
+  transition: border-color .18s, box-shadow .18s;
+}
+.rte-wrap:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3.5px rgba(99,102,241,.11);
+}
+.rte-bar {
+  display: flex; align-items: center; gap: 1px;
+  padding: 8px 12px;
+  background: #f8fafc; border-bottom: 1.5px solid #f1f5f9;
+}
+.rte-sep { width: 1px; height: 16px; background: #e2e8f0; margin: 0 6px; flex-shrink: 0; }
+.rtb {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 7px; cursor: pointer;
+  background: transparent; color: #94a3b8;
+  transition: background .12s, color .12s;
+}
+.rtb:hover { background: #e2e8f0; color: #334155; }
+.rtb.on    { background: #e0e7ff; color: #6366f1; }
+.rte-body {
+  min-height: 140px; max-height: 300px; overflow-y: auto;
+  padding: 16px 18px; outline: none;
+  font-size: 15px; line-height: 1.72; color: #1e293b;
+  font-family: 'Inter', sans-serif; caret-color: #6366f1;
+}
+.rte-body:empty::before {
+  content: attr(data-ph); color: #cbd5e1; pointer-events: none;
+}
+.rte-body ul, .rte-body ol { padding-left: 1.5em; margin: 4px 0; }
+.rte-body li { margin: 2px 0; }
+
+/* ═══════════════════════ VARIANT CARDS ══════════════ */
+.v-list { display: flex; flex-direction: column; gap: 10px; }
+
+.v-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px;
+  border: 1.5px solid #e2e8f0; border-radius: 13px;
+  background: #fff; cursor: pointer;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.v-card:hover { border-color: #a5b4fc; background: #fafaff; }
+.v-card.sel {
+  border-color: #6366f1; background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.1);
+}
+
+.v-radio {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid #cbd5e1; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: border-color .15s, background .15s;
+}
+.v-card.sel .v-radio { border-color: #6366f1; background: #6366f1; }
+.v-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #fff;
+  opacity: 0; transform: scale(0);
+  transition: opacity .15s, transform .15s;
+}
+.v-card.sel .v-dot { opacity: 1; transform: scale(1); }
+
+.v-badge {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: #f1f5f9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #64748b;
+  flex-shrink: 0; transition: background .15s, color .15s;
+}
+.v-card.sel .v-badge { background: #c7d2fe; color: #4338ca; }
+
+.v-inp {
+  flex: 1; min-width: 0; width: 100%; height: 36px;
+  padding: 0 8px; border: none; background: transparent;
+  font-size: 14px; font-weight: 500; color: #1e293b;
+  outline: none; font-family: 'Inter', sans-serif;
+}
+.v-inp::placeholder { color: #cbd5e1; font-weight: 400; }
+.v-card.sel .v-inp  { color: #3730a3; }
+
+/* ═══════════════════════ DIVIDER ════════════════════ */
+.qp-hr {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e2e8f0 30%, #e2e8f0 70%, transparent);
+  margin: 28px 0;
+}
+
+/* ═══════════════════════ BUTTONS ════════════════════ */
+.btn-save {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 44px; padding: 0 24px;
+  background: #6366f1; color: #fff;
+  font-size: 14px; font-weight: 700;
+  border: none; border-radius: 11px; cursor: pointer;
+  font-family: 'Inter', sans-serif; letter-spacing: -.01em;
+  box-shadow: 0 2px 6px rgba(99,102,241,.3),
+              0 8px 20px rgba(99,102,241,.25);
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+.btn-save:hover {
+  background: #4f46e5; transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(99,102,241,.35),
+              0 12px 28px rgba(99,102,241,.3);
+}
+.btn-save:active { transform: translateY(0); }
+
+.btn-next {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 44px; padding: 0 20px;
+  background: #fff; color: #475569;
+  font-size: 14px; font-weight: 600;
+  border: 1.5px solid #e2e8f0; border-radius: 11px;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: background .15s, border-color .15s, color .15s,
+              transform .15s, box-shadow .15s;
+}
+.btn-next:hover {
+  background: #f8fafc; border-color: #c7d2fe;
+  color: #3730a3; transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15,23,42,.06);
+}
+.btn-next:active { transform: translateY(0); }
+
+/* ═══════════════════════ ERROR ══════════════════════ */
+.qp-err {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 500; color: #ef4444;
+  margin-top: 6px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qp" style="background:#F5F7FB; min-height:calc(100vh - 64px); padding:36px 24px 60px;">
+<div style="max-width:820px; width:100%;">
+
+  {# ══ HEADER ══ #}
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:24px;">
+    <div>
+      <h1 class="qp-h1">
+        {% if form.instance.pk %}Savolni tahrirlash{% else %}Yangi savol qo'shish{% endif %}
+      </h1>
+      <p class="qp-sub">Test: <b>{{ test.name }}</b></p>
+    </div>
+    <a href="{% url 'companies:test_detail' test.id %}" class="qp-back">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+      Orqaga
+    </a>
+  </div>
+
+  {# ══ CARD ══ #}
+  <div class="qp-card">
+  <form method="post" id="q-form">
+    {% csrf_token %}
+
+    {# ── Savol matni ── #}
+    <section>
+      <p class="sec-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Savol matni
+      </p>
+
+      <textarea id="{{ form.text.id_for_label }}"
+                name="{{ form.text.html_name }}"
+                style="display:none">{% if form.text.value %}{{ form.text.value }}{% endif %}</textarea>
+
+      <div class="rte-wrap">
+        {# toolbar #}
+        <div class="rte-bar" id="rte-bar">
+          <button type="button" class="rtb" data-cmd="undo" title="Orqaga">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          </button>
+          <button type="button" class="rtb" data-cmd="redo" title="Oldinga">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M19 9H8.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+          </button>
+          <div class="rte-sep"></div>
+          <button type="button" class="rtb" data-cmd="bold" title="Qalin (Ctrl+B)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h8a4 4 0 0 0 0-8H6v8Z"/><path d="M6 12h9a4 4 0 0 1 0 8H6v-8Z"/></svg>
+          </button>
+          <button type="button" class="rtb" data-cmd="italic" title="Kursiv (Ctrl+I)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+          </button>
+          <button type="button" class="rtb" data-cmd="underline" title="Tagchiziq (Ctrl+U)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" y1="20" x2="20" y2="20"/></svg>
+          </button>
+          <div class="rte-sep"></div>
+          <button type="button" class="rtb" data-cmd="insertUnorderedList" title="Ro'yxat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>
+          </button>
+        </div>
+        {# editor #}
+        <div class="rte-body" id="rte-body"
+             contenteditable="true"
+             data-ph="Savol matnini bu yerga kiriting...">
+        </div>
+      </div>
+
+      {% if form.text.errors %}
+      <p class="qp-err"><i class="bi bi-exclamation-circle-fill"></i> {{ form.text.errors.0 }}</p>
+      {% endif %}
+    </section>
+
+    <div class="qp-hr"></div>
+
+    {# ── Variantlar ── #}
+    <section>
+      <p class="sec-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 8 12 12 16"/><line x1="16" y1="12" x2="8" y2="12"/></svg>
+        Javob variantlari
+      </p>
+      <p style="font-size:12.5px; color:#94a3b8; font-weight:500; margin:-6px 0 16px;">
+        To'g'ri javobni belgilash uchun variant kartasiga bosing
+      </p>
+
+      <div class="v-list" id="v-list">
+
+        {# A #}
+        <div class="v-card {% if form.correct_option.value == 1 or form.correct_option.value == '1' %}sel{% endif %}"
+             data-n="1" onclick="pickV(1)">
+          <input type="radio" name="{{ form.correct_option.name }}" value="1"
+                 id="cr-1" style="display:none"
+                 {% if form.correct_option.value == 1 or form.correct_option.value == '1' %}checked{% endif %} required>
+          <div class="v-radio"><div class="v-dot"></div></div>
+          <div class="v-badge">A</div>
+          <input class="v-inp" type="text"
+                 name="{{ form.option_1.html_name }}"
+                 id="{{ form.option_1.id_for_label }}"
+                 value="{{ form.option_1.value|default:'' }}"
+                 placeholder="A-variant matnini kiriting"
+                 onclick="event.stopPropagation(); pickV(1);">
+        </div>
+        {% if form.option_1.errors %}
+        <p class="qp-err" style="margin-left:68px;">{{ form.option_1.errors.0 }}</p>
+        {% endif %}
+
+        {# B #}
+        <div class="v-card {% if form.correct_option.value == 2 or form.correct_option.value == '2' %}sel{% endif %}"
+             data-n="2" onclick="pickV(2)">
+          <input type="radio" name="{{ form.correct_option.name }}" value="2"
+                 id="cr-2" style="display:none"
+                 {% if form.correct_option.value == 2 or form.correct_option.value == '2' %}checked{% endif %}>
+          <div class="v-radio"><div class="v-dot"></div></div>
+          <div class="v-badge">B</div>
+          <input class="v-inp" type="text"
+                 name="{{ form.option_2.html_name }}"
+                 id="{{ form.option_2.id_for_label }}"
+                 value="{{ form.option_2.value|default:'' }}"
+                 placeholder="B-variant matnini kiriting"
+                 onclick="event.stopPropagation(); pickV(2);">
+        </div>
+        {% if form.option_2.errors %}
+        <p class="qp-err" style="margin-left:68px;">{{ form.option_2.errors.0 }}</p>
+        {% endif %}
+
+        {# C #}
+        <div class="v-card {% if form.correct_option.value == 3 or form.correct_option.value == '3' %}sel{% endif %}"
+             data-n="3" onclick="pickV(3)">
+          <input type="radio" name="{{ form.correct_option.name }}" value="3"
+                 id="cr-3" style="display:none"
+                 {% if form.correct_option.value == 3 or form.correct_option.value == '3' %}checked{% endif %}>
+          <div class="v-radio"><div class="v-dot"></div></div>
+          <div class="v-badge">C</div>
+          <input class="v-inp" type="text"
+                 name="{{ form.option_3.html_name }}"
+                 id="{{ form.option_3.id_for_label }}"
+                 value="{{ form.option_3.value|default:'' }}"
+                 placeholder="C-variant matnini kiriting"
+                 onclick="event.stopPropagation(); pickV(3);">
+        </div>
+        {% if form.option_3.errors %}
+        <p class="qp-err" style="margin-left:68px;">{{ form.option_3.errors.0 }}</p>
+        {% endif %}
+
+      </div>
+    </section>
+
+    {# ── Actions ── #}
+    <div style="display:flex; align-items:center; justify-content:flex-end; gap:10px;
+                margin-top:30px; padding-top:24px; border-top:1px solid #f1f5f9;">
+      <button type="submit" name="save_and_add" class="btn-next">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Keyingi savol
+      </button>
+      <button type="submit" class="btn-save">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Savolni saqlash
+      </button>
+    </div>
+
+  </form>
+  </div>{# /qp-card #}
+
+</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Rich Text Editor ── */
+  var body   = document.getElementById('rte-body');
+  var hidden = document.getElementById('{{ form.text.id_for_label }}');
+  var bar    = document.getElementById('rte-bar');
+  var CMDS   = ['bold', 'italic', 'underline', 'insertUnorderedList'];
+
+  var existing = hidden ? hidden.value.trim() : '';
+  if (existing) {
+    body.innerHTML = existing.startsWith('<') ? existing : existing.replace(/\n/g, '<br>');
+  }
+
+  bar.querySelectorAll('.rtb[data-cmd]').forEach(function (btn) {
+    btn.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      document.execCommand(btn.dataset.cmd, false, null);
+      body.focus();
+      syncBar();
+    });
+  });
+
+  function syncBar() {
+    bar.querySelectorAll('.rtb[data-cmd]').forEach(function (btn) {
+      if (CMDS.indexOf(btn.dataset.cmd) !== -1) {
+        btn.classList.toggle('on', document.queryCommandState(btn.dataset.cmd));
+      }
+    });
+  }
+  body.addEventListener('keyup',   syncBar);
+  body.addEventListener('mouseup', syncBar);
+
+  var form = document.getElementById('q-form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      if (hidden) hidden.value = body.innerHTML;
+    });
+  }
+
+  /* ── Variant selection ── */
+  window.pickV = function (n) {
+    document.querySelectorAll('#v-list .v-card').forEach(function (c) {
+      c.classList.remove('sel');
+    });
+    var card  = document.querySelector('#v-list .v-card[data-n="' + n + '"]');
+    var radio = document.getElementById('cr-' + n);
+    if (card)  card.classList.add('sel');
+    if (radio) radio.checked = true;
+  };
+
+})();
+</script>
+{% endblock %}

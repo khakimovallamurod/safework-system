@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-xl">
+  <div class="mb-4 flex items-center justify-between">
+    <h2 class="text-lg font-bold text-slate-800">Yangi test yaratish</h2>
+    <a href="{% url 'assessment-list' %}" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-500 hover:bg-slate-50 transition">
+      <i class="bi bi-arrow-left"></i> Orqaga
+    </a>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Test nomi</label>
+        <input type="text" name="name" required
+               value="{{ assessment.name|default:'' }}"
+               class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+               placeholder="Masalan: Mehnat xavfsizligi asoslari">
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Davomiylik (daq)</label>
+          <input type="number" name="duration" min="1" required
+                 value="{{ assessment.duration|default:30 }}"
+                 class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Savollar soni</label>
+          <input type="number" name="questions_count" min="1" required
+                 value="{{ assessment.questions_count|default:10 }}"
+                 class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Urinishlar soni</label>
+          <input type="number" name="attempts_allowed" min="1" required
+                 value="{{ assessment.attempts_allowed|default:1 }}"
+                 class="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Izoh (ixtiyoriy)</label>
+        <textarea name="notes" rows="3"
+                  class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-none"
+                  placeholder="Test haqida qo'shimcha ma'lumot...">{{ assessment.notes|default:'' }}</textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <a href="{% if assessment %}{% url 'assessment-detail' assessment.pk %}{% else %}{% url 'assessment-list' %}{% endif %}"
+           class="inline-flex h-10 items-center px-5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Bekor</a>
+        <button type="submit"
+                class="inline-flex h-10 items-center gap-2 px-6 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-500 transition shadow-sm shadow-indigo-500/20">
+          <i class="bi bi-check2-circle"></i> {% if assessment %}Saqlash{% else %}Yaratish{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

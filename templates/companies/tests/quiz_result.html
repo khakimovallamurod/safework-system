@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-5 pb-10">
+
+  {# ── Natija xulosa kartasi ── #}
+  <div class="bg-white rounded-2xl border shadow-sm overflow-hidden
+              {% if attempt.score >= 60 %}border-emerald-200{% else %}border-rose-200{% endif %}">
+
+    <div class="{% if attempt.score >= 80 %}bg-emerald-500{% elif attempt.score >= 60 %}bg-emerald-400{% else %}bg-rose-500{% endif %} px-6 py-5 text-white text-center">
+      <div class="text-5xl font-black mb-1">{{ attempt.score }}%</div>
+      <div class="text-sm font-semibold opacity-90">{{ test.name }}</div>
+    </div>
+
+    <div class="px-6 py-5">
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <div class="text-center flex-1">
+          <div class="text-2xl font-bold text-emerald-600">{{ correct_count }}</div>
+          <div class="text-xs text-slate-500 mt-0.5">To'g'ri</div>
+        </div>
+        <div class="w-px h-10 bg-slate-100"></div>
+        <div class="text-center flex-1">
+          <div class="text-2xl font-bold text-rose-500">{{ total|add:"-"|add:correct_count }}</div>
+          <div class="text-xs text-slate-500 mt-0.5">Xato</div>
+        </div>
+        <div class="w-px h-10 bg-slate-100"></div>
+        <div class="text-center flex-1">
+          <div class="text-2xl font-bold text-slate-700">{{ total }}</div>
+          <div class="text-xs text-slate-500 mt-0.5">Jami savol</div>
+        </div>
+      </div>
+
+      {% if attempt.score >= 60 %}
+      <div class="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+        <i class="bi bi-patch-check-fill text-emerald-500 text-xl flex-shrink-0"></i>
+        <div>
+          <p class="text-sm font-bold text-emerald-800">Ishlashga yaroqli!</p>
+          <p class="text-xs text-emerald-600">Siz amaliyotdan muvaffaqiyatli o'tdingiz.</p>
+        </div>
+      </div>
+      {% else %}
+      <div class="flex items-center gap-3 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+        <i class="bi bi-x-circle-fill text-rose-400 text-xl flex-shrink-0"></i>
+        <div>
+          <p class="text-sm font-bold text-rose-800">Amaliyot o'tilmadi</p>
+          <p class="text-xs text-rose-600">O'tish uchun 60% va undan yuqori ball kerak.</p>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="mt-4 flex gap-3 justify-end">
+        <a href="{% url 'work-practices' %}"
+           class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+          <i class="bi bi-briefcase"></i> Amaliyotlarga
+        </a>
+        <a href="{% url 'dashboard' %}"
+           class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition">
+          <i class="bi bi-house"></i> Bosh sahifa
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {# ── Savol-javoblar tahlili ── #}
+  {% if answers %}
+  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+      <i class="bi bi-list-check text-indigo-500 text-base"></i>
+      <h3 class="text-sm font-bold text-slate-800">Savol-javoblar tahlili</h3>
+    </div>
+
+    <div class="divide-y divide-slate-50">
+      {% for ans in answers %}
+      <div class="px-5 py-4 {% if ans.is_correct %}bg-white{% else %}bg-rose-50/40{% endif %}">
+
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 mt-0.5">
+            {% if ans.is_correct %}
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 text-xs font-bold">
+              <i class="bi bi-check-lg"></i>
+            </span>
+            {% else %}
+            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-500 text-xs font-bold">
+              <i class="bi bi-x-lg"></i>
+            </span>
+            {% endif %}
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 mb-2">
+              {{ forloop.counter }}. {{ ans.question.text|safe }}
+            </p>
+
+            <div class="space-y-1.5">
+              {% with q=ans.question %}
+
+              {# A variant #}
+              <div class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs
+                {% if ans.selected_option == 1 and ans.is_correct %}bg-emerald-100 border border-emerald-300 text-emerald-800
+                {% elif ans.selected_option == 1 and not ans.is_correct %}bg-rose-100 border border-rose-300 text-rose-800
+                {% elif q.correct_option == 1 and not ans.is_correct %}bg-emerald-50 border border-emerald-200 text-emerald-700
+                {% else %}bg-slate-50 border border-slate-200 text-slate-600{% endif %}">
+                <span class="font-bold w-4">A)</span>
+                <span>{{ q.option_1 }}</span>
+                {% if ans.selected_option == 1 and ans.is_correct %}<i class="bi bi-check-circle-fill text-emerald-500 ml-auto"></i>{% endif %}
+                {% if ans.selected_option == 1 and not ans.is_correct %}<i class="bi bi-x-circle-fill text-rose-400 ml-auto"></i>{% endif %}
+                {% if q.correct_option == 1 and ans.selected_option != 1 %}<i class="bi bi-check-circle text-emerald-400 ml-auto"></i>{% endif %}
+              </div>
+
+              {# B variant #}
+              <div class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs
+                {% if ans.selected_option == 2 and ans.is_correct %}bg-emerald-100 border border-emerald-300 text-emerald-800
+                {% elif ans.selected_option == 2 and not ans.is_correct %}bg-rose-100 border border-rose-300 text-rose-800
+                {% elif q.correct_option == 2 and not ans.is_correct %}bg-emerald-50 border border-emerald-200 text-emerald-700
+                {% else %}bg-slate-50 border border-slate-200 text-slate-600{% endif %}">
+                <span class="font-bold w-4">B)</span>
+                <span>{{ q.option_2 }}</span>
+                {% if ans.selected_option == 2 and ans.is_correct %}<i class="bi bi-check-circle-fill text-emerald-500 ml-auto"></i>{% endif %}
+                {% if ans.selected_option == 2 and not ans.is_correct %}<i class="bi bi-x-circle-fill text-rose-400 ml-auto"></i>{% endif %}
+                {% if q.correct_option == 2 and ans.selected_option != 2 %}<i class="bi bi-check-circle text-emerald-400 ml-auto"></i>{% endif %}
+              </div>
+
+              {# C variant #}
+              <div class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs
+                {% if ans.selected_option == 3 and ans.is_correct %}bg-emerald-100 border border-emerald-300 text-emerald-800
+                {% elif ans.selected_option == 3 and not ans.is_correct %}bg-rose-100 border border-rose-300 text-rose-800
+                {% elif q.correct_option == 3 and not ans.is_correct %}bg-emerald-50 border border-emerald-200 text-emerald-700
+                {% else %}bg-slate-50 border border-slate-200 text-slate-600{% endif %}">
+                <span class="font-bold w-4">C)</span>
+                <span>{{ q.option_3 }}</span>
+                {% if ans.selected_option == 3 and ans.is_correct %}<i class="bi bi-check-circle-fill text-emerald-500 ml-auto"></i>{% endif %}
+                {% if ans.selected_option == 3 and not ans.is_correct %}<i class="bi bi-x-circle-fill text-rose-400 ml-auto"></i>{% endif %}
+                {% if q.correct_option == 3 and ans.selected_option != 3 %}<i class="bi bi-check-circle text-emerald-400 ml-auto"></i>{% endif %}
+              </div>
+
+              {% endwith %}
+            </div>
+
+            {% if not ans.is_correct %}
+            <p class="mt-2 text-xs text-slate-400 flex items-center gap-1">
+              <i class="bi bi-lightbulb text-amber-400"></i>
+              Siz tanladingiz:
+              <strong class="text-rose-600">
+                {% if ans.selected_option == 1 %}A) {{ ans.question.option_1 }}
+                {% elif ans.selected_option == 2 %}B) {{ ans.question.option_2 }}
+                {% else %}C) {{ ans.question.option_3 }}{% endif %}
+              </strong>
+            </p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

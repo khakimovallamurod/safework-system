@@ -27,14 +27,14 @@
     <h2 class="text-lg font-semibold text-slate-900">
         <i class="bi bi-envelope mr-2 text-emerald-600"></i>Xabarnomalar
     </h2>
-    <p class="mt-1 text-sm text-slate-500">Bo‘lim nazoratchisidan kelgan xabarlar — o‘qing va tasdiqlang</p>
+    <p class="mt-1 text-sm text-slate-500">Bo'lim nazoratchisidan kelgan xabarlar — o'qing va tasdiqlang</p>
 
     <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="px-4 py-3">Sarlavha</th>
-                    <th class="px-4 py-3">O‘qish</th>
+                    <th class="px-4 py-3">O'qish</th>
                     <th class="px-4 py-3">Holat</th>
                 </tr>
             </thead>
@@ -55,7 +55,7 @@
                             data-acknowledged="{% if receipt.is_read %}1{% else %}0{% endif %}"
                             data-ack-url="{% url 'section-member-message-read' receipt.id %}"
                         >
-                            <i class="bi bi-eye"></i> O‘qish
+                            <i class="bi bi-eye"></i> O'qish
                         </button>
                     </td>
                     <td class="px-4 py-3">
@@ -73,7 +73,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="3" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha xabarlar yo‘q
+                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha xabarlar yo'q
                     </td>
                 </tr>
                 {% endfor %}
@@ -112,7 +112,7 @@
                     <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50/60">
                         <input type="checkbox" id="msgAgreeCheckbox" class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/25" />
                         <span class="text-sm leading-snug text-slate-800">
-                            <span class="font-semibold text-slate-900">Roziman, o‘qidim</span>
+                            <span class="font-semibold text-slate-900">Roziman, o'qidim</span>
                             <span class="mt-0.5 block text-xs text-slate-500">Xabar mazmuni bilan tanishdim va rozi ekanligimni tasdiqlayman</span>
                         </span>
                     </label>

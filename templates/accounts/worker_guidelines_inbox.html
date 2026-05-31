@@ -7,7 +7,7 @@
     <h2 class="text-lg font-semibold text-slate-900">
         <i class="bi bi-bell mr-2 text-emerald-600"></i>Xabarnomalar
     </h2>
-    <p class="mt-1 text-sm text-slate-500">Boshqarma yoki bo‘limdan kelgan xabarlar — o‘qing va tasdiqlang</p>
+    <p class="mt-1 text-sm text-slate-500">Boshqarma yoki bo'limdan kelgan xabarlar — o'qing va tasdiqlang</p>
 
     <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -24,11 +24,11 @@
                 <tr class="{% if item.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
                     <td class="px-4 py-3 font-medium text-slate-900">{{ item.name }}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold {% if item.source_label == 'Bo‘lim' %}bg-violet-100 text-violet-800{% else %}bg-sky-100 text-sky-800{% endif %}">{{ item.source_label }}</span>
+                        <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold {% if item.source_label == "Bo'lim" %}bg-violet-100 text-violet-800{% else %}bg-sky-100 text-sky-800{% endif %}">{{ item.source_label }}</span>
                     </td>
                     <td class="px-4 py-3">
                         <a href="{{ item.pdf_url }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
-                            <i class="bi bi-eye"></i> O‘qish
+                            <i class="bi bi-eye"></i> O'qish
                         </a>
                     </td>
                     <td class="px-4 py-3">
@@ -46,7 +46,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="4" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha xabar yo‘q
+                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha xabar yo'q
                     </td>
                 </tr>
                 {% endfor %}
@@ -54,4 +54,61 @@
         </table>
     </div>
 </div>
+{% if assessment_notifs %}
+<div class="mt-5 rounded-2xl border border-indigo-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)] overflow-hidden">
+    <div class="bg-indigo-50 border-b border-indigo-100 px-5 py-4 flex items-center gap-2">
+        <i class="bi bi-mortarboard text-indigo-600 text-lg"></i>
+        <div>
+            <h3 class="font-bold text-indigo-900 text-sm">Bilimni baholash testlari</h3>
+            <p class="text-xs text-indigo-500 mt-0.5">Boshqarmadan yuborilgan testlar</p>
+        </div>
+    </div>
+    <div class="divide-y divide-slate-100">
+        {% for notif in assessment_notifs %}
+        <div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4
+                    {% if notif.is_confirmed %}bg-white{% else %}bg-indigo-50/30{% endif %}">
+            <div class="flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="text-sm font-bold text-slate-800">{{ notif.assessment.name }}</span>
+                    {% if not notif.is_confirmed %}
+                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        <i class="bi bi-bell-fill"></i> Yangi test
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="flex flex-wrap gap-x-4 text-xs text-slate-400">
+                    <span><i class="bi bi-clock mr-0.5"></i>{{ notif.assessment.duration }} daqiqa</span>
+                    <span><i class="bi bi-question-circle mr-0.5"></i>{{ notif.assessment.questions_count }} savol</span>
+                    <span><i class="bi bi-arrow-repeat mr-0.5"></i>{{ notif.assessment.attempts_allowed }} urinish</span>
+                    <span><i class="bi bi-calendar mr-0.5"></i>{{ notif.assessment.published_at|date:"d.m.Y" }}</span>
+                </div>
+                {% if notif.assessment.notes %}
+                <p class="text-xs text-slate-400 mt-1">{{ notif.assessment.notes|truncatechars:100 }}</p>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                {% if not notif.is_confirmed %}
+                <form method="post" action="{% url 'assessment-confirm' notif.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition">
+                        <i class="bi bi-check2-circle"></i> Qabul qilish
+                    </button>
+                </form>
+                {% else %}
+                <span class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    <i class="bi bi-check2-circle"></i> Qabul qilindi
+                </span>
+                {% endif %}
+                <a href="{% url 'assessment-inbox' %}"
+                   class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition whitespace-nowrap">
+                    <i class="bi bi-play-fill"></i> Testni ko'rish
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 {% endblock %}

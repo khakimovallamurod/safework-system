@@ -305,6 +305,7 @@
             }
         }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body class="bg-slate-100 text-slate-900 antialiased">
 <div class="app-shell flex min-h-screen w-full">
@@ -347,30 +348,63 @@
                 </a>
             {% elif is_department_admin %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'section-admins' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'section-admins' %}">
-                    <i class="bi bi-diagram-2 text-base"></i> Bo‘limlar
+                    <i class="bi bi-diagram-2 text-base"></i> Bo'limlar
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'entry-guidelines' or request.resolver_match.url_name == 'entry-guideline-edit' or request.resolver_match.url_name == 'entry-guideline-send' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'entry-guidelines' %}">
-                    <i class="bi bi-file-earmark-pdf text-base"></i> Kirish yo‘riqnomalari
+                    <i class="bi bi-file-earmark-pdf text-base"></i> Kirish yo'riqnomalari
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'guideline-status' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'guideline-status' %}">
-                    <i class="bi bi-clipboard2-check text-base"></i> Yo‘riqnomalar holati
+                    <i class="bi bi-clipboard2-check text-base"></i> Yo'riqnomalar holati
                 </a>
+                <div class="mb-1">
+                  <button type="button" id="assess-toggle"
+                          onclick="toggleAssessMenu()"
+                          class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                                 {% if request.resolver_match.url_name == 'assessment-list' or request.resolver_match.url_name == 'assessment-create' or request.resolver_match.url_name == 'assessment-detail' or request.resolver_match.url_name == 'assessment-edit' or request.resolver_match.url_name == 'assessment-publish' or request.resolver_match.url_name == 'assessment-toggle' or request.resolver_match.url_name == 'assessment-question-add' or request.resolver_match.url_name == 'assessment-question-delete' or request.resolver_match.url_name == 'assessment-overview' or request.resolver_match.url_name == 'assessment-report' %}bg-brand-500/30 text-white{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="bi bi-mortarboard text-base flex-shrink-0"></i>
+                    <span class="flex-1 text-left">Bilimni baholash</span>
+                    <i class="bi bi-chevron-down text-xs transition-transform" id="assess-chevron"></i>
+                  </button>
+                  <div id="assess-submenu"
+                       class="mt-1 ml-3 space-y-0.5 {% if request.resolver_match.url_name != 'assessment-list' and request.resolver_match.url_name != 'assessment-create' and request.resolver_match.url_name != 'assessment-detail' and request.resolver_match.url_name != 'assessment-edit' and request.resolver_match.url_name != 'assessment-publish' and request.resolver_match.url_name != 'assessment-toggle' and request.resolver_match.url_name != 'assessment-question-add' and request.resolver_match.url_name != 'assessment-question-delete' and request.resolver_match.url_name != 'assessment-overview' and request.resolver_match.url_name != 'assessment-report' %}hidden{% endif %}">
+                    <a href="{% url 'assessment-list' %}"
+                       class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                              {% if request.resolver_match.url_name == 'assessment-list' or request.resolver_match.url_name == 'assessment-create' or request.resolver_match.url_name == 'assessment-detail' or request.resolver_match.url_name == 'assessment-edit' or request.resolver_match.url_name == 'assessment-question-add' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                      <i class="bi bi-journal-check text-xs"></i> Testlarni boshqarish
+                    </a>
+                    <a href="{% url 'assessment-overview' %}"
+                       class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                              {% if request.resolver_match.url_name == 'assessment-overview' or request.resolver_match.url_name == 'assessment-report' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                      <i class="bi bi-bar-chart text-xs"></i> Natijalar va hisobot
+                    </a>
+                  </div>
+                </div>
             {% elif is_section_admin %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'section-workers' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'section-workers' %}">
                     <i class="bi bi-people text-base"></i> Xodimlar
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'internal-guidelines' or request.resolver_match.url_name == 'internal-guideline-edit' or request.resolver_match.url_name == 'internal-guideline-send' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'internal-guidelines' %}">
-                    <i class="bi bi-journal-text text-base"></i> Ichki yo‘riqnomalar
+                    <i class="bi bi-journal-text text-base"></i> Ichki yo'riqnomalar
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'internal-guideline-status' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'internal-guideline-status' %}">
-                    <i class="bi bi-clipboard2-check text-base"></i> Yo‘riqnomalar holati
+                    <i class="bi bi-clipboard2-check text-base"></i> Yo'riqnomalar holati
                 </a>
-                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'work-practices' or request.resolver_match.url_name == 'work-practice-edit' or request.resolver_match.url_name == 'work-practice-delete' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'work-practices' %}">
-                    <i class="bi bi-briefcase text-base"></i> Ish amaliyotlari
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if 'test' in request.resolver_match.url_name or 'question' in request.resolver_match.url_name %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'companies:test_list' %}">
+                    <i class="bi bi-journal-check text-base"></i> Test boshqaruvi
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'notifications-inbox' or request.resolver_match.url_name == 'guideline-inbox' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'notifications-inbox' %}">
                     {% include 'accounts/includes/nav_notification_badge.html' %}
                     <span>Xabarnomalar</span>
+                </a>
+            {% endif %}
+            {% if has_dept_assessment and not is_department_admin %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if 'assessment' in request.resolver_match.url_name %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'assessment-inbox' %}">
+                    <i class="bi bi-mortarboard text-base"></i> Bilimni baholash
+                </a>
+            {% endif %}
+            {% if can_view_work_practices %}
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'work-practices' or request.resolver_match.url_name == 'work-practice-edit' or request.resolver_match.url_name == 'work-practice-delete' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'work-practices' %}">
+                    <i class="bi bi-briefcase text-base"></i> Ish amaliyotlari
                 </a>
             {% endif %}
             {% if request.user.is_authenticated %}
@@ -708,6 +742,24 @@
         }
     })();
 
+</script>
+<script>
+function toggleAssessMenu() {
+  var menu = document.getElementById('assess-submenu');
+  var chevron = document.getElementById('assess-chevron');
+  if (menu) {
+    menu.classList.toggle('hidden');
+    if (chevron) chevron.style.transform = menu.classList.contains('hidden') ? '' : 'rotate(180deg)';
+  }
+}
+// Open on load if active
+(function() {
+  var menu = document.getElementById('assess-submenu');
+  var chevron = document.getElementById('assess-chevron');
+  if (menu && !menu.classList.contains('hidden') && chevron) {
+    chevron.style.transform = 'rotate(180deg)';
+  }
+})();
 </script>
 </body>
 </html>

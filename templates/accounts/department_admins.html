@@ -28,7 +28,7 @@
             <h2 class="text-lg font-semibold text-slate-900">
                 <i class="bi bi-building mr-2 text-emerald-600"></i>Boshqarmalar
             </h2>
-            <p class="mt-1 text-sm text-slate-500">Tashkilot boshqarmalarini qo‘shing, nazoratchisini belgilang va boshqaring.</p>
+            <p class="mt-1 text-sm text-slate-500">Tashkilot boshqarmalarini qo'shing, nazoratchisini belgilang va boshqaring.</p>
         </div>
         <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#departmentAddModal" type="button">
             <i class="bi bi-plus-circle"></i> Yangi boshqarma
@@ -42,7 +42,7 @@
                     <th class="px-4 py-3 w-16">#</th>
                     <th class="px-4 py-3">Boshqarma nomi</th>
                     <th class="px-4 py-3">Nazoratchi</th>
-                    <th class="px-4 py-3">Qo‘shilgan sana va vaqt</th>
+                    <th class="px-4 py-3">Qo'shilgan sana va vaqt</th>
                     <th class="px-4 py-3 text-right w-32">Amallar</th>
                 </tr>
             </thead>
@@ -66,7 +66,7 @@
                             <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#departmentEditModal{{ department.id }}" type="button" title="Tahrirlash">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
-                            <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#departmentDeleteModal{{ department.id }}" type="button" title="O‘chirish">
+                            <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#departmentDeleteModal{{ department.id }}" type="button" title="O'chirish">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
@@ -74,7 +74,7 @@
                 {% empty %}
                     <tr>
                         <td colspan="5" class="px-4 py-10 text-center text-slate-400">
-                            <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha boshqarmalar yo‘q
+                            <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha boshqarmalar yo'q
                         </td>
                     </tr>
                 {% endfor %}
@@ -89,7 +89,7 @@
             <form method="post" action="{% url 'department-admins' %}">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title">Yangi boshqarma qo‘shish</h5>
+                    <h5 class="modal-title">Yangi boshqarma qo'shish</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
                 </div>
                 <div class="modal-body space-y-3">
@@ -99,11 +99,11 @@
                     {{ form.supervisor }}
                     {% if workers_count == 0 %}
                         <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                            Tashkilotingizga biriktirilgan xodim topilmadi. Avval xodim ro‘yxatdan o‘tkazing.
+                            Tashkilotingizga biriktirilgan xodim topilmadi. Avval xodim ro'yxatdan o'tkazing.
                         </p>
                     {% endif %}
                     <p class="text-xs text-slate-500">
-                        <i class="bi bi-clock mr-1"></i>Qo‘shilgan sana va vaqt avtomatik joriy vaqt bilan saqlanadi.
+                        <i class="bi bi-clock mr-1"></i>Qo'shilgan sana va vaqt avtomatik joriy vaqt bilan saqlanadi.
                     </p>
                 </div>
                 <div class="modal-footer">
@@ -155,14 +155,14 @@
             </div>
             <div class="modal-body">
                 <p class="text-sm text-slate-700">
-                    <strong>{{ department.name }}</strong> boshqarmasini o‘chirmoqchimisiz? Nazoratchi va bog‘langan xodimlar ishchi sifatida qayta belgilanadi.
+                    <strong>{{ department.name }}</strong> boshqarmasini o'chirmoqchimisiz? Nazoratchi va bog'langan xodimlar ishchi sifatida qayta belgilanadi.
                 </p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
                 <form method="post" action="{% url 'department-delete' department.id %}" class="m-0">
                     {% csrf_token %}
-                    <button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700" type="submit">Ha, o‘chirish</button>
+                    <button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700" type="submit">Ha, o'chirish</button>
                 </form>
             </div>
         </div>

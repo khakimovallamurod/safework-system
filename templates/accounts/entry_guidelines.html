@@ -5,7 +5,7 @@
     <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
             <h2 class="text-lg font-semibold text-slate-900">
-                <i class="bi bi-file-earmark-pdf mr-2 text-emerald-600"></i>Kirish yo‘riqnomalari
+                <i class="bi bi-file-earmark-pdf mr-2 text-emerald-600"></i>Kirish yo'riqnomalari
             </h2>
             <p class="mt-1 text-sm text-slate-500">
                 {% if department %}Boshqarma: <strong>{{ department.name }}</strong>{% else %}Boshqarma topilmadi.{% endif %}
@@ -13,7 +13,7 @@
         </div>
         {% if department %}
         <button type="button" data-bs-toggle="modal" data-bs-target="#guidelineAddModal" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">
-            <i class="bi bi-plus-circle"></i> Yangi yo‘riqnoma
+            <i class="bi bi-plus-circle"></i> Yangi yo'riqnoma
         </button>
         {% endif %}
     </div>
@@ -40,7 +40,7 @@
                             href="{% url 'guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}"
                             class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100"
                         >
-                            <i class="bi bi-eye"></i> Ko‘rish
+                            <i class="bi bi-eye"></i> Ko'rish
                         </a>
                     </td>
                     <td class="px-4 py-3 text-slate-500">{{ guideline.created_at|date:'d.m.Y H:i' }}</td>
@@ -51,7 +51,7 @@
                         <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#guidelineEditModal{{ guideline.id }}" title="Tahrirlash">
                             <i class="bi bi-pencil-square"></i>
                         </button>
-                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#guidelineDeleteModal{{ guideline.id }}" title="O‘chirish">
+                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#guidelineDeleteModal{{ guideline.id }}" title="O'chirish">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
@@ -59,7 +59,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="5" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha yo‘riqnomalar yo‘q
+                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha yo'riqnomalar yo'q
                     </td>
                 </tr>
                 {% endfor %}
@@ -76,7 +76,7 @@
             <form method="post" action="{% url 'entry-guidelines' %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title">Yangi yo‘riqnoma</h5>
+                    <h5 class="modal-title">Yangi yo'riqnoma</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body space-y-3">
@@ -111,7 +111,7 @@
                     <input type="file" name="pdf_file" accept="application/pdf" class="form-control" />
                     <p class="text-xs text-slate-500">
                         Joriy:
-                        <a href="{% url 'guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}" class="font-medium text-emerald-700 hover:text-emerald-800">PDF ko‘rish</a>
+                        <a href="{% url 'guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}" class="font-medium text-emerald-700 hover:text-emerald-800">PDF ko'rish</a>
                     </p>
                 </div>
                 <div class="modal-footer">
@@ -126,13 +126,13 @@
 <div class="modal fade" id="guidelineDeleteModal{{ guideline.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">O‘chirish</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body text-sm text-slate-700"><strong>{{ guideline.name }}</strong> o‘chirilsinmi?</div>
+            <div class="modal-header"><h5 class="modal-title">O'chirish</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body text-sm text-slate-700"><strong>{{ guideline.name }}</strong> o'chirilsinmi?</div>
             <div class="modal-footer">
                 <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
                 <form method="post" action="{% url 'entry-guideline-delete' guideline.id %}" class="m-0">
                     {% csrf_token %}
-                    <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white">Ha, o‘chirish</button>
+                    <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white">Ha, o'chirish</button>
                 </form>
             </div>
         </div>
@@ -151,7 +151,7 @@
                 <div class="modal-body max-h-[70vh] overflow-y-auto space-y-4">
                     <div>
                         <div class="mb-2 flex items-center justify-between">
-                            <span class="text-sm font-semibold text-slate-800">Bo‘limlar</span>
+                            <span class="text-sm font-semibold text-slate-800">Bo'limlar</span>
                             <button type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-800 select-all-sections" data-form="sendForm{{ guideline.id }}">
                                 <i class="bi bi-check2-square"></i> Hammasini tanlash
                             </button>
@@ -164,7 +164,7 @@
                                 <span class="ml-auto text-xs text-slate-400">{{ section.memberships.count }} xodim</span>
                             </label>
                             {% empty %}
-                            <p class="text-xs text-slate-400">Bo‘limlar yo‘q</p>
+                            <p class="text-xs text-slate-400">Bo'limlar yo'q</p>
                             {% endfor %}
                         </div>
                     </div>
@@ -183,7 +183,7 @@
                                 <span class="text-xs text-slate-500">{{ worker.username }}</span>
                             </label>
                             {% empty %}
-                            <p class="text-xs text-slate-400">Xodimlar yo‘q</p>
+                            <p class="text-xs text-slate-400">Xodimlar yo'q</p>
                             {% endfor %}
                         </div>
                     </div>

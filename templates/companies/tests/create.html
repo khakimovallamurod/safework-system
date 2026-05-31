@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="bg-[#F5F7FB] min-h-[calc(100vh-64px)] py-10 px-4 sm:px-6">
+    <div class="max-w-3xl mx-auto rounded-[20px] bg-white p-8 md:p-10 shadow-[0_12px_40px_rgba(15,23,42,0.06)] border border-slate-100">
+        
+        <div class="mb-8 border-b border-slate-100 pb-6">
+            <div class="flex items-center gap-4">
+                <a href="{% url 'companies:test_list' %}" class="inline-flex h-10 w-10 items-center justify-center rounded-[12px] bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all duration-200">
+                    <i class="bi bi-arrow-left text-lg"></i>
+                </a>
+                <h2 class="text-2xl font-bold text-slate-800 tracking-tight">{{ title }}</h2>
+            </div>
+        </div>
+
+        <form method="post" class="space-y-7">
+            {% csrf_token %}
+            
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-slate-700" for="{{ form.name.id_for_label }}">
+                    Test nomi <span class="text-rose-500 ml-0.5">*</span>
+                </label>
+                {{ form.name }}
+                {% if form.name.errors %}
+                    <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.name.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700" for="{{ form.duration.id_for_label }}">
+                        Davomiyligi (daqiqa) <span class="text-rose-500 ml-0.5">*</span>
+                    </label>
+                    {{ form.duration }}
+                    {% if form.duration.errors %}
+                        <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.duration.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700" for="{{ form.attempts_allowed.id_for_label }}">
+                        Urinishlar soni <span class="text-rose-500 ml-0.5">*</span>
+                    </label>
+                    {{ form.attempts_allowed }}
+                    {% if form.attempts_allowed.errors %}
+                        <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.attempts_allowed.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700" for="{{ form.questions_count.id_for_label }}">
+                        Savollar soni <span class="text-rose-500 ml-0.5">*</span>
+                    </label>
+                    {{ form.questions_count }}
+                    {% if form.questions_count.errors %}
+                        <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.questions_count.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <label class="relative flex items-center cursor-pointer group bg-slate-50 border border-slate-200 p-4 rounded-[14px] hover:bg-slate-100/70 transition-colors">
+                    {{ form.is_active }}
+                    <div class="w-11 h-6 bg-slate-300 rounded-full peer peer-focus:ring-4 peer-focus:ring-indigo-500/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[20px] after:left-[20px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <span class="ml-4 text-[15px] font-semibold text-slate-700">Test aktiv holatdami? (Hozircha ko'rinadimi)</span>
+                </label>
+            </div>
+
+            <div class="pt-8 mt-4 border-t border-slate-100 flex items-center justify-end gap-4">
+                <a href="{% url 'companies:test_list' %}" class="inline-flex h-[46px] items-center justify-center px-6 rounded-[12px] border border-slate-200 text-slate-600 font-semibold bg-white hover:bg-slate-50 hover:text-slate-900 transition-all duration-200 shadow-sm">
+                    Bekor qilish
+                </a>
+                <button type="submit" class="inline-flex h-[46px] items-center justify-center gap-2 px-8 rounded-[12px] bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200">
+                    <i class="bi bi-check2-circle text-lg"></i> Saqlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto my-6">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8">
+        
+        <div class="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">{{ test.name }}</h2>
+                <p class="text-sm text-slate-500 mt-1">Savollar soni: {{ questions|length }} ta</p>
+            </div>
+            <div class="flex flex-col items-end">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Qolgan vaqt</span>
+                <div class="flex items-center gap-2 font-bold text-xl text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100" id="timer">
+                    <i class="bi bi-stopwatch"></i> 
+                    <span id="time-display">--:--</span>
+                </div>
+            </div>
+        </div>
+        
+        <form id="quizForm" method="post" action="{% url 'companies:quiz_take' attempt.id %}">
+            {% csrf_token %}
+            
+            <div class="space-y-10">
+                {% for question in questions %}
+                <div class="question-block" id="q-{{ question.id }}">
+                    <div class="flex items-start gap-4 mb-5">
+                        <span class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-sm mt-0.5">
+                            {{ forloop.counter }}
+                        </span>
+                        <h3 class="text-lg font-semibold text-slate-800 leading-relaxed">{{ question.text }}</h3>
+                    </div>
+                    
+                    <div class="space-y-3 ml-12">
+                        <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
+                            <input type="radio" name="question_{{ question.id }}" value="1" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
+                            <span class="text-slate-700 font-medium select-none">{{ question.option_1 }}</span>
+                        </label>
+                        <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
+                            <input type="radio" name="question_{{ question.id }}" value="2" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
+                            <span class="text-slate-700 font-medium select-none">{{ question.option_2 }}</span>
+                        </label>
+                        <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
+                            <input type="radio" name="question_{{ question.id }}" value="3" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
+                            <span class="text-slate-700 font-medium select-none">{{ question.option_3 }}</span>
+                        </label>
+                    </div>
+                </div>
+                
+                {% if not forloop.last %}
+                <hr class="border-slate-100 ml-12">
+                {% endif %}
+                {% endfor %}
+            </div>
+            
+            <div class="mt-10 pt-6 border-t border-slate-200 flex justify-end">
+                <button type="submit" id="submitBtn" class="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3.5 text-base font-bold text-white transition hover:bg-emerald-700 shadow-md shadow-emerald-200">
+                    <i class="bi bi-check-circle"></i> Testni yakunlash
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Timer logic
+    const durationMinutes = {{ test.duration }};
+    const startTimeStr = "{{ attempt.started_at.isoformat }}";
+    
+    // Fallback if parsing fails
+    let endTime = new Date();
+    endTime.setMinutes(endTime.getMinutes() + durationMinutes);
+    
+    try {
+        const start = new Date(startTimeStr);
+        if (!isNaN(start.getTime())) {
+            endTime = new Date(start.getTime() + durationMinutes * 60000);
+        }
+    } catch(e) {}
+    
+    const display = document.getElementById('time-display');
+    const form = document.getElementById('quizForm');
+    
+    function updateTimer() {
+        const now = new Date();
+        const diff = Math.floor((endTime - now) / 1000);
+        
+        if (diff <= 0) {
+            display.textContent = "00:00";
+            document.getElementById('timer').classList.replace('text-indigo-600', 'text-rose-600');
+            document.getElementById('timer').classList.replace('bg-indigo-50', 'bg-rose-50');
+            document.getElementById('timer').classList.replace('border-indigo-100', 'border-rose-200');
+            clearInterval(timerInterval);
+            
+            // Auto submit
+            document.getElementById('submitBtn').innerHTML = "Vaqt tugadi. Yuborilmoqda...";
+            document.getElementById('submitBtn').disabled = true;
+            form.submit();
+            return;
+        }
+        
+        const m = Math.floor(diff / 60).toString().padStart(2, '0');
+        const s = (diff % 60).toString().padStart(2, '0');
+        display.textContent = `${m}:${s}`;
+        
+        if (diff < 60) {
+            document.getElementById('timer').classList.replace('text-indigo-600', 'text-amber-600');
+            document.getElementById('timer').classList.replace('bg-indigo-50', 'bg-amber-50');
+            document.getElementById('timer').classList.replace('border-indigo-100', 'border-amber-200');
+        }
+    }
+    
+    updateTimer();
+    const timerInterval = setInterval(updateTimer, 1000);
+</script>
+{% endblock %}

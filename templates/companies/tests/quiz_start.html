@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto mt-10">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center relative overflow-hidden">
+        <!-- Decoration -->
+        <div class="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-indigo-50 opacity-50"></div>
+        <div class="absolute -bottom-10 -left-10 w-24 h-24 rounded-full bg-sky-50 opacity-50"></div>
+        
+        <div class="relative z-10">
+            <div class="mx-auto w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center text-4xl text-indigo-600 mb-6">
+                <i class="bi bi-clipboard-check"></i>
+            </div>
+            
+            <h2 class="text-2xl font-bold text-slate-900 mb-2">{{ test.name }}</h2>
+            <p class="text-slate-500 mb-8">{{ practice.name }} amaliyoti yakuni bo'yicha</p>
+            
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div class="text-sm text-slate-500 mb-1">Davomiyligi</div>
+                    <div class="font-bold text-slate-800 text-lg">{{ test.duration }} <span class="text-sm font-normal">daq.</span></div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div class="text-sm text-slate-500 mb-1">Savollar</div>
+                    <div class="font-bold text-slate-800 text-lg">{{ test.questions_count }} <span class="text-sm font-normal">ta</span></div>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div class="text-sm text-slate-500 mb-1">Urinishlar</div>
+                    <div class="font-bold text-slate-800 text-lg">{{ attempts_left }} <span class="text-sm font-normal">qoldi</span></div>
+                </div>
+            </div>
+            
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-left mb-8">
+                <h4 class="font-semibold text-amber-800 flex items-center gap-2 mb-2"><i class="bi bi-exclamation-triangle"></i> Diqqat!</h4>
+                <ul class="text-sm text-amber-700 space-y-1 list-disc list-inside">
+                    <li>Test vaqtini to'xtatib bo'lmaydi.</li>
+                    <li>Barcha savollar random (tasodifiy) tarzda tanlanadi.</li>
+                    <li>Testni boshlaganingizdan so'ng, sahifani yopib yubormang.</li>
+                </ul>
+            </div>
+            
+            <form method="post" action="{% url 'companies:quiz_start' practice.id test.id %}">
+                {% csrf_token %}
+                <button type="submit" class="w-full inline-flex justify-center items-center gap-2 rounded-xl bg-indigo-600 px-6 py-4 text-lg font-bold text-white transition hover:bg-indigo-700 shadow-md shadow-indigo-200">
+                    Testni boshlash <i class="bi bi-arrow-right-short text-2xl -mr-2"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

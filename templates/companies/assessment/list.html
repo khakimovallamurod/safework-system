@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="space-y-5">
+
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="bi bi-mortarboard text-indigo-600"></i> Bilimni baholash
+        </h2>
+        <p class="text-sm text-slate-500 mt-0.5">Boshqarma: <strong>{{ dept.name }}</strong></p>
+      </div>
+      <a href="{% url 'assessment-create' %}"
+         class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition">
+        <i class="bi bi-plus-circle"></i> Yangi test
+      </a>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+      <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-4 py-3">#</th>
+            <th class="px-4 py-3">Test nomi</th>
+            <th class="px-4 py-3 text-center">Davomiylik</th>
+            <th class="px-4 py-3 text-center">Savollar</th>
+            <th class="px-4 py-3 text-center">Urinish</th>
+            <th class="px-4 py-3 text-center">Status</th>
+            <th class="px-4 py-3 text-center">Holat</th>
+            <th class="px-4 py-3 text-right">Amallar</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+          {% for a in assessments %}
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3">
+              <span class="inline-flex rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700">{{ forloop.counter }}</span>
+            </td>
+            <td class="px-4 py-3 font-semibold text-slate-800">{{ a.name }}</td>
+            <td class="px-4 py-3 text-center text-slate-500">{{ a.duration }} daq.</td>
+            <td class="px-4 py-3 text-center text-slate-500">{{ a.q_count }}/{{ a.questions_count }}</td>
+            <td class="px-4 py-3 text-center text-slate-500">{{ a.attempts_allowed }}×</td>
+            <td class="px-4 py-3 text-center">
+              <button type="button"
+                      class="status-btn inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-all hover:opacity-80
+                             {% if a.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}"
+                      data-url="{% url 'assessment-toggle' a.pk %}"
+                      data-active="{{ a.is_active|yesno:'true,false' }}"
+                      {% if a.is_published %}disabled title="Joriy qilingan test o'zgartirish mumkin emas"{% endif %}>
+                <span class="h-1.5 w-1.5 rounded-full {% if a.is_active %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+                <span>{% if a.is_active %}Faol{% else %}Nofaol{% endif %}</span>
+              </button>
+            </td>
+            <td class="px-4 py-3 text-center">
+              {% if a.is_published %}
+              <span class="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                <i class="bi bi-broadcast"></i> Joriy qilingan
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <i class="bi bi-pencil-square"></i> Tayyorlanmoqda
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-right">
+              <div class="inline-flex gap-1">
+                <a href="{% url 'assessment-detail' a.pk %}"
+                   class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition" title="Boshqarish">
+                  <i class="bi bi-gear text-xs"></i>
+                </a>
+                {% if not a.is_published %}
+                <a href="{% url 'assessment-edit' a.pk %}"
+                   class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition" title="Tahrirlash">
+                  <i class="bi bi-pencil text-xs"></i>
+                </a>
+                <button type="button"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                        title="O'chirish"
+                        data-bs-toggle="modal" data-bs-target="#delModal{{ a.pk }}">
+                  <i class="bi bi-trash text-xs"></i>
+                </button>
+                {% endif %}
+                {% if a.is_published %}
+                <a href="{% url 'assessment-report' a.pk %}"
+                   class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition" title="Hisobot">
+                  <i class="bi bi-bar-chart text-xs"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+              <i class="bi bi-inbox block text-3xl mb-2 text-slate-300"></i>
+              Hozircha testlar yaratilmagan.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% for a in assessments %}
+{% if not a.is_published %}
+<div class="modal fade" id="delModal{{ a.pk }}" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-2xl overflow-hidden">
+      <div class="modal-header border-b border-slate-100 px-6 py-4">
+        <h5 class="modal-title font-semibold text-slate-800 text-base">Testni o'chirish</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-6 py-5 text-center">
+        <div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+          <i class="bi bi-exclamation-triangle text-xl"></i>
+        </div>
+        <p class="text-sm text-slate-600">
+          <strong class="text-slate-800">{{ a.name }}</strong> testini o'chirmoqchimisiz?<br>
+          <span class="text-slate-400 text-xs">Barcha savollar ham o'chiriladi.</span>
+        </p>
+      </div>
+      <div class="modal-footer border-t border-slate-100 px-6 py-4 flex justify-center gap-3">
+        <button type="button"
+                class="rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+                data-bs-dismiss="modal">Bekor qilish</button>
+        <form method="post" action="{% url 'assessment-delete' a.pk %}" class="m-0">
+          {% csrf_token %}
+          <button type="submit"
+                  class="rounded-xl bg-rose-600 px-5 py-2 text-sm font-medium text-white hover:bg-rose-700 transition">
+            O'chirish
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<script>
+document.querySelectorAll('.status-btn:not([disabled])').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    fetch(btn.dataset.url, {
+      method: 'POST',
+      headers: {'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest'}
+    }).then(r => r.json()).then(function(data) {
+      var dot = btn.querySelector('span:first-child');
+      var txt = btn.querySelector('span:last-child');
+      if (data.is_active) {
+        btn.className = btn.className.replace('bg-slate-100 text-slate-500', 'bg-emerald-100 text-emerald-700');
+        dot.className = dot.className.replace('bg-slate-400', 'bg-emerald-500');
+        txt.textContent = 'Faol';
+      } else {
+        btn.className = btn.className.replace('bg-emerald-100 text-emerald-700', 'bg-slate-100 text-slate-500');
+        dot.className = dot.className.replace('bg-emerald-500', 'bg-slate-400');
+        txt.textContent = 'Nofaol';
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

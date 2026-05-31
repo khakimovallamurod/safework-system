@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+
+    {# ── Header ── #}
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-slate-900">
+            <i class="bi bi-journal-check mr-2 text-indigo-600"></i>Test boshqaruvi
+        </h2>
+        <a href="{% url 'companies:test_create' %}"
+           class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
+            <i class="bi bi-plus-circle"></i> Yangi test yaratish
+        </a>
+    </div>
+
+    {# ── Table ── #}
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                    <th class="px-4 py-3 w-12">#</th>
+                    <th class="px-4 py-3">Test nomi</th>
+                    <th class="px-4 py-3 text-center">Davomiyligi</th>
+                    <th class="px-4 py-3 text-center">Urinishlar</th>
+                    <th class="px-4 py-3 text-center">Savollar</th>
+                    <th class="px-4 py-3 text-center">Status</th>
+                    <th class="px-4 py-3 text-center">Amaliyotlar</th>
+                    <th class="px-4 py-3 text-right w-36">Amallar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+                {% for test in tests %}
+                <tr class="hover:bg-slate-50 transition-colors">
+
+                    {# № #}
+                    <td class="px-4 py-3">
+                        <span class="inline-flex rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-600">
+                            {{ forloop.counter }}
+                        </span>
+                    </td>
+
+                    {# Nomi #}
+                    <td class="px-4 py-3 font-medium text-slate-900">{{ test.name }}</td>
+
+                    {# Davomiyligi #}
+                    <td class="px-4 py-3 text-center text-slate-500">{{ test.duration }} daq.</td>
+
+                    {# Urinishlar #}
+                    <td class="px-4 py-3 text-center text-slate-500">{{ test.attempts_allowed }}×</td>
+
+                    {# Savollar #}
+                    <td class="px-4 py-3 text-center text-slate-500">{{ test.questions_count }} ta</td>
+
+                    {# Status — bosilsa toggle qiladi #}
+                    <td class="px-4 py-3 text-center">
+                        <button type="button"
+                                class="status-btn inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all hover:opacity-80 cursor-pointer"
+                                data-url="{% url 'companies:test_toggle_status' test.id %}"
+                                data-active="{{ test.is_active|yesno:'true,false' }}"
+                                title="Bosib statusni o'zgartiring">
+                            {% if test.is_active %}
+                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                            <span>Faol</span>
+                            {% else %}
+                            <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                            <span>Nofaol</span>
+                            {% endif %}
+                        </button>
+                    </td>
+
+                    {# Amaliyotlar — nechta ruxsat berilgan #}
+                    <td class="px-4 py-3 text-center">
+                        <button type="button"
+                                class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold
+                                       {% if test.assigned_practice_ids %}bg-violet-50 text-violet-700 hover:bg-violet-100{% else %}bg-slate-50 text-slate-500 hover:bg-slate-100{% endif %}
+                                       transition-colors"
+                                data-bs-toggle="modal" data-bs-target="#permModal{{ test.id }}"
+                                title="Amaliyotlarga ruxsat berish">
+                            <i class="bi bi-shield-check"></i>
+                            {{ test.assigned_practice_ids|length }} ta
+                        </button>
+                    </td>
+
+                    {# Amallar #}
+                    <td class="px-4 py-3 text-right">
+                        <div class="inline-flex items-center gap-1">
+                            <a href="{% url 'companies:test_detail' test.id %}"
+                               class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 transition"
+                               title="Ko'rish">
+                                <i class="bi bi-eye text-xs"></i>
+                            </a>
+                            <a href="{% url 'companies:test_edit' test.id %}"
+                               class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition"
+                               title="Tahrirlash">
+                                <i class="bi bi-pencil text-xs"></i>
+                            </a>
+                            <button type="button"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                    data-bs-toggle="modal" data-bs-target="#deleteModal{{ test.id }}"
+                                    title="O'chirish">
+                                <i class="bi bi-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+                        <i class="bi bi-inbox text-4xl block mb-2 text-slate-300"></i>
+                        Hozircha testlar mavjud emas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% for test in tests %}
+
+{# ── Delete modal ── #}
+<div class="modal fade" id="deleteModal{{ test.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-2xl overflow-hidden">
+            <div class="modal-header border-b border-slate-100 px-6 py-4">
+                <h5 class="modal-title font-semibold text-slate-800 text-base">Testni o'chirish</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-6 py-5 text-center">
+                <div class="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                    <i class="bi bi-exclamation-triangle text-xl"></i>
+                </div>
+                <p class="text-sm text-slate-600">
+                    <strong class="text-slate-800">{{ test.name }}</strong> testini o'chirmoqchimisiz?<br>
+                    <span class="text-slate-400 text-xs">Bu amalni ortga qaytarib bo'lmaydi.</span>
+                </p>
+            </div>
+            <div class="modal-footer border-t border-slate-100 px-6 py-4 flex justify-center gap-3">
+                <button type="button"
+                        class="rounded-xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+                        data-bs-dismiss="modal">Bekor qilish</button>
+                <form method="post" action="{% url 'companies:test_delete' test.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="rounded-xl bg-rose-600 px-5 py-2 text-sm font-medium text-white hover:bg-rose-700 transition shadow-sm">
+                        O'chirish
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Practice permissions modal ── #}
+<div class="modal fade" id="permModal{{ test.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content border-0 shadow-xl rounded-2xl overflow-hidden">
+
+            <div class="modal-header border-b border-slate-100 px-6 py-4">
+                <div>
+                    <h5 class="font-semibold text-slate-800 text-base mb-0.5">
+                        <i class="bi bi-shield-check text-violet-600 mr-1.5"></i>Amaliyotlarga ruxsat
+                    </h5>
+                    <p class="text-xs text-slate-400 font-normal">{{ test.name }}</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form method="post" action="{% url 'companies:test_practice_permissions' test.id %}">
+                {% csrf_token %}
+                <div class="modal-body px-6 py-4">
+                    {% if practices %}
+                        <p class="text-xs text-slate-500 mb-3 font-medium">
+                            Quyidagi amaliyotlarga bu testni ko'rish ruxsatini bering:
+                        </p>
+                        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            {% for practice in practices %}
+                            <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all
+                                          {% if practice.id in test.assigned_practice_ids %}border-violet-300 bg-violet-50{% else %}border-slate-200 hover:border-slate-300 hover:bg-slate-50{% endif %}">
+                                <input type="checkbox"
+                                       name="practice_ids"
+                                       value="{{ practice.id }}"
+                                       class="mt-0.5 h-4 w-4 rounded accent-violet-600 cursor-pointer"
+                                       {% if practice.id in test.assigned_practice_ids %}checked{% endif %}>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-semibold text-slate-700 truncate">{{ practice.name }}</p>
+                                    <p class="text-xs text-slate-400 mt-0.5">
+                                        {{ practice.start_time|date:"d.m.Y" }} – {{ practice.end_time|date:"d.m.Y" }}
+                                        {% if practice.section %}· {{ practice.section.name }}{% endif %}
+                                    </p>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-8 text-slate-400">
+                            <i class="bi bi-calendar-x text-3xl block mb-2 text-slate-300"></i>
+                            <p class="text-sm">Bo'limda ish amaliyotlari mavjud emas.</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {% if practices %}
+                <div class="modal-footer border-t border-slate-100 px-6 py-4 flex justify-between items-center">
+                    <button type="button"
+                            class="text-xs text-slate-400 hover:text-slate-600 transition"
+                            data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-700 transition shadow-sm shadow-violet-200">
+                        <i class="bi bi-check2-circle"></i> Saqlash
+                    </button>
+                </div>
+                {% endif %}
+            </form>
+
+        </div>
+    </div>
+</div>
+
+{% endfor %}
+
+<script>
+document.querySelectorAll('.status-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        var url = btn.dataset.url;
+        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ?
+                        document.querySelector('[name=csrfmiddlewaretoken]').value :
+                        '{{ csrf_token }}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            var dot  = btn.querySelector('span:first-child');
+            var text = btn.querySelector('span:last-child');
+
+            if (data.is_active) {
+                btn.classList.remove('bg-slate-100', 'text-slate-500');
+                btn.classList.add('bg-emerald-100', 'text-emerald-700');
+                dot.className  = 'h-1.5 w-1.5 rounded-full bg-emerald-500';
+                text.textContent = 'Faol';
+                btn.dataset.active = 'true';
+            } else {
+                btn.classList.remove('bg-emerald-100', 'text-emerald-700');
+                btn.classList.add('bg-slate-100', 'text-slate-500');
+                dot.className  = 'h-1.5 w-1.5 rounded-full bg-slate-400';
+                text.textContent = 'Nofaol';
+                btn.dataset.active = 'false';
+            }
+        })
+        .catch(function () {
+            alert('Xatolik yuz berdi. Sahifani yangilang.');
+        });
+    });
+
+    // Set initial classes on page load
+    var isActive = btn.dataset.active === 'true';
+    if (isActive) {
+        btn.classList.add('bg-emerald-100', 'text-emerald-700');
+    } else {
+        btn.classList.add('bg-slate-100', 'text-slate-500');
+    }
+});
+</script>
+{% endblock %}
