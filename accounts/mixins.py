@@ -3,9 +3,48 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 
+from accounts.role_navigation import get_worker_entry_guideline_context
+
 
 class RoleContextMixin:
     """Adds role flags used by templates."""
+
+    def _get_structure_context(self, profile, is_section_member):
+        organization = getattr(profile, 'organization', None) if profile else None
+        organization_name = ''
+        department_name = ''
+        section_name = ''
+
+        if profile:
+            organization_name = (
+                getattr(organization, 'organization_name', '')
+                or profile.organization_name
+                or ''
+            )
+            if profile.department_id:
+                department_name = profile.department.name
+            if profile.section_id:
+                section_name = profile.section.name
+
+        if is_section_member:
+            from companies.models import SectionMembership
+            membership = (
+                SectionMembership.objects.filter(user=self.request.user)
+                .select_related('section', 'section__department', 'section__department__leader')
+                .first()
+            )
+            if membership:
+                section = membership.section
+                department = section.department
+                organization_name = department.leader.organization_name or organization_name
+                department_name = department.name
+                section_name = section.name
+
+        return {
+            'structure_organization_name': organization_name or '-',
+            'structure_department_name': department_name or '-',
+            'structure_section_name': section_name or '-',
+        }
 
     def get_role_context(self):
         user = self.request.user
@@ -64,7 +103,7 @@ class RoleContextMixin:
                 profile_photo_url = profile.profile_photo.url
         if not profile_short_name:
             profile_short_name = profile_display_name.split()[0] if profile_display_name else user.username
-        return {
+        context = {
             'is_super_admin': user.is_superuser,
             'is_org_leader': is_org_leader,
             'is_department_admin': is_department_admin,
@@ -83,6 +122,9 @@ class RoleContextMixin:
             'can_manage_professions': user.is_superuser or is_org_leader,
             'has_dept_assessment': has_dept_assessment,
         }
+        context.update(get_worker_entry_guideline_context(user, is_worker or is_section_admin))
+        context.update(self._get_structure_context(profile, is_section_member))
+        return context
 
 
 class AuthenticatedRequiredMixin(LoginRequiredMixin, RoleContextMixin):

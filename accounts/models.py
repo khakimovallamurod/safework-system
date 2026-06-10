@@ -27,6 +27,15 @@ class UserProfile(models.Model):
     middle_name = models.CharField(max_length=255, blank=True)
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
     phone_number = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    organization = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='organization_members',
+        limit_choices_to={'role': ROLE_ORG_LEADER},
+        verbose_name='Tashkilot',
+    )
     organization_name = models.CharField(max_length=255, blank=True)
     position = models.CharField(max_length=255, blank=True)
     address = models.TextField(blank=True)

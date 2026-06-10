@@ -2,183 +2,109 @@
 
 {% block content %}
 <div class="space-y-5">
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
-        <h2 class="text-lg font-semibold text-slate-900">
-            <i class="bi bi-clipboard2-check mr-2 text-emerald-600"></i>Yo'riqnomalar holati
-        </h2>
-        <p class="mt-1 text-sm text-slate-500">Yuborilgan yo'riqnomalar va qabul holati</p>
-
-        <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
-                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <tr>
-                        <th class="px-4 py-3">#</th>
-                        <th class="px-4 py-3">Yo'riqnoma</th>
-                        <th class="px-4 py-3">Yuborilgan vaqt</th>
-                        <th class="px-4 py-3 text-center">Bo'limlar</th>
-                        <th class="px-4 py-3 text-center">Xodimlar</th>
-                        <th class="px-4 py-3 text-center">Qabul</th>
-                        <th class="px-4 py-3 text-center">Qabul emas</th>
-                        <th class="px-4 py-3 text-right">Ko'rish</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 bg-white">
-                    {% for row in dispatch_rows %}
-                    <tr class="{% if selected_dispatch_id == row.dispatch.id %}bg-emerald-50/60{% else %}hover:bg-slate-50{% endif %}">
-                        <td class="px-4 py-3">{{ forloop.counter }}</td>
-                        <td class="px-4 py-3 font-medium text-slate-900">{{ row.dispatch.guideline.name }}</td>
-                        <td class="px-4 py-3 text-slate-500">{{ row.dispatch.sent_at|date:'d.m.Y H:i' }}</td>
-                        <td class="px-4 py-3 text-center">{{ row.stats.sections_count }}</td>
-                        <td class="px-4 py-3 text-center">{{ row.stats.workers_count }}</td>
-                        <td class="px-4 py-3 text-center text-emerald-700 font-semibold">{{ row.stats.accepted_count }}</td>
-                        <td class="px-4 py-3 text-center text-rose-600 font-semibold">{{ row.stats.not_accepted_count }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <a href="?dispatch={{ row.dispatch.id }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50/50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
-                                <i class="bi bi-list-ul text-sm"></i>
-                                Qabul holati
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="px-4 py-10 text-center text-slate-400">Hali yuborishlar yo'q</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
     {% if selected_dispatch and detail_stats %}
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
         <div class="mb-4">
-            <h3 class="text-base font-semibold text-slate-900">{{ selected_dispatch.guideline.name }}</h3>
+            <h3 class="text-base font-semibold text-slate-900">{{ selected_dispatch.guideline.name }} - {% if filter_type == 'accepted' %}Qabul qilganlar{% elif filter_type == 'not_accepted' %}Qabul qilmaganlar{% else %}Hisobot{% endif %}</h3>
             <p class="text-xs text-slate-500">Yuborilgan: {{ selected_dispatch.sent_at|date:'d.m.Y H:i' }}</p>
         </div>
 
-        <div class="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <a href="?dispatch={{ selected_dispatch.id }}&filter=sections" class="group flex items-start gap-3 rounded-xl border px-3.5 py-3 transition {% if filter_type == 'sections' %}border-violet-300 bg-violet-50/80 ring-2 ring-violet-200/80{% else %}border-slate-200 bg-white hover:border-violet-200 hover:bg-violet-50/40{% endif %}">
-                <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {% if filter_type == 'sections' %}bg-violet-600 text-white{% else %}bg-violet-100 text-violet-700 group-hover:bg-violet-200{% endif %}">
-                    <i class="bi bi-diagram-2"></i>
-                </span>
-                <span class="min-w-0">
-                    <span class="block text-sm font-semibold text-slate-900">Yuborilgan bo'limlar</span>
-                    <span class="mt-0.5 block text-xs leading-snug text-slate-500">Bo'limlar bo'yicha qabul holati ro'yxati</span>
-                </span>
-            </a>
-            <a href="?dispatch={{ selected_dispatch.id }}&filter=workers" class="group flex items-start gap-3 rounded-xl border px-3.5 py-3 transition {% if filter_type == 'workers' %}border-sky-300 bg-sky-50/80 ring-2 ring-sky-200/80{% else %}border-slate-200 bg-white hover:border-sky-200 hover:bg-sky-50/40{% endif %}">
-                <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {% if filter_type == 'workers' %}bg-sky-600 text-white{% else %}bg-sky-100 text-sky-700 group-hover:bg-sky-200{% endif %}">
-                    <i class="bi bi-people"></i>
-                </span>
-                <span class="min-w-0">
-                    <span class="block text-sm font-semibold text-slate-900">Yuborilgan xodimlar</span>
-                    <span class="mt-0.5 block text-xs leading-snug text-slate-500">Xodimlar bo'yicha qabul holati ro'yxati</span>
-                </span>
-            </a>
-            <a href="?dispatch={{ selected_dispatch.id }}&filter=accepted" class="group flex items-start gap-3 rounded-xl border px-3.5 py-3 transition {% if filter_type == 'accepted' %}border-emerald-300 bg-emerald-50/80 ring-2 ring-emerald-200/80{% else %}border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/40{% endif %}">
-                <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {% if filter_type == 'accepted' %}bg-emerald-600 text-white{% else %}bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200{% endif %}">
-                    <i class="bi bi-check-circle"></i>
-                </span>
-                <span class="min-w-0">
-                    <span class="block text-sm font-semibold text-emerald-900">Qabul qilganlar</span>
-                    <span class="mt-0.5 block text-xs leading-snug text-emerald-700/80">Yo'riqnomani tasdiqlaganlar</span>
-                </span>
-            </a>
-            <a href="?dispatch={{ selected_dispatch.id }}&filter=not_accepted" class="group flex items-start gap-3 rounded-xl border px-3.5 py-3 transition {% if filter_type == 'not_accepted' %}border-rose-300 bg-rose-50/80 ring-2 ring-rose-200/80{% else %}border-slate-200 bg-white hover:border-rose-200 hover:bg-rose-50/40{% endif %}">
-                <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg {% if filter_type == 'not_accepted' %}bg-rose-600 text-white{% else %}bg-rose-100 text-rose-700 group-hover:bg-rose-200{% endif %}">
-                    <i class="bi bi-hourglass-split"></i>
-                </span>
-                <span class="min-w-0">
-                    <span class="block text-sm font-semibold text-rose-900">Qabul qilmaganlar</span>
-                    <span class="mt-0.5 block text-xs leading-snug text-rose-700/80">Hali tasdiqlamagan qabul qiluvchilar</span>
-                </span>
-            </a>
+        {% if filter_type == 'report' and report_data %}
+        <div class="mb-4 flex flex-col items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/50 p-5 sm:flex-row">
+            <div>
+                <h4 class="text-lg font-bold text-slate-800">Umumiy hisobot</h4>
+                <p class="text-sm text-slate-500">Barcha bo'limlar bo'yicha jami qabul holati</p>
+            </div>
+            <div class="flex gap-6 text-center">
+                <div>
+                    <span class="block text-2xl font-bold text-emerald-600">{{ report_data.total_accepted }}</span>
+                    <span class="text-xs font-medium text-emerald-800 uppercase tracking-wide">Qabul qildi</span>
+                </div>
+                <div>
+                    <span class="block text-2xl font-bold text-rose-600">{{ report_data.total_not_accepted }}</span>
+                    <span class="text-xs font-medium text-rose-800 uppercase tracking-wide">Qabul qilmadi</span>
+                </div>
+                <div>
+                    <span class="block text-2xl font-bold text-blue-600">{{ report_data.total_percentage }}%</span>
+                    <span class="text-xs font-medium text-blue-800 uppercase tracking-wide">Ko'rsatkich</span>
+                </div>
+            </div>
         </div>
 
-        {% if filter_type == 'sections' %}
-        <div class="overflow-x-auto rounded-xl border border-violet-200">
-            <table class="min-w-full divide-y divide-violet-100 text-sm">
-                <thead class="bg-violet-50 text-left text-xs font-semibold uppercase tracking-wide text-violet-800">
-                    <tr>
-                        <th class="px-4 py-3">Bo'lim</th>
-                        <th class="px-4 py-3">Bo'lim nazoratchisi</th>
-                        <th class="px-4 py-3">Telefon</th>
-                        <th class="px-4 py-3 text-center">Holat</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-violet-50 bg-white">
-                    {% for item in detail_rows %}
-                    <tr class="{% if item.receipt.is_acknowledged %}bg-emerald-50/50{% else %}bg-rose-50/40{% endif %}">
-                        <td class="px-4 py-3 font-medium text-slate-900">{{ item.section_name }}</td>
-                        <td class="px-4 py-3 text-slate-800">{{ item.display_name }}</td>
-                        <td class="px-4 py-3 text-slate-700">{{ item.phone }}</td>
-                        <td class="px-4 py-3 text-center">
-                            {% if item.receipt.is_acknowledged %}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"><i class="bi bi-check-circle-fill"></i> Qabul qilgan</span>
-                            {% else %}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800"><i class="bi bi-x-circle-fill"></i> Qabul qilmagan</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Yuborilgan bo'limlar topilmadi</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {% for item in report_data.sections %}
+            <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+                <h5 class="font-semibold text-slate-800 mb-2 truncate" title="{{ item.section_name }}">{{ item.section_name }}</h5>
+                <div class="flex items-center justify-between text-sm mb-3">
+                    <span class="text-slate-500">Jami xodim: <span class="font-bold text-slate-700">{{ item.total }}</span></span>
+                    <span class="font-bold {% if item.percentage == 100 %}text-emerald-600{% elif item.percentage > 50 %}text-amber-500{% else %}text-rose-500{% endif %}">{{ item.percentage }}%</span>
+                </div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div class="h-full {% if item.percentage == 100 %}bg-emerald-500{% elif item.percentage > 50 %}bg-amber-400{% else %}bg-rose-500{% endif %}" style="width: {{ item.percentage }}%"></div>
+                </div>
+                <div class="mt-3 flex justify-between text-xs font-medium">
+                    <span class="text-emerald-600"><i class="bi bi-check-circle mr-1"></i>{{ item.accepted }}</span>
+                    <span class="text-rose-500"><i class="bi bi-x-circle mr-1"></i>{{ item.not_accepted }}</span>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% elif filter_type == 'workers' %}
-        <div class="overflow-x-auto rounded-xl border border-sky-200">
-            <table class="min-w-full divide-y divide-sky-100 text-sm">
-                <thead class="bg-sky-50 text-left text-xs font-semibold uppercase tracking-wide text-sky-800">
-                    <tr>
-                        <th class="px-4 py-3">Bo'lim</th>
-                        <th class="px-4 py-3">Xodim</th>
-                        <th class="px-4 py-3">Telefon</th>
-                        <th class="px-4 py-3 text-center">Holat</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-sky-50 bg-white">
-                    {% for item in detail_rows %}
-                    <tr class="{% if item.receipt.is_acknowledged %}bg-emerald-50/50{% else %}bg-rose-50/40{% endif %}">
-                        <td class="px-4 py-3 text-slate-700">{{ item.section_name }}</td>
-                        <td class="px-4 py-3 font-medium text-slate-900">{{ item.display_name }}</td>
-                        <td class="px-4 py-3 text-slate-700">{{ item.phone }}</td>
-                        <td class="px-4 py-3 text-center">
-                            {% if item.receipt.is_acknowledged %}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"><i class="bi bi-check-circle-fill"></i> Qabul qilgan</span>
-                            {% else %}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800"><i class="bi bi-x-circle-fill"></i> Qabul qilmagan</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Yuborilgan xodimlar topilmadi</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        
         {% elif filter_type == 'accepted' or filter_type == 'not_accepted' %}
+        <div class="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+            <div class="flex items-center gap-3">
+                <select id="sectionFilter" class="form-select w-auto max-w-[200px] text-sm" onchange="filterTable()">
+                    <option value="">Barcha bo'limlar</option>
+                    {% regroup detail_rows by section_name as sections %}
+                    {% for sec in sections %}
+                        <option value="{{ sec.grouper }}">{{ sec.grouper }}</option>
+                    {% endfor %}
+                </select>
+                <select id="roleFilter" class="form-select w-auto text-sm" onchange="filterTable()">
+                    <option value="">Barcha rollar</option>
+                    <option value="Bo'lim nazoratchisi">Bo'lim nazoratchisi</option>
+                    <option value="Xodim">Xodim</option>
+                </select>
+            </div>
+            <div class="relative w-full sm:w-64">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <i class="bi bi-search text-slate-400"></i>
+                </div>
+                <input type="text" id="searchInput" class="form-control pl-9" placeholder="Qidirish (ism, tel)..." onkeyup="filterTable()">
+            </div>
+        </div>
+
         <div class="overflow-x-auto rounded-xl border border-slate-200">
-            <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <table class="min-w-full divide-y divide-slate-200 text-sm" id="dataTable">
                 <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                        <th class="px-4 py-3">Bo'lim</th>
-                        <th class="px-4 py-3">Ism familiya</th>
-                        <th class="px-4 py-3">Telefon</th>
+                        <th class="cursor-pointer px-4 py-3 hover:text-emerald-600 transition" onclick="sortTable(0)">Bo'lim <i class="bi bi-arrow-down-up ml-1 opacity-50"></i></th>
+                        <th class="cursor-pointer px-4 py-3 hover:text-emerald-600 transition" onclick="sortTable(1)">Ism familiya <i class="bi bi-arrow-down-up ml-1 opacity-50"></i></th>
+                        <th class="cursor-pointer px-4 py-3 hover:text-emerald-600 transition" onclick="sortTable(2)">Rol <i class="bi bi-arrow-down-up ml-1 opacity-50"></i></th>
                         <th class="px-4 py-3 text-center">Holat</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-slate-100" id="tableBody">
                     {% for item in detail_rows %}
                     <tr class="{% if item.receipt.is_acknowledged %}bg-emerald-50/50{% else %}bg-rose-50/40{% endif %}">
-                        <td class="px-4 py-3 text-slate-700">{{ item.section_name }}</td>
-                        <td class="px-4 py-3 font-medium text-slate-900">{{ item.display_name }}</td>
-                        <td class="px-4 py-3 text-slate-700">{{ item.phone }}</td>
+                        <td class="px-4 py-3 text-slate-700" data-section="{{ item.section_name }}">{{ item.section_name }}</td>
+                        <td class="px-4 py-3 font-medium text-slate-900 search-target">
+                            {{ item.display_name }}
+                            <div class="text-xs font-normal text-slate-500">{{ item.phone }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-600" data-role="{{ item.role_display }}">
+                            {% if item.role_display == "Bo'lim nazoratchisi" %}
+                                <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">{{ item.role_display }}</span>
+                            {% else %}
+                                <span class="text-xs">{{ item.role_display }}</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-center">
                             {% if item.receipt.is_acknowledged %}
                             <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
                                 <i class="bi bi-check-circle-fill"></i> Qabul qilgan
                             </span>
+                            <div class="mt-1 text-[10px] text-emerald-600">{{ item.receipt.acknowledged_at|date:'d.m.Y H:i' }}</div>
                             {% else %}
                             <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
                                 <i class="bi bi-x-circle-fill"></i> Qabul qilmagan
@@ -193,14 +119,76 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div id="noResultsMsg" class="hidden px-4 py-8 text-center text-slate-400">Qidiruv bo'yicha hech narsa topilmadi</div>
         </div>
+
+        <script>
+            function filterTable() {
+                const searchVal = document.getElementById('searchInput').value.toLowerCase();
+                const sectionVal = document.getElementById('sectionFilter').value;
+                const roleVal = document.getElementById('roleFilter').value;
+                const rows = document.getElementById('tableBody').getElementsByTagName('tr');
+                let visibleCount = 0;
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (row.cells.length < 4) continue; // Empty state row
+                    
+                    const sectionText = row.cells[0].getAttribute('data-section');
+                    const roleText = row.cells[2].getAttribute('data-role');
+                    const searchText = row.cells[1].textContent.toLowerCase();
+
+                    const matchSearch = searchVal === '' || searchText.includes(searchVal);
+                    const matchSection = sectionVal === '' || sectionText === sectionVal;
+                    const matchRole = roleVal === '' || roleText === roleVal;
+
+                    if (matchSearch && matchSection && matchRole) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+                
+                document.getElementById('noResultsMsg').style.display = visibleCount === 0 && rows.length > 0 && rows[0].cells.length >= 4 ? 'block' : 'none';
+            }
+
+            let currentSortCol = -1;
+            let currentSortAsc = true;
+            function sortTable(colIndex) {
+                const table = document.getElementById("dataTable");
+                const tbody = document.getElementById("tableBody");
+                let rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.cells.length >= 4);
+                
+                if (currentSortCol === colIndex) {
+                    currentSortAsc = !currentSortAsc;
+                } else {
+                    currentSortCol = colIndex;
+                    currentSortAsc = true;
+                }
+
+                rows.sort((a, b) => {
+                    let valA = a.cells[colIndex].textContent.trim().toLowerCase();
+                    let valB = b.cells[colIndex].textContent.trim().toLowerCase();
+                    if (valA < valB) return currentSortAsc ? -1 : 1;
+                    if (valA > valB) return currentSortAsc ? 1 : -1;
+                    return 0;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+            }
+        </script>
         {% elif filter_type %}
         <p class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">Noto'g'ri filtr tanlandi.</p>
-        {% else %}
-        <p class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-            Yuqoridagi filtrlardan birini tanlang — bo'limlar, xodimlar yoki qabul holati ro'yxati shu yerda chiqadi.
-        </p>
         {% endif %}
+    </div>
+    {% else %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-400 mb-4">
+            <i class="bi bi-inbox text-3xl"></i>
+        </div>
+        <h3 class="text-base font-semibold text-slate-900">Yo'riqnoma mavjud emas</h3>
+        <p class="mt-1 text-sm text-slate-500">Hali hech qanday yo'riqnoma yuborilmagan yoki joriy qilinmagan.</p>
     </div>
     {% endif %}
 </div>

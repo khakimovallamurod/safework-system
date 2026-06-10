@@ -177,12 +177,39 @@ class OrganizationLeaderSignUpForm(BaseRegistrationForm):
                 industry=self.cleaned_data['industry'],
                 is_new_registration=True,
             )
+            profile = user.profile
+            profile.organization = profile
+            profile.save(update_fields=['organization'])
         return user
 
 
 class WorkerSignUpForm(BaseRegistrationForm):
+    organization = forms.ModelChoiceField(
+        label='Tashkilotni tanlang',
+        queryset=UserProfile.objects.none(),
+        empty_label='Tashkilotni tanlang',
+        widget=forms.Select(
+            attrs={
+                'class': 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10',
+            }
+        ),
+    )
+
     class Meta(BaseRegistrationForm.Meta):
-        fields = BaseRegistrationForm.Meta.fields
+        fields = ('first_name', 'last_name', 'middle_name', 'username', 'organization', 'address')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['organization'].queryset = (
+            UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER)
+            .select_related('industry')
+            .order_by('organization_name', 'full_name')
+        )
+        self.fields['organization'].label_from_instance = lambda profile: (
+            f"{profile.organization_name or profile.full_name}"
+            f"{f' ({profile.industry.name})' if profile.industry else ''}"
+        )
+        self.order_fields(['first_name', 'last_name', 'middle_name', 'username', 'organization', 'address', 'password1', 'password2'])
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -194,6 +221,9 @@ class WorkerSignUpForm(BaseRegistrationForm):
                 role=UserProfile.ROLE_WORKER,
                 full_name=self.build_full_name(),
                 phone_number=self.cleaned_data['username'],
+                organization=self.cleaned_data['organization'],
+                organization_name=self.cleaned_data['organization'].organization_name,
+                industry=self.cleaned_data['organization'].industry,
                 address=self.cleaned_data.get('address', ''),
             )
         return user
@@ -205,6 +235,7 @@ def get_selectable_workers_queryset(
     exclude_other_sections=False,
     current_section=None,
     exclude_user_ids=None,
+    organization=None,
 ):
     """
     Bazadagi barcha xodimlar (role=worker).
@@ -227,6 +258,13 @@ def get_selectable_workers_queryset(
         if blocked:
             choice_filter = choice_filter & ~Q(pk__in=blocked)
 
+    if organization:
+        org_name = (organization.organization_name or '').strip()
+        org_filter = Q(profile__organization=organization)
+        if org_name:
+            org_filter |= Q(profile__organization_name=org_name)
+        choice_filter = choice_filter & org_filter
+
     if include_user_id:
         choice_filter = Q(pk=include_user_id) | choice_filter
 
@@ -245,11 +283,11 @@ def get_selectable_workers_queryset(
 
 
 def get_org_leader_workers_queryset(org_leader):
-    return get_selectable_workers_queryset()
+    return get_selectable_workers_queryset(organization=org_leader.profile)
 
 
 def _org_leader_workers_queryset(org_leader):
-    return get_selectable_workers_queryset()
+    return get_selectable_workers_queryset(organization=org_leader.profile)
 
 
 def _assigned_department_supervisor_ids(leader_profile, exclude_department=None):
@@ -263,7 +301,11 @@ def get_department_supervisor_choices(org_leader, department=None):
     include_id = department.supervisor_id if department and department.supervisor_id else None
     leader_profile = org_leader.profile
     exclude_ids = _assigned_department_supervisor_ids(leader_profile, exclude_department=department)
-    return get_selectable_workers_queryset(include_user_id=include_id, exclude_user_ids=exclude_ids)
+    return get_selectable_workers_queryset(
+        include_user_id=include_id,
+        exclude_user_ids=exclude_ids,
+        organization=leader_profile,
+    )
 
 
 def _worker_select_widget(placeholder):
@@ -399,7 +441,11 @@ def get_section_supervisor_choices(dept_admin, section=None):
     include_id = section.supervisor_id if section and section.supervisor_id else None
     department = get_department_admin_department(dept_admin)
     exclude_ids = _assigned_section_supervisor_ids(department, exclude_section=section) if department else []
-    return get_selectable_workers_queryset(include_user_id=include_id, exclude_user_ids=exclude_ids)
+    return get_selectable_workers_queryset(
+        include_user_id=include_id,
+        exclude_user_ids=exclude_ids,
+        organization=department.leader if department else None,
+    )
 
 
 class SectionCreateForm(forms.Form):
@@ -485,6 +531,7 @@ def get_available_section_workers(section):
     return get_selectable_workers_queryset(
         exclude_other_sections=True,
         current_section=section,
+        organization=section.department.leader,
     )
 
 
@@ -497,6 +544,7 @@ def get_section_member_worker_choices(section_admin, membership=None):
         include_user_id=include_id,
         exclude_other_sections=True,
         current_section=section,
+        organization=section.department.leader,
     )
 
 

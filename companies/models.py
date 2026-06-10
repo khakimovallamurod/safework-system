@@ -233,6 +233,7 @@ class GuidelineDispatch(models.Model):
         related_name='sent_guideline_dispatches',
     )
     sent_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['-sent_at']

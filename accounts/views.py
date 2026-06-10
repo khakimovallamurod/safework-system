@@ -453,10 +453,19 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
             context['company_industry_name'] = profile.industry.name
             context['industry_profession_count'] = Profession.objects.filter(industry=profile.industry).count()
             if role_context['is_worker']:
-                context['worker_colleagues_count'] = UserProfile.objects.filter(
-                    role=UserProfile.ROLE_WORKER,
-                    organization_name=profile.organization_name,
-                ).count()
+                if profile.organization_id:
+                    worker_filter = Q(
+                        role=UserProfile.ROLE_WORKER,
+                        organization=profile.organization,
+                    )
+                elif profile.organization_name:
+                    worker_filter = Q(
+                        role=UserProfile.ROLE_WORKER,
+                        organization_name=profile.organization_name,
+                    )
+                else:
+                    worker_filter = Q(pk__in=[])
+                context['worker_colleagues_count'] = UserProfile.objects.filter(worker_filter).count()
         return context
 
 
@@ -614,9 +623,12 @@ def _assign_department_supervisor(department, supervisor):
     )
     profile = supervisor.profile
     profile.role = UserProfile.ROLE_DEPARTMENT_ADMIN
+    profile.organization = department.leader
+    profile.organization_name = department.leader.organization_name
+    profile.industry = department.leader.industry
     profile.department = department
     profile.section = None
-    profile.save(update_fields=['role', 'department', 'section'])
+    profile.save(update_fields=['role', 'organization', 'organization_name', 'industry', 'department', 'section'])
     department.supervisor = supervisor
     department.save(update_fields=['supervisor'])
 
@@ -735,9 +747,12 @@ def _assign_section_supervisor(section, supervisor, department):
     )
     profile = supervisor.profile
     profile.role = UserProfile.ROLE_SECTION_ADMIN
+    profile.organization = department.leader
+    profile.organization_name = department.leader.organization_name
+    profile.industry = department.leader.industry
     profile.department = department
     profile.section = section
-    profile.save(update_fields=['role', 'department', 'section'])
+    profile.save(update_fields=['role', 'organization', 'organization_name', 'industry', 'department', 'section'])
     section.supervisor = supervisor
     section.save(update_fields=['supervisor'])
 
@@ -870,11 +885,27 @@ def _worker_already_in_section(user, exclude_membership_id=None):
     return qs.exists()
 
 
+def _provision_active_entry_guideline(section, worker):
+    department = section.department
+    if department:
+        active_dispatch = _active_entry_dispatch_for_department(department)
+        if active_dispatch:
+            GuidelineDispatchRecipient.objects.get_or_create(
+                dispatch=active_dispatch,
+                user=worker,
+                defaults={
+                    'section': section,
+                    'recipient_kind': GuidelineDispatchRecipient.KIND_WORKER
+                }
+            )
+
+
 def _assign_worker_to_section(section, worker):
     if _worker_already_in_section(worker):
         raise ValueError("Xodim boshqa bo‘limda allaqachon biriktirilgan.")
     _sync_worker_section_profile(section, worker)
     SectionMembership.objects.create(section=section, user=worker)
+    _provision_active_entry_guideline(section, worker)
 
 
 def _broadcast_section_message(section, sender, title, body):
@@ -973,6 +1004,7 @@ class SectionWorkerEditView(SectionAdminRequiredMixin, View):
             old_profile.section = None
             old_profile.save(update_fields=['section'])
             _sync_worker_section_profile(section, new_worker)
+            _provision_active_entry_guideline(section, new_worker)
 
         messages.success(request, "Xodim yangilandi.")
         return redirect('section-workers')
@@ -1123,10 +1155,10 @@ class GuidelinePdfView(AuthenticatedRequiredMixin, View):
             return redirect('notifications-inbox' if receipt else 'entry-guidelines')
 
         role = self.get_role_context()
-        if receipt and role.get('is_section_member'):
-            default_back = 'worker-messages-inbox'
+        if receipt:
+            default_back = 'worker-entry-guidelines'
         else:
-            default_back = 'notifications-inbox' if receipt else 'entry-guidelines'
+            default_back = 'entry-guidelines'
         context = role | {
             'guideline': guideline,
             'pdf_title': guideline.name,
@@ -1167,6 +1199,44 @@ def _dispatch_stats(dispatch):
         'not_accepted_count': total - accepted,
         'total_recipients': total,
     }
+
+
+def _active_entry_dispatch_for_department(department):
+    return (
+        GuidelineDispatch.objects.filter(guideline__department=department, is_active=True)
+        .select_related('guideline')
+        .first()
+    )
+
+
+def _collect_department_entry_guideline_recipients(department):
+    """Joriy kirish yo'riqnomasi uchun boshqarma tarkibidagi hamma foydalanuvchilar."""
+    from django.contrib.auth import get_user_model
+    from accounts.models import UserProfile
+    User = get_user_model()
+    
+    recipients = {}
+    users = User.objects.filter(
+        profile__department=department,
+        is_superuser=False,
+    ).exclude(
+        pk=department.supervisor_id
+    ).select_related('profile', 'profile__section')
+    
+    for user in users:
+        section = user.profile.section
+        kind = GuidelineDispatchRecipient.KIND_WORKER
+        
+        if user.profile.role == UserProfile.ROLE_SECTION_ADMIN:
+            kind = GuidelineDispatchRecipient.KIND_SECTION
+            
+        recipients[user.pk] = (
+            user,
+            section,
+            kind,
+        )
+        
+    return list(recipients.values())
 
 
 def _collect_dispatch_recipients(department, section_ids, worker_ids):
@@ -1210,6 +1280,7 @@ def _receipt_display_fields(receipt):
         'display_name': profile.full_name if profile else receipt.user.username,
         'phone': receipt.user.username,
         'section_name': receipt.section.name if receipt.section else '—',
+        'role_display': "Bo'lim nazoratchisi" if receipt.recipient_kind == GuidelineDispatchRecipient.KIND_SECTION else 'Xodim',
     }
 
 
@@ -1266,21 +1337,15 @@ class EntryGuidelineListView(DepartmentSupervisorOnlyMixin, TemplateView):
         if not department:
             return context
 
-        sections = Section.objects.filter(department=department).prefetch_related(
-            'memberships__user__profile',
-            'supervisor__profile',
-        )
-        send_targets = {
-            'sections': sections,
-            'workers': get_department_workers_queryset(self.request.user),
-        }
+        active_dispatch = _active_entry_dispatch_for_department(department)
         context.update(
             self.get_role_context()
             | {
                 'department': department,
                 'guidelines': list(_guidelines_for_department(department)),
                 'form': EntryGuidelineForm(),
-                'send_targets': send_targets,
+                'active_dispatch': active_dispatch,
+                'active_guideline_id': active_dispatch.guideline_id if active_dispatch else None,
                 'page_title': 'Kirish yo‘riqnomalari',
             }
         )
@@ -1355,23 +1420,24 @@ class EntryGuidelineSendView(DepartmentSupervisorOnlyMixin, View):
             messages.error(request, 'Yo‘riqnoma topilmadi.')
             return redirect('entry-guidelines')
 
-        section_ids = [int(x) for x in request.POST.getlist('sections') if str(x).isdigit()]
-        worker_ids = [int(x) for x in request.POST.getlist('workers') if str(x).isdigit()]
-        if not section_ids and not worker_ids:
-            messages.error(request, 'Kamida bitta bo‘lim yoki xodimni tanlang.')
+        action = request.POST.get('action', 'activate')
+        active_dispatch = _active_entry_dispatch_for_department(department)
+
+        if action == 'deactivate':
+            if not active_dispatch or active_dispatch.guideline_id != guideline.pk:
+                messages.info(request, 'Bu yo‘riqnoma hozir joriy emas.')
+                return redirect('entry-guidelines')
+            active_dispatch.is_active = False
+            active_dispatch.save(update_fields=['is_active'])
+            messages.success(request, "Kirish yo‘riqnomasi faolsizlantirildi. Blok yechildi.")
             return redirect('entry-guidelines')
 
-        valid_section_ids = set(
-            Section.objects.filter(department=department, pk__in=section_ids).values_list('pk', flat=True)
-        )
-        team_ids = set(get_department_workers_queryset(request.user).values_list('pk', flat=True))
-        valid_worker_ids = [wid for wid in worker_ids if wid in team_ids]
-
-        payload = _collect_dispatch_recipients(department, valid_section_ids, valid_worker_ids)
+        payload = _collect_department_entry_guideline_recipients(department)
         if not payload:
-            messages.error(request, 'Qabul qiluvchilar topilmadi.')
+            messages.error(request, 'Boshqarma tarkibida bo‘lim nazoratchisi yoki xodim topilmadi.')
             return redirect('entry-guidelines')
 
+        GuidelineDispatch.objects.filter(guideline__department=department, is_active=True).update(is_active=False)
         dispatch = GuidelineDispatch.objects.create(guideline=guideline, sent_by=request.user)
         GuidelineDispatchRecipient.objects.bulk_create(
             [
@@ -1384,8 +1450,46 @@ class EntryGuidelineSendView(DepartmentSupervisorOnlyMixin, View):
                 for user, section, kind in payload
             ]
         )
-        messages.success(request, f'Yo‘riqnoma {len(payload)} ta qabul qiluvchiga yuborildi.')
-        return redirect('guideline-status')
+        messages.success(request, f"Yo‘riqnoma joriy qilindi. {len(payload)} ta foydalanuvchi uchun menyu bloklandi.")
+        return redirect('entry-guidelines')
+
+
+def _guideline_status_report_rows(recipients_qs):
+    report = {}
+    total_accepted = 0
+    total_count = 0
+
+    for receipt in recipients_qs:
+        section_name = receipt.section.name if receipt.section else "Bo'limsizlar"
+        if section_name not in report:
+            report[section_name] = {
+                'section_name': section_name,
+                'accepted': 0,
+                'not_accepted': 0,
+                'total': 0,
+            }
+            
+        report[section_name]['total'] += 1
+        total_count += 1
+        
+        if receipt.is_acknowledged:
+            report[section_name]['accepted'] += 1
+            total_accepted += 1
+        else:
+            report[section_name]['not_accepted'] += 1
+            
+    for row in report.values():
+        row['percentage'] = int((row['accepted'] / row['total']) * 100) if row['total'] > 0 else 0
+        
+    total_percentage = int((total_accepted / total_count) * 100) if total_count > 0 else 0
+    
+    return {
+        'sections': sorted(report.values(), key=lambda x: x['section_name']),
+        'total_accepted': total_accepted,
+        'total_not_accepted': total_count - total_accepted,
+        'total': total_count,
+        'total_percentage': total_percentage
+    }
 
 
 class GuidelineStatusView(DepartmentSupervisorOnlyMixin, TemplateView):
@@ -1409,29 +1513,35 @@ class GuidelineStatusView(DepartmentSupervisorOnlyMixin, TemplateView):
             dispatch_rows.append({'dispatch': dispatch, 'stats': stats})
 
         selected_id = self.request.GET.get('dispatch')
-        filter_type = self.request.GET.get('filter', '')
+        filter_type = self.request.GET.get('filter', 'accepted')
         selected_dispatch = None
         detail_rows = []
         detail_stats = None
+        report_data = None
 
         if selected_id and str(selected_id).isdigit():
             selected_dispatch = next(
                 (row['dispatch'] for row in dispatch_rows if row['dispatch'].pk == int(selected_id)),
                 None,
             )
-            if selected_dispatch:
-                detail_stats = _dispatch_stats(selected_dispatch)
-                recipients = selected_dispatch.recipients.select_related(
-                    'user', 'user__profile', 'section', 'section__supervisor'
-                )
-                if filter_type == 'sections':
-                    detail_rows = _guideline_status_section_rows(recipients)
-                elif filter_type == 'workers':
-                    detail_rows = _guideline_status_worker_rows(recipients)
-                elif filter_type == 'accepted':
-                    detail_rows = _guideline_status_ack_rows(recipients, acknowledged=True)
-                elif filter_type == 'not_accepted':
-                    detail_rows = _guideline_status_ack_rows(recipients, acknowledged=False)
+        elif dispatch_rows:
+            selected_dispatch = dispatch_rows[0]['dispatch']
+            selected_id = selected_dispatch.id
+
+        if selected_dispatch:
+            detail_stats = _dispatch_stats(selected_dispatch)
+            recipients = selected_dispatch.recipients.select_related(
+                'user', 'user__profile', 'section', 'section__supervisor'
+            )
+            if filter_type == 'accepted':
+                detail_rows = _guideline_status_ack_rows(recipients, acknowledged=True)
+            elif filter_type == 'not_accepted':
+                detail_rows = _guideline_status_ack_rows(recipients, acknowledged=False)
+            elif filter_type == 'report':
+                report_data = _guideline_status_report_rows(recipients)
+            else:
+                filter_type = 'accepted'
+                detail_rows = _guideline_status_ack_rows(recipients, acknowledged=True)
 
         context.update(
             self.get_role_context()
@@ -1443,6 +1553,7 @@ class GuidelineStatusView(DepartmentSupervisorOnlyMixin, TemplateView):
                 'filter_type': filter_type,
                 'detail_stats': detail_stats,
                 'detail_rows': detail_rows,
+                'report_data': report_data,
                 'page_title': 'Yo‘riqnomalar holati',
             }
         )
@@ -1481,6 +1592,35 @@ class GuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
                 'receipts': receipts,
                 'assessment_notifs': assessment_notifs,
                 'page_title': 'Xabarnomalar',
+            }
+        )
+        return context
+
+
+class WorkerEntryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
+    """Xodimlar va bo'lim nazoratchilari uchun majburiy kirish yo'riqnomalari."""
+
+    template_name = 'accounts/worker_entry_guidelines.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        role_context = self.get_role_context()
+        if not (role_context.get('is_worker') or role_context.get('is_section_admin')):
+            messages.error(request, "Bu sahifa faqat xodimlar va bo‘lim nazoratchilari uchun.")
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        receipts = (
+            GuidelineDispatchRecipient.objects.filter(user=self.request.user, dispatch__is_active=True)
+            .select_related('dispatch__guideline', 'section')
+            .order_by('-dispatch__sent_at')
+        )
+        context.update(
+            self.get_role_context()
+            | {
+                'receipts': receipts,
+                'page_title': "Kirish yo'riqnomasi",
             }
         )
         return context
