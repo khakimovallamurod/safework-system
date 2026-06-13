@@ -1667,6 +1667,33 @@ def _internal_guidelines_for_section(section):
     return SectionInternalGuideline.objects.filter(section=section).select_related('created_by')
 
 
+def _active_internal_guideline_dispatch_for_section(section):
+    return (
+        SectionInternalGuidelineDispatch.objects.filter(
+            guideline__section=section,
+            is_active=True,
+        )
+        .select_related('guideline')
+        .first()
+    )
+
+
+def _internal_guideline_time_phase(dispatch, now=None):
+    """Ichki yo'riqnoma vaqt fazasi — ishchilar uchun 3 rang."""
+    now = now or timezone.now()
+    start = dispatch.start_time or dispatch.sent_at
+    reg_end = dispatch.registration_end_time or start
+    active_until = dispatch.active_until or reg_end
+
+    if now < start:
+        return 'waiting', 'Boshlanmagan', 'inbox-row-waiting'
+    if now < reg_end:
+        return 'registration', "Ro'yxatdan o'tish davri", 'inbox-row-registration'
+    if now < active_until:
+        return 'active', 'Faol', 'inbox-row-active'
+    return 'expired', 'Muddati tugagan', 'inbox-row-waiting'
+
+
 def _build_worker_guideline_inbox_items(request):
     """Xodimlar uchun yo'riqnomalar ro'yxati (ichki + boshqarmadan kelganlar)."""
     from urllib.parse import quote
@@ -1681,12 +1708,20 @@ def _build_worker_guideline_inbox_items(request):
     )
     for receipt in internal_receipts:
         guideline = receipt.dispatch.guideline
+        dispatch = receipt.dispatch
+        phase_key, phase_label, row_class = _internal_guideline_time_phase(dispatch)
         items.append(
             {
                 'name': guideline.name,
-                'sent_at': receipt.dispatch.sent_at,
+                'sent_at': dispatch.sent_at,
                 'is_acknowledged': receipt.is_acknowledged,
                 'source_label': 'Bo‘lim',
+                'phase_key': phase_key,
+                'phase_label': phase_label,
+                'row_class': row_class,
+                'start_time': dispatch.start_time,
+                'registration_end_time': dispatch.registration_end_time,
+                'active_until': dispatch.active_until,
                 'pdf_url': (
                     reverse('internal-guideline-pdf', args=[guideline.pk])
                     + f'?receipt={receipt.pk}&next={next_encoded}'
@@ -1729,6 +1764,7 @@ class SectionInternalGuidelineListView(SectionAdminRequiredMixin, TemplateView):
         if not section:
             return context
 
+        active_dispatch = _active_internal_guideline_dispatch_for_section(section)
         context.update(
             self.get_role_context()
             | {
@@ -1736,6 +1772,8 @@ class SectionInternalGuidelineListView(SectionAdminRequiredMixin, TemplateView):
                 'guidelines': list(_internal_guidelines_for_section(section)),
                 'form': SectionInternalGuidelineForm(),
                 'send_workers': get_section_workers_for_internal_guidelines(section),
+                'active_dispatch': active_dispatch,
+                'active_guideline_id': active_dispatch.guideline_id if active_dispatch else None,
                 'page_title': 'Ichki yo‘riqnomalar',
             }
         )
@@ -1810,18 +1848,36 @@ class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
             messages.error(request, 'Yo‘riqnoma topilmadi.')
             return redirect('internal-guidelines')
 
-        worker_ids = [int(x) for x in request.POST.getlist('workers') if str(x).isdigit()]
-        if not worker_ids:
-            messages.error(request, 'Kamida bitta xodimni tanlang.')
+        action = request.POST.get('action', 'activate')
+        active_dispatch = _active_internal_guideline_dispatch_for_section(section)
+
+        if action == 'deactivate':
+            if not active_dispatch or active_dispatch.guideline_id != guideline.pk:
+                messages.info(request, 'Bu yo‘riqnoma hozir joriy emas.')
+                return redirect('internal-guidelines')
+            active_dispatch.is_active = False
+            active_dispatch.save(update_fields=['is_active'])
+            messages.success(request, 'Ichki yo‘riqnoma faolsizlantirildi. Blok yechildi.')
             return redirect('internal-guidelines')
 
-        valid_ids = set(get_section_workers_for_internal_guidelines(section).values_list('pk', flat=True))
-        users = list(User.objects.filter(pk__in=[wid for wid in worker_ids if wid in valid_ids], is_superuser=False))
+        users = list(get_section_workers_for_internal_guidelines(section).filter(is_superuser=False))
         if not users:
-            messages.error(request, 'Tanlangan xodimlar topilmadi.')
+            messages.error(request, 'Bo‘limda xodimlar topilmadi.')
             return redirect('internal-guidelines')
 
-        dispatch = SectionInternalGuidelineDispatch.objects.create(guideline=guideline, sent_by=request.user)
+        if not all([guideline.start_time, guideline.registration_end_time, guideline.active_until]):
+            messages.error(request, 'Avval yo‘riqnomaga boshlanish, ro‘yxatdan o‘tish oxiri va faollik tugash vaqtlarini kiriting.')
+            return redirect('internal-guidelines')
+
+        SectionInternalGuidelineDispatch.objects.filter(guideline__section=section, is_active=True).update(is_active=False)
+        dispatch = SectionInternalGuidelineDispatch.objects.create(
+            guideline=guideline,
+            sent_by=request.user,
+            is_active=True,
+            start_time=guideline.start_time,
+            registration_end_time=guideline.registration_end_time,
+            active_until=guideline.active_until,
+        )
         SectionInternalGuidelineRecipient.objects.bulk_create(
             [SectionInternalGuidelineRecipient(dispatch=dispatch, user=user) for user in users]
         )
@@ -1971,25 +2027,40 @@ class SectionInternalGuidelineStatusView(SectionAdminRequiredMixin, TemplateView
         dispatch_rows = [{'dispatch': d, 'stats': _internal_dispatch_stats(d)} for d in dispatches]
 
         selected_id = self.request.GET.get('dispatch')
-        filter_type = self.request.GET.get('filter', '')
+        filter_type = self.request.GET.get('filter', 'accepted')
         selected_dispatch = None
         detail_rows = []
         detail_stats = None
+        report_data = None
 
         if selected_id and str(selected_id).isdigit():
             selected_dispatch = next(
                 (row['dispatch'] for row in dispatch_rows if row['dispatch'].pk == int(selected_id)),
                 None,
             )
-            if selected_dispatch:
-                detail_stats = _internal_dispatch_stats(selected_dispatch)
-                recipients = selected_dispatch.recipients.all()
-                if filter_type == 'workers':
-                    detail_rows = _internal_status_detail_rows(recipients)
-                elif filter_type == 'accepted':
-                    detail_rows = _internal_status_detail_rows(recipients, acknowledged=True)
-                elif filter_type == 'not_accepted':
-                    detail_rows = _internal_status_detail_rows(recipients, acknowledged=False)
+        elif dispatch_rows:
+            selected_dispatch = dispatch_rows[0]['dispatch']
+            selected_id = selected_dispatch.id
+
+        if selected_dispatch:
+            detail_stats = _internal_dispatch_stats(selected_dispatch)
+            recipients = selected_dispatch.recipients.all()
+            if filter_type == 'accepted':
+                detail_rows = _internal_status_detail_rows(recipients, acknowledged=True)
+            elif filter_type == 'not_accepted':
+                detail_rows = _internal_status_detail_rows(recipients, acknowledged=False)
+            elif filter_type == 'report':
+                total = detail_stats['workers_count']
+                accepted = detail_stats['accepted_count']
+                report_data = {
+                    'total': total,
+                    'accepted': accepted,
+                    'not_accepted': detail_stats['not_accepted_count'],
+                    'percentage': round((accepted / total * 100) if total else 0),
+                }
+            else:
+                filter_type = 'accepted'
+                detail_rows = _internal_status_detail_rows(recipients, acknowledged=True)
 
         context.update(
             self.get_role_context()
@@ -2001,6 +2072,7 @@ class SectionInternalGuidelineStatusView(SectionAdminRequiredMixin, TemplateView
                 'filter_type': filter_type,
                 'detail_stats': detail_stats,
                 'detail_rows': detail_rows,
+                'report_data': report_data,
                 'page_title': 'Yo‘riqnomalar holati',
             }
         )

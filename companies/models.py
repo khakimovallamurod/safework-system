@@ -301,6 +301,9 @@ class SectionInternalGuideline(models.Model):
         blank=True,
         related_name='created_section_internal_guidelines',
     )
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name='Boshlanish vaqti')
+    registration_end_time = models.DateTimeField(null=True, blank=True, verbose_name="Ro'yxatdan o'tish oxiri")
+    active_until = models.DateTimeField(null=True, blank=True, verbose_name='Faollik tugashi')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -324,6 +327,10 @@ class SectionInternalGuidelineDispatch(models.Model):
         on_delete=models.CASCADE,
         related_name='sent_section_internal_guideline_dispatches',
     )
+    is_active = models.BooleanField(default=False, verbose_name='Faol')
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name='Boshlanish vaqti')
+    registration_end_time = models.DateTimeField(null=True, blank=True, verbose_name="Ro'yxatdan o'tish oxiri")
+    active_until = models.DateTimeField(null=True, blank=True, verbose_name='Faollik tugashi')
     sent_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

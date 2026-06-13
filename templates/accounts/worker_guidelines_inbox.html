@@ -15,16 +15,32 @@
                 <tr>
                     <th class="px-4 py-3">Nomi</th>
                     <th class="px-4 py-3">Manba</th>
+                    <th class="px-4 py-3">Vaqt</th>
                     <th class="px-4 py-3">PDF</th>
                     <th class="px-4 py-3">Holat</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 {% for item in inbox_items %}
-                <tr class="{% if item.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
+                <tr class="{% if item.row_class %}{{ item.row_class }}{% elif item.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
                     <td class="px-4 py-3 font-medium text-slate-900">{{ item.name }}</td>
                     <td class="px-4 py-3">
                         <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold {% if item.source_label == "Bo'lim" %}bg-violet-100 text-violet-800{% else %}bg-sky-100 text-sky-800{% endif %}">{{ item.source_label }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-600">
+                        {% if item.phase_label %}
+                        <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold
+                            {% if item.phase_key == 'registration' %}bg-amber-100 text-amber-800
+                            {% elif item.phase_key == 'active' %}bg-emerald-100 text-emerald-800
+                            {% else %}bg-slate-100 text-slate-700{% endif %}">
+                            {{ item.phase_label }}
+                        </span>
+                        {% if item.start_time %}
+                        <div class="mt-1 text-slate-400">{{ item.start_time|date:'d.m.Y H:i' }} — {{ item.active_until|date:'d.m.Y H:i' }}</div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-slate-400">{{ item.sent_at|date:'d.m.Y H:i' }}</span>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3">
                         <a href="{{ item.pdf_url }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
@@ -45,7 +61,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="px-4 py-10 text-center text-slate-400">
+                    <td colspan="5" class="px-4 py-10 text-center text-slate-400">
                         <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha xabar yo'q
                     </td>
                 </tr>
