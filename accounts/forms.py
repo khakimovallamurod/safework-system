@@ -743,10 +743,19 @@ def get_section_workers_for_internal_guidelines(section):
     )
 
 
+_DATETIME_LOCAL_WIDGET = forms.DateTimeInput(
+    format='%Y-%m-%dT%H:%M',
+    attrs={
+        'type': 'datetime-local',
+        'class': 'form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20',
+    },
+)
+
+
 class SectionInternalGuidelineForm(forms.ModelForm):
     class Meta:
         model = SectionInternalGuideline
-        fields = ('name', 'pdf_file')
+        fields = ('name', 'pdf_file', 'start_time', 'registration_end_time', 'active_until')
         widgets = {
             'name': forms.TextInput(attrs=_field_attrs('Yo‘riqnoma nomi')),
             'pdf_file': forms.FileInput(
@@ -755,7 +764,17 @@ class SectionInternalGuidelineForm(forms.ModelForm):
                     'accept': 'application/pdf',
                 }
             ),
+            'start_time': _DATETIME_LOCAL_WIDGET,
+            'registration_end_time': _DATETIME_LOCAL_WIDGET,
+            'active_until': _DATETIME_LOCAL_WIDGET,
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        dt_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M']
+        for field_name in ('start_time', 'registration_end_time', 'active_until'):
+            self.fields[field_name].input_formats = dt_formats
+            self.fields[field_name].required = True
 
     def clean_pdf_file(self):
         pdf = self.cleaned_data.get('pdf_file')
@@ -768,6 +787,17 @@ class SectionInternalGuidelineForm(forms.ModelForm):
         content_type = getattr(pdf, 'content_type', '') or ''
         if content_type and content_type != 'application/pdf':
             raise ValidationError('Faqat PDF format qabul qilinadi.')
+        return pdf
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('start_time')
+        reg_end = cleaned.get('registration_end_time')
+        active_until = cleaned.get('active_until')
+        if start and reg_end and reg_end <= start:
+            raise ValidationError("Ro'yxatdan o'tish oxiri boshlanish vaqtidan keyin bo'lishi kerak.")
+        if reg_end and active_until and active_until <= reg_end:
+            raise ValidationError('Faollik tugashi ro\'yxatdan o\'tish oxiridan keyin bo\'lishi kerak.')
         return pdf
 
 
@@ -797,15 +827,6 @@ class EntryGuidelineForm(forms.ModelForm):
         if content_type and content_type != 'application/pdf':
             raise ValidationError('Faqat PDF format qabul qilinadi.')
         return pdf
-
-
-_DATETIME_LOCAL_WIDGET = forms.DateTimeInput(
-    format='%Y-%m-%dT%H:%M',
-    attrs={
-        'type': 'datetime-local',
-        'class': 'form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20',
-    },
-)
 
 
 class SectionWorkPracticeForm(forms.ModelForm):
