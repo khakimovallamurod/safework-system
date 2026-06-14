@@ -1,91 +1,171 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="mx-auto max-w-2xl">
-    <div class="mb-6">
-        <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-emerald-700">
+<div class="mx-auto max-w-3xl pb-10">
+    <!-- Header -->
+    <div class="mb-6 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 shadow-sm">
+                <i class="bi bi-person-badge text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-900 lg:text-2xl">Akkaunt sahifasi</h1>
+                <p class="text-xs font-medium text-slate-500 lg:text-sm">Shaxsiy ma'lumotlar va sozlamalar</p>
+            </div>
+        </div>
+        <a href="{% url 'dashboard' %}" class="hidden items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-emerald-700 sm:flex">
             <i class="bi bi-arrow-left"></i> Ortga
         </a>
-        <h1 class="mt-3 text-xl font-semibold text-slate-900">
-            <i class="bi bi-person-badge mr-2 text-emerald-600"></i>Akkaunt sahifasi
-        </h1>
     </div>
 
+    <!-- Organization Info -->
     {% if not is_super_admin %}
-    <div class="mb-5 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.05)] sm:grid-cols-3">
-        <div>
-            <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tashkilot</div>
-            <div class="mt-1 truncate text-sm font-bold text-slate-900">{{ structure_organization_name }}</div>
+    <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
+                <i class="bi bi-building"></i>
+            </div>
+            <div class="min-w-0">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Tashkilot</p>
+                <p class="truncate text-sm font-semibold text-slate-800">{{ structure_organization_name }}</p>
+            </div>
         </div>
-        <div>
-            <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Boshqarma</div>
-            <div class="mt-1 truncate text-sm font-bold text-slate-900">{{ structure_department_name }}</div>
+        <div class="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
+                <i class="bi bi-diagram-3"></i>
+            </div>
+            <div class="min-w-0">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Boshqarma</p>
+                <p class="truncate text-sm font-semibold text-slate-800">{{ structure_department_name }}</p>
+            </div>
         </div>
-        <div>
-            <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Bo'lim</div>
-            <div class="mt-1 truncate text-sm font-bold text-slate-900">{{ structure_section_name }}</div>
+        <div class="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
+                <i class="bi bi-diagram-2"></i>
+            </div>
+            <div class="min-w-0">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70">Bo'lim</p>
+                <p class="truncate text-sm font-semibold text-slate-800">{{ structure_section_name }}</p>
+            </div>
         </div>
     </div>
     {% endif %}
 
-    <form method="post" action="{% url 'profile' %}" enctype="multipart/form-data" class="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <form method="post" action="{% url 'profile' %}" enctype="multipart/form-data" class="space-y-6">
         {% csrf_token %}
 
-        <div class="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-            <label for="profile-photo-input" class="group relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-white hover:ring-2 hover:ring-emerald-400/50">
-                {% if profile_photo_url %}
-                    <img src="{{ profile_photo_url }}" alt="" class="h-full w-full object-cover" id="profile-preview-img" />
-                {% else %}
-                    <span class="flex h-full w-full items-center justify-center bg-slate-100" id="profile-preview-placeholder">
-                        <i class="bi bi-camera text-xl text-slate-400 group-hover:text-emerald-600"></i>
-                    </span>
-                    <img src="" alt="" class="hidden h-full w-full object-cover" id="profile-preview-img" />
-                {% endif %}
-            </label>
-            <input type="file" name="profile_photo" id="profile-photo-input" accept="image/jpeg,image/png,image/webp" class="sr-only" />
-            <div class="min-w-0 text-sm text-slate-600">
-                <p class="font-semibold text-slate-900">Profil rasmi</p>
-                <p class="text-xs text-slate-500">JPG, PNG yoki WEBP, 3 MB gacha</p>
-                {% if profile_photo_url %}
-                    <label class="mt-2 inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-rose-600 hover:text-rose-700">
-                        <input type="checkbox" name="remove_photo" value="1" class="rounded border-slate-300 text-rose-600" />
-                        Rasmni olib tashlash
-                    </label>
-                {% endif %}
+        <!-- Profile Photo -->
+        <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+            <div class="border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:px-6 sm:py-5">
+                <h2 class="text-base font-semibold text-slate-800"><i class="bi bi-camera me-2 text-emerald-500"></i>Profil rasmi</h2>
+            </div>
+            <div class="flex flex-col items-center gap-5 p-5 sm:flex-row sm:p-6">
+                <label for="profile-photo-input" class="group relative flex h-24 w-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-lg transition hover:ring-4 hover:ring-emerald-400/30 sm:h-20 sm:w-20">
+                    {% if profile_photo_url %}
+                        <img src="{{ profile_photo_url }}" alt="" class="h-full w-full object-cover transition group-hover:scale-105" id="profile-preview-img" />
+                    {% else %}
+                        <span class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200" id="profile-preview-placeholder">
+                            <i class="bi bi-person text-3xl text-slate-400 group-hover:text-emerald-500 transition"></i>
+                        </span>
+                        <img src="" alt="" class="hidden h-full w-full object-cover transition group-hover:scale-105" id="profile-preview-img" />
+                    {% endif %}
+                    <div class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <i class="bi bi-pencil-fill text-white"></i>
+                    </div>
+                </label>
+                <input type="file" name="profile_photo" id="profile-photo-input" accept="image/jpeg,image/png,image/webp" class="sr-only" />
+                
+                <div class="text-center sm:text-left">
+                    <p class="font-medium text-slate-900">Yangi rasm yuklash</p>
+                    <p class="mt-1 text-xs text-slate-500">Tavsiya etiladi: JPG, PNG yoki WEBP formatda (maks. 3 MB)</p>
+                    {% if profile_photo_url %}
+                        <label class="mt-3 flex cursor-pointer items-center justify-center gap-2 text-sm font-medium text-rose-500 transition hover:text-rose-700 sm:justify-start">
+                            <input type="checkbox" name="remove_photo" value="1" class="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500" />
+                            <span>Joriy rasmni o'chirish</span>
+                        </label>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Ism</label>
-                <input type="text" name="first_name" value="{{ form.first_name.value|default:request.user.first_name }}" maxlength="150" required class="form-control w-full" />
+        <!-- Personal Info -->
+        <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+            <div class="border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:px-6 sm:py-5">
+                <h2 class="text-base font-semibold text-slate-800"><i class="bi bi-person-lines-fill me-2 text-emerald-500"></i>Shaxsiy ma'lumotlar</h2>
             </div>
-            <div>
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Familya</label>
-                <input type="text" name="last_name" value="{{ form.last_name.value|default:request.user.last_name }}" maxlength="150" required class="form-control w-full" />
-            </div>
-            <div class="sm:col-span-2">
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Sharifi</label>
-                <input type="text" name="middle_name" value="{{ form.middle_name.value|default:user_profile.middle_name }}" maxlength="255" class="form-control w-full" />
-            </div>
-            <div class="sm:col-span-2">
-                <label class="mb-1.5 block text-sm font-medium text-slate-700">Telefon raqam</label>
-                <input type="tel" name="phone" value="{{ form.phone.value|default:user_profile.phone_number|default:request.user.username }}" required class="form-control w-full" inputmode="tel" />
+            <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Ism</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-person text-slate-400"></i>
+                        </div>
+                        <input type="text" name="first_name" value="{{ form.first_name.value|default:request.user.first_name }}" maxlength="150" required class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Ismingizni kiriting" />
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Familya</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-person text-slate-400"></i>
+                        </div>
+                        <input type="text" name="last_name" value="{{ form.last_name.value|default:request.user.last_name }}" maxlength="150" required class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Familyangizni kiriting" />
+                    </div>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Sharifi (Otasining ismi)</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-person-vcard text-slate-400"></i>
+                        </div>
+                        <input type="text" name="middle_name" value="{{ form.middle_name.value|default:user_profile.middle_name }}" maxlength="255" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Sharifingizni kiriting" />
+                    </div>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Telefon raqam</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-telephone text-slate-400"></i>
+                        </div>
+                        <input type="tel" name="phone" value="{{ form.phone.value|default:user_profile.phone_number|default:request.user.username }}" required class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" inputmode="tel" placeholder="+998901234567" />
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-            <p class="mb-3 text-sm font-semibold text-slate-800">Parolni o'zgartirish</p>
-            <div class="space-y-3">
-                <input type="password" name="password1" autocomplete="new-password" class="form-control w-full" placeholder="Yangi parol" />
-                <input type="password" name="password2" autocomplete="new-password" class="form-control w-full" placeholder="Parolni tasdiqlang" />
-                <p class="text-xs text-slate-500">O'zgartirmasangiz bo'sh qoldiring</p>
+        <!-- Security -->
+        <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+            <div class="border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:px-6 sm:py-5">
+                <h2 class="text-base font-semibold text-slate-800"><i class="bi bi-shield-lock me-2 text-emerald-500"></i>Xavfsizlik va parol</h2>
+            </div>
+            <div class="p-5 sm:p-6">
+                <p class="mb-4 text-sm text-slate-500">Parolni o'zgartirishni istamasangiz, ushbu maydonlarni bo'sh qoldiring.</p>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-key text-slate-400"></i>
+                        </div>
+                        <input type="password" name="password1" autocomplete="new-password" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Yangi parol" />
+                    </div>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-key-fill text-slate-400"></i>
+                        </div>
+                        <input type="password" name="password2" autocomplete="new-password" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Yangi parolni tasdiqlang" />
+                    </div>
+                </div>
             </div>
         </div>
 
-        <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700">
-            <i class="bi bi-check2-circle"></i> Saqlash
-        </button>
+        <!-- Actions -->
+        <div class="sticky bottom-20 z-10 flex items-center justify-between gap-4 rounded-3xl bg-white/90 p-4 shadow-lg backdrop-blur sm:static sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+            <a href="{% url 'dashboard' %}" class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 sm:hidden">
+                <i class="bi bi-arrow-left text-lg"></i>
+            </a>
+            <button type="submit" class="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-semibold text-white shadow-md shadow-emerald-600/20 transition hover:bg-emerald-700 hover:shadow-lg hover:shadow-emerald-600/30">
+                <i class="bi bi-check2-circle text-lg"></i> Saqlash
+            </button>
+        </div>
     </form>
 </div>
 
@@ -95,6 +175,23 @@ document.getElementById('profile-photo-input')?.addEventListener('change', funct
     const img = document.getElementById('profile-preview-img');
     const ph = document.getElementById('profile-preview-placeholder');
     if (!file || !img) return;
+    
+    // Check size limit client-side
+    if (file.size > 3 * 1024 * 1024) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Fayl hajmi katta',
+                text: "Rasm hajmi 3 MB dan oshmasligi kerak.",
+                confirmButtonColor: '#16a34a'
+            });
+        } else {
+            alert("Rasm hajmi 3 MB dan oshmasligi kerak.");
+        }
+        this.value = '';
+        return;
+    }
+    
     const reader = new FileReader();
     reader.onload = function () {
         img.src = reader.result;

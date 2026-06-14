@@ -299,21 +299,108 @@
 
         @media (max-width: 640px) {
             .ai-assistant {
-                right: 0.75rem;
-                left: 0.75rem;
-                bottom: 1.25rem;
+                right: 1rem;
+                left: auto;
+                bottom: calc(1rem + 70px);
             }
 
             .ai-assistant__panel {
-                width: 100%;
-                height: min(34rem, calc(100vh - 6.5rem));
+                width: calc(100vw - 2rem);
+                height: min(34rem, calc(100vh - 8rem - 70px));
             }
 
             .ai-assistant__toggle {
-                width: 100%;
+                padding: 0.65rem;
+                border-radius: 50%;
+                width: auto;
                 justify-content: center;
             }
+            
+            .ai-assistant__toggle .text-left {
+                display: none;
+            }
+            
+            .ai-assistant__bubble {
+                height: 2.5rem;
+                width: 2.5rem;
+                background: transparent;
+                font-size: 1.25rem;
+            }
         }
+
+        /* Mobile specific styles */
+        @media (max-width: 768px) {
+            /* Responsive tables: horizontal scroll */
+            table {
+                display: block;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                white-space: nowrap;
+            }
+            
+            /* Inputs / buttons larger for touch, prevent iOS zoom */
+            input, select, textarea, button {
+                font-size: 16px !important;
+            }
+            
+            .form-control, .form-select, .btn {
+                min-height: 44px;
+            }
+            
+            body {
+                padding-bottom: calc(70px + env(safe-area-inset-bottom));
+            }
+            
+            #mobile-menu-btn {
+                display: none !important;
+            }
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-top: 8px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            z-index: 35;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #64748b;
+            text-decoration: none;
+            width: 60px;
+            min-height: 44px;
+            transition: color 0.2s ease;
+        }
+
+        .bottom-nav-item i {
+            font-size: 1.25rem;
+        }
+
+        .bottom-nav-item span {
+            font-size: 0.65rem;
+            font-weight: 500;
+        }
+
+        .bottom-nav-item.active {
+            color: #10B981;
+        }
+
     </style>
     {% block head %}{% endblock %}
 </head>
@@ -558,6 +645,38 @@
     </div>
 </div>
 
+{% if request.user.is_authenticated %}
+<!-- Mobile Bottom Navigation -->
+<div class="bottom-nav lg:hidden">
+    <a href="{% url 'dashboard' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <i class="bi bi-house"></i>
+        <span>Dashboard</span>
+    </a>
+    
+    {% if is_worker or is_section_admin %}
+    <a href="{% url 'worker-entry-guidelines' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'worker-entry-guidelines' %}active{% endif %}">
+        <i class="bi bi-book"></i>
+        <span>Yo'riqnoma</span>
+    </a>
+    {% elif is_department_admin %}
+    <a href="{% url 'entry-guidelines' %}" class="bottom-nav-item {% if 'entry-guideline' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="bi bi-book"></i>
+        <span>Yo'riqnoma</span>
+    </a>
+    {% endif %}
+
+    <button type="button" class="bottom-nav-item" onclick="window.openSidebar()">
+        <i class="bi bi-list"></i>
+        <span>Menyu</span>
+    </button>
+    
+    <a href="{% url 'profile' %}" class="bottom-nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+        <i class="bi bi-person"></i>
+        <span>Profil</span>
+    </a>
+</div>
+{% endif %}
+
 {% if request.user.is_authenticated and request.resolver_match.url_name == 'dashboard' %}
 <div class="ai-assistant">
     <div id="ai-assistant-panel" class="ai-assistant__panel is-hidden">
@@ -628,19 +747,19 @@
             const desktopMenuBtn = document.getElementById('desktop-menu-btn');
             const desktopMenuIcon = document.getElementById('desktop-menu-icon');
 
-            function openSidebar() {
+            window.openSidebar = function() {
                 if (!sidebar || !backdrop) return;
                 sidebar.style.transform = 'translateX(0)';
                 backdrop.classList.remove('hidden');
                 document.body.style.overflow = 'hidden';
-            }
+            };
 
-            function closeSidebar() {
+            window.closeSidebar = function() {
                 if (!sidebar || !backdrop) return;
                 sidebar.style.transform = '';
                 backdrop.classList.add('hidden');
                 document.body.style.overflow = '';
-            }
+            };
 
             function setDesktopSidebarCollapsed(collapsed) {
                 if (!appShell) return;
@@ -655,7 +774,7 @@
                 } catch (e) {}
             }
 
-            if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+            if (menuBtn) menuBtn.addEventListener('click', window.openSidebar);
 
             if (desktopMenuBtn) {
                 desktopMenuBtn.addEventListener('click', () => {
@@ -665,11 +784,11 @@
                 });
             }
 
-            if (backdrop) backdrop.addEventListener('click', closeSidebar);
+            if (backdrop) backdrop.addEventListener('click', window.closeSidebar);
 
             document.querySelectorAll('#app-sidebar .nav-link').forEach(link => {
                 link.addEventListener('click', () => {
-                    if (window.innerWidth < 1024) closeSidebar();
+                    if (window.innerWidth < 1024) window.closeSidebar();
                 });
             });
 
@@ -691,7 +810,7 @@
                         collapsed = localStorage.getItem('sidebarCollapsedDesktop') === '1';
                     } catch (e) {}
                     setDesktopSidebarCollapsed(collapsed);
-                    closeSidebar();
+                    window.closeSidebar();
                 }
             });
         } catch (error) {
@@ -867,6 +986,32 @@ function toggleInternalGuidelineStatusMenu() {
     chevron.style.transform = 'rotate(180deg)';
   }
 })();
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.type === 'file') {
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        const files = e.target.files;
+        if (files) {
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].size > maxSize) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Fayl hajmi katta',
+                            text: "Iltimos, hajmi 5 MB dan oshmaydigan fayl yuklang.",
+                            confirmButtonText: 'Tushunarli',
+                            confirmButtonColor: '#16a34a'
+                        });
+                    } else {
+                        alert("Iltimos, hajmi 5 MB dan oshmaydigan fayl yuklang.");
+                    }
+                    e.target.value = ''; // clear the input
+                    return;
+                }
+            }
+        }
+    }
+});
 </script>
 </body>
 </html>
