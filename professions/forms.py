@@ -8,7 +8,7 @@ class ProfessionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not self.instance.pk:
             self.fields['nizom_file'].required = True
-        self.fields['nizom_file'].widget.attrs.update({'class': 'form-control', 'accept': 'application/pdf'})
+        self.fields['nizom_file'].widget.attrs.update({'class': 'form-control', 'accept': '.pdf,.docx'})
 
     class Meta:
         model = Profession

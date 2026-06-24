@@ -761,7 +761,7 @@ class SectionInternalGuidelineForm(forms.ModelForm):
             'pdf_file': forms.FileInput(
                 attrs={
                     'class': 'block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100',
-                    'accept': 'application/pdf',
+                    'accept': '.pdf,.docx',
                 }
             ),
             'start_time': _DATETIME_LOCAL_WIDGET,
@@ -782,11 +782,11 @@ class SectionInternalGuidelineForm(forms.ModelForm):
             if self.instance.pk and self.instance.pdf_file:
                 return self.instance.pdf_file
             raise ValidationError('PDF fayl yuklang.')
-        if pdf.size > 3 * 1024 * 1024:
-            raise ValidationError('PDF hajmi 3 MB dan oshmasligi kerak.')
-        content_type = getattr(pdf, 'content_type', '') or ''
-        if content_type and content_type != 'application/pdf':
-            raise ValidationError('Faqat PDF format qabul qilinadi.')
+        if pdf.size > 20 * 1024 * 1024:
+            raise ValidationError('Fayl hajmi 20 MB dan oshmasligi kerak.')
+        ext = pdf.name.split('.')[-1].lower() if getattr(pdf, 'name', None) else ''
+        if ext not in ['pdf', 'docx']:
+            raise ValidationError('Faqat PDF va DOCX formatlari qabul qilinadi.')
         return pdf
 
     def clean(self):
@@ -798,7 +798,7 @@ class SectionInternalGuidelineForm(forms.ModelForm):
             raise ValidationError("Ro'yxatdan o'tish oxiri boshlanish vaqtidan keyin bo'lishi kerak.")
         if reg_end and active_until and active_until <= reg_end:
             raise ValidationError('Faollik tugashi ro\'yxatdan o\'tish oxiridan keyin bo\'lishi kerak.')
-        return pdf
+        return cleaned
 
 
 class EntryGuidelineForm(forms.ModelForm):
@@ -810,7 +810,7 @@ class EntryGuidelineForm(forms.ModelForm):
             'pdf_file': forms.FileInput(
                 attrs={
                     'class': 'block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-emerald-700 hover:file:bg-emerald-100',
-                    'accept': 'application/pdf',
+                    'accept': '.pdf,.docx',
                 }
             ),
         }
@@ -821,11 +821,11 @@ class EntryGuidelineForm(forms.ModelForm):
             if self.instance.pk and self.instance.pdf_file:
                 return self.instance.pdf_file
             raise ValidationError("PDF fayl yuklang.")
-        if pdf.size > 3 * 1024 * 1024:
-            raise ValidationError('PDF hajmi 3 MB dan oshmasligi kerak.')
-        content_type = getattr(pdf, 'content_type', '') or ''
-        if content_type and content_type != 'application/pdf':
-            raise ValidationError('Faqat PDF format qabul qilinadi.')
+        if pdf.size > 20 * 1024 * 1024:
+            raise ValidationError('Fayl hajmi 20 MB dan oshmasligi kerak.')
+        ext = pdf.name.split('.')[-1].lower() if getattr(pdf, 'name', None) else ''
+        if ext not in ['pdf', 'docx']:
+            raise ValidationError('Faqat PDF va DOCX formatlari qabul qilinadi.')
         return pdf
 
 

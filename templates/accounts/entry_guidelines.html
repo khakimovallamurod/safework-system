@@ -124,7 +124,7 @@
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
                     <input type="text" name="name" value="{{ guideline.name }}" class="form-control" required />
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">PDF (yangilash ixtiyoriy)</label>
-                    <input type="file" name="pdf_file" accept="application/pdf" class="form-control" />
+                    <input type="file" name="pdf_file" accept=".pdf,.docx" class="form-control" />
                     <p class="text-xs text-slate-500">
                         Joriy:
                         <a href="{% url 'guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}" class="font-medium text-emerald-700 hover:text-emerald-800">PDF ko'rish</a>

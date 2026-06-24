@@ -5,10 +5,10 @@ from django.db import models
 from industries.models import Industry
 
 
-def validate_file_size_1mb(value):
-    max_bytes = 1024 * 1024
+def validate_file_size_20mb(value):
+    max_bytes = 20 * 1024 * 1024
     if value.size > max_bytes:
-        raise ValidationError("Nizom fayli 1MB dan oshmasligi kerak.")
+        raise ValidationError("Nizom fayli 20MB dan oshmasligi kerak.")
 
 
 class Profession(models.Model):
@@ -16,7 +16,7 @@ class Profession(models.Model):
     industry = models.ForeignKey(Industry, on_delete=models.CASCADE, related_name='professions')
     nizom_file = models.FileField(
         upload_to='nizom_files/',
-        validators=[FileExtensionValidator(['pdf']), validate_file_size_1mb],
+        validators=[FileExtensionValidator(['pdf', 'docx']), validate_file_size_20mb],
         blank=True,
         null=True,
     )
