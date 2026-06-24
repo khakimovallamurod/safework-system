@@ -681,8 +681,8 @@ class ProfileEditForm(forms.Form):
         photo = self.cleaned_data.get('profile_photo')
         if not photo:
             return photo
-        if photo.size > 3 * 1024 * 1024:
-            raise ValidationError('Rasm hajmi 3 MB dan oshmasligi kerak.')
+        if photo.size > 20 * 1024 * 1024:
+            raise ValidationError('Rasm hajmi 20 MB dan oshmasligi kerak.')
         content_type = getattr(photo, 'content_type', '') or ''
         if content_type and not content_type.startswith('image/'):
             raise ValidationError('Faqat rasm faylini yuklang.')

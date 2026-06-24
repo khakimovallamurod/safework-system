@@ -77,7 +77,7 @@
                 
                 <div class="text-center sm:text-left">
                     <p class="font-medium text-slate-900">Yangi rasm yuklash</p>
-                    <p class="mt-1 text-xs text-slate-500">Tavsiya etiladi: JPG, PNG yoki WEBP formatda (maks. 3 MB)</p>
+                    <p class="mt-1 text-xs text-slate-500">Tavsiya etiladi: JPG, PNG yoki WEBP formatda (maks. 20 MB)</p>
                     {% if profile_photo_url %}
                         <label class="mt-3 flex cursor-pointer items-center justify-center gap-2 text-sm font-medium text-rose-500 transition hover:text-rose-700 sm:justify-start">
                             <input type="checkbox" name="remove_photo" value="1" class="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500" />
@@ -177,16 +177,16 @@ document.getElementById('profile-photo-input')?.addEventListener('change', funct
     if (!file || !img) return;
     
     // Check size limit client-side
-    if (file.size > 3 * 1024 * 1024) {
+    if (file.size > 20 * 1024 * 1024) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: 'error',
                 title: 'Fayl hajmi katta',
-                text: "Rasm hajmi 3 MB dan oshmasligi kerak.",
+                text: "Rasm hajmi 20 MB dan oshmasligi kerak.",
                 confirmButtonColor: '#16a34a'
             });
         } else {
-            alert("Rasm hajmi 3 MB dan oshmasligi kerak.");
+            alert("Rasm hajmi 20 MB dan oshmasligi kerak.");
         }
         this.value = '';
         return;

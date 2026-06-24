@@ -439,13 +439,6 @@
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'industries' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'industries:list' %}">
                     <i class="bi bi-diagram-3 text-base"></i> Sohalar
                 </a>
-                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
-                    <i class="bi bi-briefcase text-base"></i> Kasb turlari
-                </a>
-            {% elif is_org_leader or is_worker and not is_section_member %}
-                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
-                    <i class="bi bi-briefcase text-base"></i> Kasb turlari
-                </a>
             {% endif %}
             {% if is_section_member %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'worker-messages-inbox' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'worker-messages-inbox' %}">
