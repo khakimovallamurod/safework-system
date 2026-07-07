@@ -43,9 +43,15 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3">
+                        {% if item.pdf_available %}
                         <a href="{{ item.pdf_url }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
                             <i class="bi bi-eye"></i> O'qish
                         </a>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
+                            <i class="bi bi-exclamation-circle"></i> Fayl yo'q
+                        </span>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3">
                         {% if item.is_acknowledged %}

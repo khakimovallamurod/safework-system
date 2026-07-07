@@ -7,7 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
-from accounts.forms import get_department_admin_department
+from accounts.forms import get_department_admin_department, get_section_admin_section
+from accounts.models import UserActivitySummary
 from accounts.mixins import DepartmentAdminRequiredMixin, AuthenticatedRequiredMixin
 from companies.models import (
     Department,
@@ -18,6 +19,8 @@ from companies.models import (
     DepartmentAssessmentNotification,
     DepartmentAssessmentAttempt,
     DepartmentAssessmentAttemptAnswer,
+    SectionWorkPracticeAssignee,
+    WorkPracticeTestAttempt,
 )
 
 User = get_user_model()
@@ -27,6 +30,86 @@ User = get_user_model()
 
 def _dept_for_admin(user):
     return get_department_admin_department(user)
+
+
+def _departments_for_assessment_user(user, role):
+    profile = getattr(user, 'profile', None)
+    if role.get('is_super_admin'):
+        return Department.objects.all()
+    if role.get('is_org_leader') and profile:
+        return Department.objects.filter(leader=profile)
+    dept = get_department_admin_department(user)
+    if dept:
+        return Department.objects.filter(pk=dept.pk)
+    section = get_section_admin_section(user)
+    if section:
+        return Department.objects.filter(pk=section.department_id)
+    return Department.objects.none()
+
+
+def _assessment_scope_department(request, role):
+    departments = _departments_for_assessment_user(request.user, role)
+    selected_id = request.GET.get('department') or request.GET.get('dept')
+    if selected_id and str(selected_id).isdigit():
+        selected = departments.filter(pk=int(selected_id)).first()
+        if selected:
+            return selected, departments
+    return departments.first(), departments
+
+
+def _sections_for_assessment_scope(department, user, role):
+    if role.get('is_section_admin'):
+        section = get_section_admin_section(user)
+        if section and section.department_id == department.id:
+            return department.sections.filter(pk=section.pk)
+        return Section.objects.none()
+    return department.sections.all()
+
+
+def _promotion_recommendations(users):
+    rows = []
+    for user in users:
+        assessment_best = DepartmentAssessmentAttempt.objects.filter(
+            user=user,
+            finished_at__isnull=False,
+            score__isnull=False,
+        ).order_by('-score').first()
+        practice_attempts = WorkPracticeTestAttempt.objects.filter(
+            user=user,
+            finished_at__isnull=False,
+            score__isnull=False,
+        )
+        practice_best = practice_attempts.order_by('-score').first()
+        accepted_practices = SectionWorkPracticeAssignee.objects.filter(
+            user=user,
+            accepted_by_responsible=True,
+        ).count()
+        activity = UserActivitySummary.objects.filter(user=user).first()
+        assessment_score = assessment_best.score if assessment_best else 0
+        practice_score = practice_best.score if practice_best else 0
+        task_score = min(accepted_practices * 10, 20)
+        activity_score = 10 if activity and activity.login_count >= 3 else 0
+        score = int((assessment_score * 0.55) + (practice_score * 0.25) + task_score + activity_score)
+        if assessment_score >= 85 and practice_score >= 70 and score >= 80:
+            level = "Mansab/oylik oshirishga nomzod"
+            badge = "bg-emerald-100 text-emerald-700"
+        elif assessment_score >= 60:
+            level = "Barqaror, kuzatuvda"
+            badge = "bg-sky-100 text-sky-700"
+        else:
+            level = "Qayta o‘qitish kerak"
+            badge = "bg-rose-100 text-rose-700"
+        rows.append({
+            'user': user,
+            'assessment_score': assessment_score,
+            'practice_score': practice_score,
+            'accepted_practices': accepted_practices,
+            'management_score': min(score, 100),
+            'level': level,
+            'badge': badge,
+        })
+    rows.sort(key=lambda item: -item['management_score'])
+    return rows[:20]
 
 
 def _all_dept_users(department):
@@ -55,9 +138,21 @@ def _user_dept(user):
 class AssessmentListView(DepartmentAdminRequiredMixin, View):
     template_name = 'companies/assessment/list.html'
 
+    def test_func(self):
+        role = self.get_role_context()
+        return (
+            role.get('is_super_admin')
+            or role.get('is_org_leader')
+            or role.get('is_department_admin')
+            or role.get('is_section_admin')
+        )
+
     def get(self, request):
         dept = _dept_for_admin(request.user)
         if not dept:
+            role = self.get_role_context()
+            if role.get('is_super_admin') or role.get('is_org_leader') or role.get('is_section_admin'):
+                return redirect('assessment-overview')
             messages.error(request, "Boshqarma topilmadi.")
             return redirect('dashboard')
         assessments = DepartmentAssessment.objects.filter(department=dept).annotate(
@@ -175,10 +270,21 @@ class AssessmentOverviewView(DepartmentAdminRequiredMixin, View):
     """Barcha published testlar uchun umumiy hisobot."""
     template_name = 'companies/assessment/overview.html'
 
+    def test_func(self):
+        role = self.get_role_context()
+        return (
+            role.get('is_super_admin')
+            or role.get('is_org_leader')
+            or role.get('is_department_admin')
+            or role.get('is_section_admin')
+        )
+
     def get(self, request):
-        dept = _dept_for_admin(request.user)
+        role = self.get_role_context()
+        dept, departments = _assessment_scope_department(request, role)
         if not dept:
             return redirect('dashboard')
+        status = request.GET.get('status', 'all')
         published = DepartmentAssessment.objects.filter(
             department=dept, is_published=True
         ).annotate(
@@ -191,13 +297,21 @@ class AssessmentOverviewView(DepartmentAdminRequiredMixin, View):
         ).order_by('-published_at')
 
         # Sections with failed workers
-        sections = dept.sections.prefetch_related('memberships__user__profile').all()
+        sections = _sections_for_assessment_scope(dept, request.user, role).prefetch_related('memberships__user__profile')
         failed_workers = []
+        passed_workers = []
+        pending_workers = []
+        all_workers = []
         for section in sections:
             for m in section.memberships.select_related('user__profile').all():
+                all_workers.append(m.user)
                 profile = getattr(m.user, 'profile', None)
                 if profile and profile.assessment_qualified is False:
                     failed_workers.append({'user': m.user, 'section': section})
+                elif profile and profile.assessment_qualified is True:
+                    passed_workers.append({'user': m.user, 'section': section})
+                else:
+                    pending_workers.append({'user': m.user, 'section': section})
 
         # Sort sections by failed count
         section_stats = []
@@ -208,13 +322,40 @@ class AssessmentOverviewView(DepartmentAdminRequiredMixin, View):
             section_stats.append({'section': section, 'total': len(members), 'failed': fail})
         section_stats.sort(key=lambda x: -x['failed'])
 
-        ctx = self.get_role_context()
+        visible_workers = {
+            'passed': passed_workers,
+            'failed': failed_workers,
+            'pending': pending_workers,
+        }.get(status, passed_workers + failed_workers + pending_workers)
+        top_attempts = (
+            DepartmentAssessmentAttempt.objects
+            .filter(
+                assessment__department=dept,
+                user_id__in=[user.id for user in all_workers],
+                finished_at__isnull=False,
+                score__isnull=False,
+            )
+            .select_related('user__profile', 'assessment')
+            .order_by('-score', '-finished_at')[:10]
+        )
+        recommendations = _promotion_recommendations(all_workers)
+        ctx = role
         ctx.update({
             'dept': dept,
+            'departments': departments,
+            'selected_status': status,
             'published': published,
             'failed_workers': failed_workers,
+            'passed_workers': passed_workers,
+            'pending_workers': pending_workers,
+            'visible_workers': visible_workers,
+            'passed_total': len(passed_workers),
+            'pending_total': len(pending_workers),
             'section_stats': section_stats,
             'failed_total': len(failed_workers),
+            'worker_total': len(all_workers),
+            'top_attempts': top_attempts,
+            'recommendations': recommendations,
         })
         return render(request, self.template_name, ctx)
 
@@ -223,8 +364,15 @@ class AssessmentEditView(DepartmentAdminRequiredMixin, View):
     template_name = 'companies/assessment/create.html'
 
     def get(self, request, pk):
-        dept = _dept_for_admin(request.user)
-        assessment = get_object_or_404(DepartmentAssessment, pk=pk, department=dept)
+        role = self.get_role_context()
+        dept, departments = _assessment_scope_department(request, role)
+        assessment = get_object_or_404(
+            DepartmentAssessment,
+            pk=pk,
+            department__in=departments,
+        )
+        dept = assessment.department
+        status = request.GET.get('status', 'all')
         if assessment.is_published:
             messages.warning(request, "Joriy qilingan testni tahrirlash mumkin emas.")
             return redirect('assessment-detail', pk=pk)
@@ -335,12 +483,21 @@ class AssessmentQuestionDeleteView(DepartmentAdminRequiredMixin, View):
 class AssessmentReportView(DepartmentAdminRequiredMixin, View):
     template_name = 'companies/assessment/report.html'
 
+    def test_func(self):
+        role = self.get_role_context()
+        return (
+            role.get('is_super_admin')
+            or role.get('is_org_leader')
+            or role.get('is_department_admin')
+            or role.get('is_section_admin')
+        )
+
     def get(self, request, pk):
         dept = _dept_for_admin(request.user)
         assessment = get_object_or_404(DepartmentAssessment, pk=pk, department=dept)
 
         # All sections in dept
-        sections = dept.sections.prefetch_related('memberships__user__profile').all()
+        sections = _sections_for_assessment_scope(dept, request.user, role).prefetch_related('memberships__user__profile')
 
         section_data = []
         for section in sections:
@@ -367,6 +524,13 @@ class AssessmentReportView(DepartmentAdminRequiredMixin, View):
                     'passed': best_attempt.score >= 60 if best_attempt and best_attempt.score is not None else None,
                     'attempt': best_attempt,
                 })
+
+            if status == 'passed':
+                worker_rows = [r for r in worker_rows if r['passed'] is True]
+            elif status == 'failed':
+                worker_rows = [r for r in worker_rows if r['passed'] is False]
+            elif status == 'pending':
+                worker_rows = [r for r in worker_rows if r['passed'] is None]
 
             # Sort: passed first, then by score desc
             worker_rows.sort(key=lambda x: (
@@ -396,14 +560,20 @@ class AssessmentReportView(DepartmentAdminRequiredMixin, View):
         passed_all = all_attempts.filter(score__gte=60).count()
         failed_all = all_attempts.filter(score__lt=60).count()
 
-        ctx = self.get_role_context()
+        top_rows = []
+        for data in section_data:
+            top_rows.extend([row for row in data['rows'] if row['best_score'] is not None])
+        top_rows.sort(key=lambda row: -(row['best_score'] or 0))
+        ctx = role
         ctx.update({
             'assessment': assessment,
+            'selected_status': status,
             'section_data': section_data,
             'total_notifs': total_notifs,
             'confirmed': confirmed,
             'passed_all': passed_all,
             'failed_all': failed_all,
+            'top_rows': top_rows[:10],
         })
         return render(request, self.template_name, ctx)
 

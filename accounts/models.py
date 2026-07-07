@@ -77,3 +77,21 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f'{self.full_name} ({self.get_role_display()})'
+
+
+class UserActivitySummary(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='activity_summary')
+    first_seen_at = models.DateTimeField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    last_path = models.CharField(max_length=255, blank=True)
+    total_active_seconds = models.PositiveIntegerField(default=0)
+    requests_count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-last_seen_at']
+        db_table = 'foydalanuvchi_faollik'
+        verbose_name_plural = 'User activity summaries'
+
+    def __str__(self):
+        return f'{self.user_id} activity'

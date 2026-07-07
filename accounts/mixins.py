@@ -52,10 +52,11 @@ class RoleContextMixin:
             profile = user.profile
         except ObjectDoesNotExist:
             profile = None
-        is_org_leader = profile is not None and profile.role == 'organization_leader' and not user.is_superuser
-        is_department_admin = profile is not None and profile.role == 'department_admin' and not user.is_superuser
-        is_section_admin = profile is not None and profile.role == 'section_admin' and not user.is_superuser
-        is_worker = profile is not None and profile.role == 'worker' and not user.is_superuser
+        is_super_admin = user.is_superuser or (profile is not None and profile.role == 'super_admin')
+        is_org_leader = profile is not None and profile.role == 'organization_leader' and not is_super_admin
+        is_department_admin = profile is not None and profile.role == 'department_admin' and not is_super_admin
+        is_section_admin = profile is not None and profile.role == 'section_admin' and not is_super_admin
+        is_worker = profile is not None and profile.role == 'worker' and not is_super_admin
         is_section_member = False
         can_view_work_practices = False
         if is_worker and user.is_authenticated:
@@ -75,12 +76,15 @@ class RoleContextMixin:
         if user.is_authenticated:
             from companies.models import SectionWorkPractice, SectionWorkPracticeAssignee
             can_view_work_practices = (
-                is_section_admin
+                is_super_admin
+                or is_org_leader
+                or is_department_admin
+                or is_section_admin
                 or SectionWorkPracticeAssignee.objects.filter(user=user).exists()
                 or SectionWorkPractice.objects.filter(responsible_user=user).exists()
                 or SectionWorkPractice.objects.filter(created_by=user).exists()
             )
-        if user.is_superuser:
+        if is_super_admin:
             role_name = 'Super admin'
         elif is_org_leader:
             role_name = 'Tashkilot rahbari'
@@ -104,7 +108,7 @@ class RoleContextMixin:
         if not profile_short_name:
             profile_short_name = profile_display_name.split()[0] if profile_display_name else user.username
         context = {
-            'is_super_admin': user.is_superuser,
+            'is_super_admin': is_super_admin,
             'is_org_leader': is_org_leader,
             'is_department_admin': is_department_admin,
             'is_section_admin': is_section_admin,
@@ -119,7 +123,7 @@ class RoleContextMixin:
             'profile_short_name': profile_short_name,
             'company_profile': None,
             'company_industry': profile.industry if profile else None,
-            'can_manage_professions': user.is_superuser or is_org_leader,
+            'can_manage_professions': is_super_admin or is_org_leader,
             'has_dept_assessment': has_dept_assessment,
         }
         context.update(get_worker_entry_guideline_context(user, is_worker or is_section_admin))
@@ -137,7 +141,8 @@ class SuperuserActionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Role
     login_url = 'login'
 
     def test_func(self):
-        return self.request.user.is_superuser
+        role = self.get_role_context()
+        return role.get('is_super_admin', False)
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:

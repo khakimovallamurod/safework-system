@@ -4,8 +4,8 @@
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h2 class="text-lg font-semibold text-slate-900">Xodimlar shajarasi</h2>
-            <p class="mt-1 text-sm text-slate-500">Tashkilot, boshqarma va bo'lim bo'yicha xodimlar joylashuvi.</p>
+            <h2 class="text-lg font-semibold text-slate-900">Tuzilma</h2>
+            <p class="mt-1 text-sm text-slate-500">Tashkilot, boshqarma va bo'lim bo'yicha xodimlar joylashuvi va vakolatlar.</p>
         </div>
         <div class="flex items-center gap-2">
             <a href="{% url 'dashboard' %}" class="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-slate-200">Dashboard</a>
@@ -14,57 +14,72 @@
 
     {% if hierarchy %}
         <div class="space-y-6">
-            {% for group in hierarchy %}
+            {% for organization_group in hierarchy %}
                 <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <h3 class="text-base font-semibold text-slate-900">Boshqarma: {{ group.department.name }}</h3>
-                            <p class="mt-1 text-sm text-slate-500">Bo'limlar va ishchilar ro'yxati.</p>
+                            <h3 class="text-base font-semibold text-slate-900">Tashkilot: {{ organization_group.organization_name }}</h3>
+                            <p class="mt-1 text-sm text-slate-500">Boshqarma va bo'limlar bo'yicha umumiy ko'rinish.</p>
                         </div>
-                        <div class="text-sm text-slate-600">Bo'limlar: {{ group.department.sections.count }}</div>
+                        <div class="text-sm text-slate-600">Boshqarma soni: {{ organization_group.departments|length }}</div>
                     </div>
 
                     <div class="mt-4 space-y-4">
-                        {% for section_group in group.section_groups %}
+                        {% for group in organization_group.departments %}
                             <div class="rounded-2xl border border-slate-200 bg-white p-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <h4 class="text-sm font-semibold text-slate-900">Bo'lim: {{ section_group.section.name }}</h4>
-                                        <p class="text-xs text-slate-500">Xodimlar soni: {{ section_group.members.count }}</p>
+                                        <h4 class="text-sm font-semibold text-slate-900">Boshqarma: {{ group.department.name }}</h4>
+                                        <p class="mt-1 text-xs text-slate-500">Bo'limlar soni: {{ group.department.sections.count }} · Xodimlar soni: {{ group.department.team_members.count }}</p>
                                     </div>
                                 </div>
-                                <div class="mt-3 grid gap-2 sm:grid-cols-2">
-                                    {% for member in section_group.members %}
-                                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                                            <div class="font-semibold">{{ member.full_name }}</div>
-                                            <div class="text-xs text-slate-500">{{ member.position|default:'-' }} · {{ member.organization_name|default:'-' }}</div>
-                                        </div>
-                                    {% empty %}
-                                        <div class="text-slate-500">Bu bo'limga hozircha xodim biriktirilmagan.</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endfor %}
 
-                        {% if group.unassigned_members %}
-                            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                                <h4 class="text-sm font-semibold text-amber-900">Bo'limsiz xodimlar</h4>
-                                <div class="mt-3 grid gap-2 sm:grid-cols-2">
-                                    {% for member in group.unassigned_members %}
-                                        <div class="rounded-2xl border border-amber-200 bg-white p-3 text-sm text-slate-700">
-                                            <div class="font-semibold">{{ member.full_name }}</div>
-                                            <div class="text-xs text-slate-500">{{ member.position|default:'-' }} · {{ member.organization_name|default:'-' }}</div>
+                                <div class="mt-4 space-y-4">
+                                    {% for section_group in group.section_groups %}
+                                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                                <div>
+                                                    <h5 class="text-sm font-semibold text-slate-900">Bo'lim: {{ section_group.section.name }}</h5>
+                                                    <p class="text-xs text-slate-500">Xodimlar soni: {{ section_group.members.count }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                                {% for member in section_group.members %}
+                                                    <div class="rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                                                        <div class="font-semibold">{{ member.full_name }}</div>
+                                                        <div class="text-xs text-slate-500">{{ member.position|default:'-' }} · {{ member.organization_name|default:'-' }}</div>
+                                                    </div>
+                                                {% empty %}
+                                                    <div class="text-slate-500">Bu bo'limga hozircha xodim biriktirilmagan.</div>
+                                                {% endfor %}
+                                            </div>
                                         </div>
                                     {% endfor %}
+
+                                    {% if group.unassigned_members %}
+                                        <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                            <h5 class="text-sm font-semibold text-amber-900">Bo'limsiz xodimlar</h5>
+                                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                                {% for member in group.unassigned_members %}
+                                                    <div class="rounded-2xl border border-amber-200 bg-white p-3 text-sm text-slate-700">
+                                                        <div class="font-semibold">{{ member.full_name }}</div>
+                                                        <div class="text-xs text-slate-500">{{ member.position|default:'-' }} · {{ member.organization_name|default:'-' }}</div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
-                        {% endif %}
+                        {% empty %}
+                            <div class="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">Bu tashkilotga hozircha boshqarma biriktirilmagan.</div>
+                        {% endfor %}
                     </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-10 text-center text-slate-500">Hozircha shajara ma'lumotlari topilmadi.</div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-10 text-center text-slate-500">Hozircha tuzilma ma'lumotlari topilmadi.</div>
     {% endif %}
 </div>
 {% endblock %}

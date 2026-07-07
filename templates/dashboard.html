@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .metric-bar:hover .metric-tooltip { opacity: 1; transform: translateY(-2px); }
+    .metric-tooltip { opacity: 0; transform: translateY(2px); transition: .18s ease; }
+</style>
 {% if is_super_admin %}
 <div class="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
     <i class="bi bi-shield-check text-lg"></i>
@@ -72,6 +76,292 @@
         <div class="min-w-0">
             <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Bo'lim</div>
             <div class="truncate text-sm font-bold text-slate-900">{{ structure_section_name }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if dashboard_overview %}
+<div class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <div class="border-b border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-5">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <div class="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-600">Monitoring</div>
+                <h2 class="text-base font-bold text-slate-900">{{ dashboard_overview.scope_title }}</h2>
+            </div>
+            <span class="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <i class="bi bi-activity"></i> Rolga mos ko'rinish
+            </span>
+        </div>
+    </div>
+
+    <div class="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        {% for card in dashboard_overview.cards %}
+        <div class="rounded-xl border border-slate-200 bg-white p-4">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <div class="text-xs font-semibold text-slate-500">{{ card.label }}</div>
+                    <div class="mt-1 text-2xl font-extrabold text-slate-900">{{ card.value }}</div>
+                </div>
+                <span class="flex h-10 w-10 items-center justify-center rounded-xl {% if card.tone == 'emerald' %}bg-emerald-50 text-emerald-600{% elif card.tone == 'sky' %}bg-sky-50 text-sky-600{% elif card.tone == 'amber' %}bg-amber-50 text-amber-600{% else %}bg-violet-50 text-violet-600{% endif %}">
+                    <i class="bi {{ card.icon }}"></i>
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="grid gap-4 border-t border-slate-100 p-4 xl:grid-cols-4">
+        <div class="rounded-xl border border-slate-200 p-4">
+            <div class="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-bar-chart-line text-emerald-600"></i> Tezkor taqsimot
+            </div>
+            <div class="space-y-3">
+                {% for item in dashboard_overview.chart_items %}
+                <div class="metric-bar relative">
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-600">{{ item.label }}</span>
+                        <span class="text-slate-400">{{ item.value }} · {{ item.percent }}%</span>
+                    </div>
+                    <div class="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full {{ item.color }}" style="width: {{ item.percent }}%" title="{{ item.label }}: {{ item.value }} ta, {{ item.percent }}%"></div>
+                    </div>
+                    <div class="metric-tooltip pointer-events-none absolute right-0 top-0 rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white shadow-lg">{{ item.value }} ta · {{ item.percent }}%</div>
+                </div>
+                {% empty %}
+                <div class="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">Hali ma'lumot yo'q</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+            <div class="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-people text-indigo-600"></i> Rollar bo‘yicha
+            </div>
+            <div class="space-y-3">
+                {% for item in dashboard_overview.role_chart %}
+                <div class="metric-bar relative">
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="truncate font-semibold text-slate-600">{{ item.label }}</span>
+                        <span class="text-slate-400">{{ item.value }} · {{ item.percent }}%</span>
+                    </div>
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full bg-indigo-500" style="width: {{ item.width }}%" title="{{ item.label }}: {{ item.value }} ta, {{ item.percent }}%"></div>
+                    </div>
+                    <div class="metric-tooltip pointer-events-none absolute right-0 top-0 rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white shadow-lg">{{ item.value }} ta · {{ item.percent }}%</div>
+                </div>
+                {% empty %}
+                <div class="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">Rollar topilmadi</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2 xl:col-span-2">
+            <div class="rounded-xl border border-slate-200 p-4">
+                <div class="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <i class="bi bi-chat-square-text text-sky-600"></i> Xabarlar va yo'riqnomalar
+                </div>
+                <div class="space-y-2">
+                    {% for stat in dashboard_overview.message_stats %}
+                    <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+                        <div class="min-w-0">
+                            <div class="truncate text-sm font-semibold text-slate-700">{{ stat.label }}</div>
+                            <div class="text-xs text-slate-400">{{ stat.hint }}</div>
+                        </div>
+                        <span class="text-lg font-extrabold text-slate-900">{{ stat.value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 p-4">
+                <div class="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <i class="bi bi-mortarboard text-violet-600"></i> Testlar
+                </div>
+                <div class="space-y-2">
+                    {% for stat in dashboard_overview.test_stats %}
+                    <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
+                        <div class="min-w-0">
+                            <div class="truncate text-sm font-semibold text-slate-700">{{ stat.label }}</div>
+                            <div class="text-xs text-slate-400">{{ stat.hint }}</div>
+                        </div>
+                        <span class="text-lg font-extrabold text-slate-900">{{ stat.value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-4 border-t border-slate-100 p-4 xl:grid-cols-4">
+        <div class="rounded-xl border border-slate-200 p-4 lg:col-span-2">
+            <div class="mb-4 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <i class="bi bi-graph-up-arrow text-emerald-600"></i> Oy kesimida o'sish
+                </div>
+                <span class="text-xs text-slate-400">Yangi foydalanuvchilar</span>
+            </div>
+            <div class="rounded-xl bg-slate-50 p-3">
+                <svg viewBox="0 0 320 96" class="h-32 w-full" preserveAspectRatio="none" aria-hidden="true">
+                    <line x1="10" y1="86" x2="310" y2="86" stroke="#cbd5e1" stroke-width="1" />
+                    <line x1="10" y1="10" x2="10" y2="86" stroke="#cbd5e1" stroke-width="1" />
+                    {% if dashboard_overview.monthly_users_points %}
+                    <polyline points="{{ dashboard_overview.monthly_users_points }}" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                    {% endif %}
+                </svg>
+                <div class="mt-2 grid grid-cols-6 gap-1 text-center text-[11px] font-semibold text-slate-500">
+                    {% for item in dashboard_overview.monthly_users %}
+                    <div class="rounded-lg px-1 py-1 hover:bg-white" title="{{ item.label }}: {{ item.value }} ta yangi foydalanuvchi">
+                        <div>{{ item.label }}</div>
+                        <div class="text-slate-900">{{ item.value }}</div>
+                        <div class="mx-auto mt-1 h-12 w-2 rounded-full bg-slate-100">
+                            <div class="mt-auto rounded-full bg-emerald-500" style="height: {{ item.percent }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+            <div class="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-pie-chart text-violet-600"></i> Yo'riqnoma foizlari
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-600">Kirish yo'riqnomasi</span>
+                        <span class="font-bold text-emerald-700">{{ dashboard_overview.guideline_donut.entry_percent }}%</span>
+                    </div>
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100" title="{{ dashboard_overview.guideline_donut.entry_accepted }}/{{ dashboard_overview.guideline_donut.entry_total }} qabul qilingan">
+                        <div class="h-full rounded-full bg-emerald-500" style="width: {{ dashboard_overview.guideline_donut.entry_percent }}%"></div>
+                    </div>
+                    <div class="mt-1 text-xs text-slate-400">{{ dashboard_overview.guideline_donut.entry_pending }} ta o‘tmagan</div>
+                </div>
+                <div>
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-600">Ichki yo'riqnoma</span>
+                        <span class="font-bold text-sky-700">{{ dashboard_overview.guideline_donut.internal_percent }}%</span>
+                    </div>
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100" title="{{ dashboard_overview.guideline_donut.internal_accepted }}/{{ dashboard_overview.guideline_donut.internal_total }} qabul qilingan">
+                        <div class="h-full rounded-full bg-sky-500" style="width: {{ dashboard_overview.guideline_donut.internal_percent }}%"></div>
+                    </div>
+                    <div class="mt-1 text-xs text-slate-400">{{ dashboard_overview.guideline_donut.internal_pending }} ta o‘tmagan</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 p-4">
+            <div class="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-clipboard2-data text-rose-600"></i> Test natijalari
+            </div>
+            <div class="space-y-3">
+                {% for item in dashboard_overview.test_result_chart %}
+                <div class="metric-bar relative">
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-600">{{ item.label }}</span>
+                        <span class="text-slate-400">{{ item.value }} · {{ item.percent }}%</span>
+                    </div>
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full {{ item.color }}" style="width: {{ item.percent }}%" title="{{ item.label }}: {{ item.value }} ta, {{ item.percent }}%"></div>
+                    </div>
+                    <div class="metric-tooltip pointer-events-none absolute right-0 top-0 rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white shadow-lg">{{ item.value }} ta · {{ item.percent }}%</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid gap-4 border-t border-slate-100 p-4 lg:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 p-4">
+            <div class="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-building text-sky-600"></i> Boshqarmalar kesimida ishchilar
+            </div>
+            <div class="space-y-3">
+                {% for item in dashboard_overview.department_bars %}
+                <div class="metric-bar relative">
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="truncate font-semibold text-slate-600">{{ item.label }}</span>
+                        <span class="text-slate-400">{{ item.value }} ishchi · {{ item.sections }} bo‘lim</span>
+                    </div>
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full bg-sky-500" style="width: {{ item.width }}%" title="{{ item.label }}: {{ item.value }} ishchi, umumiydan {{ item.percent }}%"></div>
+                    </div>
+                    <div class="metric-tooltip pointer-events-none absolute right-0 top-0 rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white shadow-lg">{{ item.value }} · {{ item.percent }}%</div>
+                </div>
+                {% empty %}
+                <div class="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">Boshqarmalar topilmadi</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4">
+            <div class="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-diagram-2 text-amber-600"></i> Bo‘limlar kesimida ishchilar
+            </div>
+            <div class="space-y-3">
+                {% for item in dashboard_overview.section_bars %}
+                <div class="metric-bar relative">
+                    <div class="mb-1 flex items-center justify-between text-xs">
+                        <span class="truncate font-semibold text-slate-600">{{ item.label }}</span>
+                        <span class="text-slate-400">{{ item.value }} · {{ item.percent }}%</span>
+                    </div>
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full bg-amber-500" style="width: {{ item.width }}%" title="{{ item.label }}: {{ item.value }} ishchi, {{ item.department }}"></div>
+                    </div>
+                    <div class="metric-tooltip pointer-events-none absolute right-0 top-0 rounded-lg bg-slate-900 px-2 py-1 text-[11px] font-bold text-white shadow-lg">{{ item.value }} ta · {{ item.percent }}%</div>
+                </div>
+                {% empty %}
+                <div class="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">Bo‘limlar topilmadi</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="border-t border-slate-100 p-4">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <i class="bi bi-clock-history text-amber-600"></i> Oxirgi faollik
+            </div>
+            <span class="text-xs text-slate-400">So'nggi 8 foydalanuvchi</span>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-4 py-3">Foydalanuvchi</th>
+                        <th class="px-4 py-3">Rol</th>
+                        <th class="px-4 py-3">Joylashuv</th>
+                        <th class="px-4 py-3">Oxirgi kirish</th>
+                        <th class="px-4 py-3">Aktiv vaqt</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for row in dashboard_overview.activity_rows %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 font-semibold text-slate-900">{{ row.name }}</td>
+                        <td class="px-4 py-3 text-slate-600">{{ row.role }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-500">
+                            <div>{{ row.department }}</div>
+                            <div>{{ row.section }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-600">
+                            {% if row.last_seen %}
+                                {{ row.last_seen|date:'d.m.Y H:i' }}
+                            {% elif row.last_login %}
+                                {{ row.last_login|date:'d.m.Y H:i' }}
+                            {% else %}
+                                <span class="text-slate-400">Kirmagan</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-slate-600">{{ row.active_time }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-slate-400">Hali faollik yozilmagan</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

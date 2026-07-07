@@ -38,12 +38,18 @@
                 <tr class="{% if receipt.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
                     <td class="px-4 py-3 font-medium text-slate-900">{{ receipt.dispatch.guideline.name }}</td>
                     <td class="px-4 py-3">
+                        {% if receipt.dispatch.guideline.pdf_file_exists %}
                         <a
                             href="{% url 'guideline-pdf' receipt.dispatch.guideline.id %}?receipt={{ receipt.id }}&next={{ request.get_full_path|urlencode }}"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100"
                         >
                             <i class="bi bi-eye"></i> O'qish
                         </a>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
+                            <i class="bi bi-exclamation-circle"></i> Fayl yo'q
+                        </span>
+                        {% endif %}
                     </td>
                     <td class="px-4 py-3">
                         {% if receipt.is_acknowledged %}

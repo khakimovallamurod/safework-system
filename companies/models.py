@@ -220,6 +220,12 @@ class EntryGuideline(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def pdf_file_exists(self):
+        if not self.pdf_file:
+            return False
+        return self.pdf_file.storage.exists(self.pdf_file.name)
+
 
 class GuidelineDispatch(models.Model):
     guideline = models.ForeignKey(
@@ -314,6 +320,12 @@ class SectionInternalGuideline(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def pdf_file_exists(self):
+        if not self.pdf_file:
+            return False
+        return self.pdf_file.storage.exists(self.pdf_file.name)
 
 
 class SectionInternalGuidelineDispatch(models.Model):
@@ -426,6 +438,8 @@ class SectionWorkPracticeAssignee(models.Model):
         on_delete=models.CASCADE,
         related_name='work_practice_assignments',
     )
+    accepted_by_responsible = models.BooleanField(default=False)
+    accepted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'ish_amaliyot_azo'

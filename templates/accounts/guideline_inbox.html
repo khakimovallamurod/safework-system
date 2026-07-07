@@ -48,6 +48,8 @@
 
                     <td class="px-4 py-3">
 
+                        {% if receipt.dispatch.guideline.pdf_file_exists %}
+
                         <a
 
                             href="{% url 'guideline-pdf' receipt.dispatch.guideline.id %}?receipt={{ receipt.id }}&next={{ request.get_full_path|urlencode }}"
@@ -59,6 +61,16 @@
                             <i class="bi bi-eye"></i> O'qish
 
                         </a>
+
+                        {% else %}
+
+                        <span class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
+
+                            <i class="bi bi-exclamation-circle"></i> Fayl yo'q
+
+                        </span>
+
+                        {% endif %}
 
                     </td>
 
@@ -163,4 +175,3 @@
 {% endif %}
 
 {% endblock %}
-

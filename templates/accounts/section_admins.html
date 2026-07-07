@@ -32,18 +32,33 @@
                 {% if department %}
                     Boshqarma: <strong>{{ department.name }}</strong> — bo'limlarni qo'shing va nazoratchilarni belgilang.
                 {% else %}
-                    Boshqarma topilmadi.
+                    Tashkilotdagi barcha bo'limlar va ularning xodimlari ro'yxati.
                 {% endif %}
             </p>
         </div>
-        {% if department %}
+        {% if department or departments %}
             <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#sectionAddModal" type="button">
                 <i class="bi bi-plus-circle"></i> Yangi bo'lim
             </button>
         {% endif %}
     </div>
 
-    {% if department %}
+    <div class="mb-5 grid gap-3 md:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Jami bo'limlar</div>
+            <div class="mt-2 text-2xl font-semibold text-slate-900">{{ sections_count|default:0 }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Jami xodimlar</div>
+            <div class="mt-2 text-2xl font-semibold text-slate-900">{{ total_workers|default:0 }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Boshqarmalar</div>
+            <div class="mt-2 text-2xl font-semibold text-slate-900">{{ departments|length|default:0 }}</div>
+        </div>
+    </div>
+
+    {% if sections %}
     <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -51,6 +66,7 @@
                     <th class="px-4 py-3 w-16">#</th>
                     <th class="px-4 py-3">Boshqarma</th>
                     <th class="px-4 py-3">Bo'lim nomi</th>
+                    <th class="px-4 py-3">Xodimlar</th>
                     <th class="px-4 py-3">Nazoratchi</th>
                     <th class="px-4 py-3">Qo'shilgan sana va vaqt</th>
                     <th class="px-4 py-3 text-right w-32">Amallar</th>
@@ -64,6 +80,16 @@
                         </td>
                         <td class="px-4 py-3 text-slate-700">{{ section.department.name }}</td>
                         <td class="px-4 py-3 font-medium text-slate-900">{{ section.name }}</td>
+                        <td class="px-4 py-3 text-slate-600">
+                            <div class="font-medium text-slate-900">{{ section.worker_count }} ta xodim</div>
+                            <div class="mt-1 flex flex-wrap gap-1">
+                                {% for membership in section.membership_list|slice:":4" %}
+                                    <span class="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">{{ membership.user.profile.full_name|default:membership.user.username }}</span>
+                                {% empty %}
+                                    <span class="text-xs text-slate-400">Xodim yo'q</span>
+                                {% endfor %}
+                            </div>
+                        </td>
                         <td class="px-4 py-3">
                             {% if section.supervisor %}
                                 <div class="font-medium text-slate-900">{{ section.supervisor.profile.full_name }}</div>
@@ -84,7 +110,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" class="px-4 py-10 text-center text-slate-400">
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-400">
                             <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha bo'limlar yo'q
                         </td>
                     </tr>
@@ -95,7 +121,7 @@
     {% endif %}
 </div>
 
-{% if department %}
+{% if department or departments %}
 <div class="modal fade" id="sectionAddModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -107,10 +133,18 @@
                 </div>
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshqarma</label>
-                    <select class="form-control bg-slate-100" disabled>
-                        <option selected>{{ department.name }}</option>
-                    </select>
-                    <input type="hidden" name="department_id" value="{{ department.id }}" />
+                    {% if department %}
+                        <select class="form-control bg-slate-100" disabled>
+                            <option selected>{{ department.name }}</option>
+                        </select>
+                        <input type="hidden" name="department_id" value="{{ department.id }}" />
+                    {% else %}
+                        <select name="department_id" class="form-control" required>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_name">{{ form.name.label }}</label>
                     {{ form.name }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_supervisor">{{ form.supervisor.label }}</label>

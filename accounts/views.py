@@ -7,7 +7,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.views import LoginView, LogoutView
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.utils import timezone
@@ -55,10 +55,13 @@ from accounts.mixins import (
     SectionMemberRequiredMixin,
     SuperuserActionRequiredMixin,
 )
-from accounts.models import UserProfile
+from accounts.models import UserActivitySummary, UserProfile
 from companies.models import (
     Company,
     Department,
+    DepartmentAssessment,
+    DepartmentAssessmentAttempt,
+    DepartmentAssessmentNotification,
     EntryGuideline,
     GuidelineDispatch,
     GuidelineDispatchRecipient,
@@ -364,6 +367,334 @@ class ProfileUpdateView(AuthenticatedRequiredMixin, View):
         return redirect('profile')
 
 
+def _format_active_seconds(seconds):
+    seconds = int(seconds or 0)
+    hours, remainder = divmod(seconds, 3600)
+    minutes = remainder // 60
+    if hours:
+        return f'{hours} soat {minutes} daqiqa'
+    if minutes:
+        return f'{minutes} daqiqa'
+    return '1 daqiqadan kam'
+
+
+def _month_label(value):
+    month_names = {
+        1: 'Yan',
+        2: 'Fev',
+        3: 'Mar',
+        4: 'Apr',
+        5: 'May',
+        6: 'Iyun',
+        7: 'Iyul',
+        8: 'Avg',
+        9: 'Sen',
+        10: 'Okt',
+        11: 'Noy',
+        12: 'Dek',
+    }
+    return month_names.get(value.month, value.strftime('%m'))
+
+
+def _percent(part, total):
+    return round((part / total) * 100) if total else 0
+
+
+def _sparkline_points(values, width=320, height=96, padding=10):
+    if not values:
+        return ''
+    max_value = max(values) or 1
+    usable_width = width - (padding * 2)
+    usable_height = height - (padding * 2)
+    step = usable_width / max(len(values) - 1, 1)
+    points = []
+    for index, value in enumerate(values):
+        x = padding + (index * step)
+        y = padding + usable_height - ((value / max_value) * usable_height)
+        points.append(f'{x:.1f},{y:.1f}')
+    return ' '.join(points)
+
+
+def _bar_percent(value, max_value):
+    return max(_percent(value, max_value), 3) if value else 0
+
+
+def _dashboard_scope_for_user(user, role_context):
+    profile = role_context.get('user_profile')
+    departments = Department.objects.none()
+    sections = Section.objects.none()
+    profiles = UserProfile.objects.none()
+    title = 'Shaxsiy faoliyat'
+
+    if role_context.get('is_super_admin'):
+        departments = Department.objects.all()
+        sections = Section.objects.all()
+        profiles = (
+            UserProfile.objects.select_related('user', 'department', 'section')
+            .exclude(Q(user__is_superuser=True) | Q(role=UserProfile.ROLE_SUPER_ADMIN))
+        )
+        title = 'Butun tizim'
+    elif role_context.get('is_org_leader') and profile:
+        departments = Department.objects.filter(leader=profile)
+        sections = Section.objects.filter(department__in=departments)
+        profiles = (
+            UserProfile.objects.filter(
+                Q(pk=profile.pk)
+                | Q(organization=profile)
+                | Q(department__in=departments)
+                | Q(section__in=sections)
+                | Q(user__section_memberships__section__in=sections)
+            )
+            .select_related('user', 'department', 'section')
+            .distinct()
+        )
+        title = profile.organization_name or profile.full_name
+    elif role_context.get('is_department_admin') and profile:
+        department = profile.department or get_department_admin_department(user)
+        if department:
+            departments = Department.objects.filter(pk=department.pk)
+            sections = Section.objects.filter(department=department)
+            profiles = (
+                UserProfile.objects.filter(
+                    Q(user=user)
+                    | Q(department=department)
+                    | Q(section__in=sections)
+                    | Q(user__section_memberships__section__in=sections)
+                )
+                .select_related('user', 'department', 'section')
+                .distinct()
+            )
+            title = department.name
+    elif role_context.get('is_section_admin'):
+        section = get_section_admin_section(user)
+        if section:
+            departments = Department.objects.filter(pk=section.department_id)
+            sections = Section.objects.filter(pk=section.pk)
+            profiles = (
+                UserProfile.objects.filter(
+                    Q(user=user)
+                    | Q(section=section)
+                    | Q(user__section_memberships__section=section)
+                )
+                .select_related('user', 'department', 'section')
+                .distinct()
+            )
+            title = section.name
+    elif role_context.get('is_section_member') or role_context.get('is_worker'):
+        profiles = UserProfile.objects.filter(user=user).select_related('user', 'department', 'section')
+        membership = get_section_member_for_user(user)
+        if membership:
+            sections = Section.objects.filter(pk=membership.section_id)
+            departments = Department.objects.filter(pk=membership.section.department_id)
+            title = membership.section.name
+        elif profile:
+            title = profile.full_name
+
+    return {
+        'title': title,
+        'departments': departments,
+        'sections': sections,
+        'profiles': profiles,
+    }
+
+
+def _build_dashboard_overview(user, role_context):
+    scope = _dashboard_scope_for_user(user, role_context)
+    departments = scope['departments']
+    sections = scope['sections']
+    profiles = scope['profiles']
+    users = User.objects.filter(profile__in=profiles).distinct()
+    user_ids = list(users.values_list('id', flat=True))
+    department_ids = list(departments.values_list('id', flat=True))
+    section_ids = list(sections.values_list('id', flat=True))
+
+    section_messages = SectionMessage.objects.filter(section_id__in=section_ids)
+    work_messages = SectionWorkPracticeMessage.objects.filter(practice__section_id__in=section_ids)
+    entry_receipts = GuidelineDispatchRecipient.objects.filter(user_id__in=user_ids)
+    internal_receipts = SectionInternalGuidelineRecipient.objects.filter(user_id__in=user_ids)
+    assessment_notifications = DepartmentAssessmentNotification.objects.filter(user_id__in=user_ids)
+    practice_attempts = WorkPracticeTestAttempt.objects.filter(user_id__in=user_ids)
+    assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user_id__in=user_ids)
+
+    total_active_seconds = (
+        UserActivitySummary.objects.filter(user_id__in=user_ids).aggregate(total=Sum('total_active_seconds'))['total']
+        or 0
+    )
+    active_users_count = UserActivitySummary.objects.filter(user_id__in=user_ids, last_seen_at__isnull=False).count()
+    total_users = profiles.count()
+    workers_count = profiles.filter(role=UserProfile.ROLE_WORKER).count()
+    section_admins_count = profiles.filter(role=UserProfile.ROLE_SECTION_ADMIN).count()
+
+    entry_total = entry_receipts.count()
+    entry_accepted = entry_receipts.filter(is_acknowledged=True).count()
+    internal_total = internal_receipts.count()
+    internal_accepted = internal_receipts.filter(is_acknowledged=True).count()
+    assessment_total = assessment_notifications.count()
+    assessment_confirmed = assessment_notifications.filter(is_confirmed=True).count()
+    finished_practice_attempts = practice_attempts.filter(finished_at__isnull=False).count()
+    finished_assessment_attempts = assessment_attempts.filter(finished_at__isnull=False).count()
+
+    activity_rows = []
+    for profile in profiles.select_related('user', 'user__activity_summary')[:500]:
+        summary = getattr(profile.user, 'activity_summary', None)
+        activity_rows.append(
+            {
+                'name': profile.full_name or profile.user.username,
+                'role': profile.get_role_display(),
+                'department': profile.department.name if profile.department else '-',
+                'section': profile.section.name if profile.section else '-',
+                'last_login': profile.user.last_login,
+                'last_seen': summary.last_seen_at if summary else None,
+                'active_time': _format_active_seconds(summary.total_active_seconds if summary else 0),
+                'requests_count': summary.requests_count if summary else 0,
+            }
+        )
+    activity_rows.sort(key=lambda item: item['last_seen'] or item['last_login'] or timezone.datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+
+    chart_items = []
+    if total_users:
+        chart_items = [
+            {'label': 'Xodimlar', 'value': workers_count, 'percent': _percent(workers_count, total_users), 'color': 'bg-emerald-500'},
+            {'label': 'Bo‘lim rahbarlari', 'value': section_admins_count, 'percent': _percent(section_admins_count, total_users), 'color': 'bg-sky-500'},
+            {'label': 'Faol foydalanuvchilar', 'value': active_users_count, 'percent': _percent(active_users_count, total_users), 'color': 'bg-amber-500'},
+        ]
+
+    role_labels = {
+        UserProfile.ROLE_WORKER: 'Ishchilar',
+        UserProfile.ROLE_SECTION_ADMIN: 'Bo‘lim rahbarlari',
+        UserProfile.ROLE_DEPARTMENT_ADMIN: 'Boshqarma rahbarlari',
+        UserProfile.ROLE_ORG_LEADER: 'Tashkilot rahbarlari',
+    }
+    role_counts = profiles.values('role').annotate(total=Count('id')).order_by('-total')
+    role_chart = [
+        {
+            'label': role_labels.get(item['role'], item['role'] or 'Noma’lum'),
+            'value': item['total'],
+            'percent': _percent(item['total'], total_users),
+            'width': _bar_percent(item['total'], total_users),
+        }
+        for item in role_counts
+    ]
+
+    department_bars = []
+    max_department_users = 0
+    for department in departments:
+        department_sections = sections.filter(department=department)
+        department_user_ids = set(
+            profiles.filter(
+                Q(department=department)
+                | Q(section__in=department_sections)
+                | Q(user__section_memberships__section__in=department_sections)
+            ).values_list('user_id', flat=True)
+        )
+        max_department_users = max(max_department_users, len(department_user_ids))
+        department_bars.append({
+            'label': department.name,
+            'value': len(department_user_ids),
+            'sections': department_sections.count(),
+        })
+    for item in department_bars:
+        item['width'] = _bar_percent(item['value'], max_department_users)
+        item['percent'] = _percent(item['value'], total_users)
+    department_bars = sorted(department_bars, key=lambda item: -item['value'])[:8]
+
+    section_bars = []
+    max_section_users = 0
+    for section in sections.select_related('department')[:100]:
+        section_user_count = profiles.filter(
+            Q(section=section) | Q(user__section_memberships__section=section)
+        ).distinct().count()
+        max_section_users = max(max_section_users, section_user_count)
+        section_bars.append({
+            'label': section.name,
+            'department': section.department.name if section.department else '-',
+            'value': section_user_count,
+        })
+    for item in section_bars:
+        item['width'] = _bar_percent(item['value'], max_section_users)
+        item['percent'] = _percent(item['value'], total_users)
+    section_bars = sorted(section_bars, key=lambda item: -item['value'])[:8]
+
+    now = timezone.now()
+    month_starts = []
+    for offset in range(5, -1, -1):
+        year = now.year
+        month = now.month - offset
+        while month <= 0:
+            month += 12
+            year -= 1
+        month_starts.append(timezone.datetime(year, month, 1, tzinfo=timezone.get_current_timezone()))
+    monthly_users_raw = {month_start: 0 for month_start in month_starts}
+    month_keys = {(month_start.year, month_start.month): month_start for month_start in month_starts}
+    for created_at in profiles.values_list('created_at', flat=True):
+        if not created_at:
+            continue
+        key = (created_at.year, created_at.month)
+        if key in month_keys:
+            monthly_users_raw[month_keys[key]] += 1
+    monthly_users = [
+        {
+            'label': _month_label(month_start),
+            'value': monthly_users_raw.get(month_start, 0),
+        }
+        for month_start in month_starts
+    ]
+    monthly_values = [item['value'] for item in monthly_users]
+    max_monthly = max(monthly_values) if monthly_values else 0
+    for item in monthly_users:
+        item['percent'] = _percent(item['value'], max_monthly)
+    entry_pending = max(entry_total - entry_accepted, 0)
+    internal_pending = max(internal_total - internal_accepted, 0)
+    assessment_passed = assessment_attempts.filter(finished_at__isnull=False, score__gte=60).count()
+    assessment_failed = assessment_attempts.filter(finished_at__isnull=False, score__lt=60).count()
+    practice_passed = practice_attempts.filter(finished_at__isnull=False, score__gte=60).count()
+    practice_failed = practice_attempts.filter(finished_at__isnull=False, score__lt=60).count()
+
+    return {
+        'scope_title': scope['title'],
+        'cards': [
+            {'label': 'Foydalanuvchilar', 'value': total_users, 'icon': 'bi-people', 'tone': 'emerald'},
+            {'label': 'Boshqarmalar', 'value': departments.count(), 'icon': 'bi-building', 'tone': 'sky'},
+            {'label': 'Bo‘limlar', 'value': sections.count(), 'icon': 'bi-diagram-2', 'tone': 'amber'},
+            {'label': 'Aktiv vaqt', 'value': _format_active_seconds(total_active_seconds), 'icon': 'bi-clock-history', 'tone': 'violet'},
+        ],
+        'message_stats': [
+            {'label': 'Bo‘lim xabarlari', 'value': section_messages.count(), 'hint': f"{SectionMessageReceipt.objects.filter(message__in=section_messages, is_read=False).count()} ta o‘qilmagan"},
+            {'label': 'Amaliyot xabarlari', 'value': work_messages.count(), 'hint': f"{SectionWorkPracticeMessageReceipt.objects.filter(message__in=work_messages, is_read=False).count()} ta o‘qilmagan"},
+            {'label': 'Kirish yo‘riqnomasi', 'value': entry_total, 'hint': f'{entry_accepted}/{entry_total} qabul qilingan'},
+            {'label': 'Ichki yo‘riqnoma', 'value': internal_total, 'hint': f'{internal_accepted}/{internal_total} qabul qilingan'},
+        ],
+        'test_stats': [
+            {'label': 'Amaliyot testlari', 'value': WorkPracticeTest.objects.filter(section_id__in=section_ids).count(), 'hint': f'{finished_practice_attempts} ta yakunlangan urinish'},
+            {'label': 'Boshqarma testlari', 'value': DepartmentAssessment.objects.filter(department_id__in=department_ids).count(), 'hint': f'{finished_assessment_attempts} ta yakunlangan urinish'},
+            {'label': 'Baholash xabarlari', 'value': assessment_total, 'hint': f'{assessment_confirmed}/{assessment_total} tasdiqlangan'},
+        ],
+        'chart_items': chart_items,
+        'role_chart': role_chart,
+        'department_bars': department_bars,
+        'section_bars': section_bars,
+        'monthly_users': monthly_users,
+        'monthly_users_points': _sparkline_points(monthly_values),
+        'guideline_donut': {
+            'entry_total': entry_total,
+            'entry_accepted': entry_accepted,
+            'entry_percent': _percent(entry_accepted, entry_total),
+            'entry_pending': entry_pending,
+            'internal_total': internal_total,
+            'internal_accepted': internal_accepted,
+            'internal_percent': _percent(internal_accepted, internal_total),
+            'internal_pending': internal_pending,
+        },
+        'test_result_chart': [
+            {'label': 'Bilim testi o‘tdi', 'value': assessment_passed, 'percent': _percent(assessment_passed, max(finished_assessment_attempts, 1)), 'color': 'bg-emerald-500'},
+            {'label': 'Bilim testi o‘tmadi', 'value': assessment_failed, 'percent': _percent(assessment_failed, max(finished_assessment_attempts, 1)), 'color': 'bg-rose-500'},
+            {'label': 'Amaliyot testi o‘tdi', 'value': practice_passed, 'percent': _percent(practice_passed, max(finished_practice_attempts, 1)), 'color': 'bg-sky-500'},
+            {'label': 'Amaliyot testi o‘tmadi', 'value': practice_failed, 'percent': _percent(practice_failed, max(finished_practice_attempts, 1)), 'color': 'bg-amber-500'},
+        ],
+        'activity_rows': activity_rows[:8],
+    }
+
+
 class DashboardView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
 
@@ -371,6 +702,7 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         role_context = self.get_role_context()
         context.update(role_context)
+        context['dashboard_overview'] = _build_dashboard_overview(self.request.user, role_context)
 
         if role_context['is_super_admin']:
             context['total_industries'] = Industry.objects.count()
@@ -716,6 +1048,213 @@ class DepartmentEditView(OrgLeaderRequiredMixin, View):
         return redirect('department-admins')
 
 
+def _org_leader_departments(user):
+    profile = user.profile
+    return Department.objects.filter(leader=profile).order_by('name')
+
+
+def _org_leader_sections(user):
+    return Section.objects.filter(department__leader=user.profile).select_related('department').order_by('department__name', 'name')
+
+
+def _org_leader_worker_profiles(user):
+    profile = user.profile
+    departments = _org_leader_departments(user)
+    sections = _org_leader_sections(user)
+    return (
+        UserProfile.objects.filter(
+            Q(role=UserProfile.ROLE_WORKER)
+            & (
+                Q(organization=profile)
+                | Q(organization_name=profile.organization_name)
+                | Q(department__in=departments)
+                | Q(section__in=sections)
+                | Q(user__section_memberships__section__in=sections)
+            )
+        )
+        .select_related('user', 'department', 'section', 'user__activity_summary')
+        .prefetch_related(
+            Prefetch(
+                'user__section_memberships',
+                queryset=SectionMembership.objects.select_related('section', 'section__department'),
+            )
+        )
+        .distinct()
+    )
+
+
+def _worker_assignment(profile):
+    membership = profile.user.section_memberships.all()[0] if profile.user.section_memberships.all() else None
+    section = membership.section if membership else profile.section
+    department = section.department if section else profile.department
+    return membership, department, section
+
+
+def _entry_guideline_status_for_user(user):
+    receipt = (
+        GuidelineDispatchRecipient.objects.filter(user=user)
+        .select_related('dispatch', 'dispatch__guideline')
+        .order_by('-dispatch__sent_at')
+        .first()
+    )
+    if not receipt:
+        return {
+            'label': 'Yuborilmagan',
+            'is_passed': False,
+            'sent_at': None,
+            'acknowledged_at': None,
+        }
+    return {
+        'label': 'O‘tgan' if receipt.is_acknowledged else 'O‘tmagan',
+        'is_passed': receipt.is_acknowledged,
+        'sent_at': receipt.dispatch.sent_at,
+        'acknowledged_at': receipt.acknowledged_at,
+    }
+
+
+class OrganizationWorkerRegistryView(OrgLeaderRequiredMixin, TemplateView):
+    template_name = 'accounts/org_workers.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        departments = list(_org_leader_departments(self.request.user))
+        sections = list(_org_leader_sections(self.request.user))
+        workers = _org_leader_worker_profiles(self.request.user)
+
+        q = self.request.GET.get('q', '').strip()
+        department_id = self.request.GET.get('department', '').strip()
+        section_id = self.request.GET.get('section', '').strip()
+        status = self.kwargs.get('status') or self.request.GET.get('status', 'all')
+
+        if q:
+            workers = workers.filter(
+                Q(full_name__icontains=q)
+                | Q(user__username__icontains=q)
+                | Q(position__icontains=q)
+            )
+        if department_id.isdigit():
+            workers = workers.filter(
+                Q(department_id=int(department_id))
+                | Q(section__department_id=int(department_id))
+                | Q(user__section_memberships__section__department_id=int(department_id))
+            )
+        if section_id.isdigit():
+            workers = workers.filter(
+                Q(section_id=int(section_id))
+                | Q(user__section_memberships__section_id=int(section_id))
+            )
+
+        base_workers = list(workers.order_by('full_name', 'user__username'))
+        rows = []
+        for profile in base_workers:
+            membership, department, section = _worker_assignment(profile)
+            entry_status = _entry_guideline_status_for_user(profile.user)
+            practice_attempts = WorkPracticeTestAttempt.objects.filter(user=profile.user)
+            assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user=profile.user)
+            summary = getattr(profile.user, 'activity_summary', None)
+            is_assigned = bool(section)
+            row = {
+                'profile': profile,
+                'user': profile.user,
+                'department': department,
+                'section': section,
+                'membership': membership,
+                'is_assigned': is_assigned,
+                'entry_status': entry_status,
+                'practice_attempts_count': practice_attempts.count(),
+                'assessment_attempts_count': assessment_attempts.count(),
+                'best_practice_score': practice_attempts.filter(score__isnull=False).order_by('-score').values_list('score', flat=True).first(),
+                'best_assessment_score': assessment_attempts.filter(score__isnull=False).order_by('-score').values_list('score', flat=True).first(),
+                'activity_summary': summary,
+                'active_time': _format_active_seconds(summary.total_active_seconds if summary else 0),
+            }
+            rows.append(row)
+
+        if status == 'unassigned':
+            rows = [row for row in rows if not row['is_assigned']]
+            page_title = 'Ish berilmagan ishchilar'
+        elif status == 'not-qualified':
+            rows = [row for row in rows if not row['profile'].practice_qualified]
+            page_title = 'Ishga ruxsati yo‘qlar'
+        elif status == 'entry-passed':
+            rows = [row for row in rows if row['entry_status']['is_passed']]
+            page_title = 'Kirish yo‘riqnomasidan o‘tganlar'
+        elif status == 'entry-pending':
+            rows = [row for row in rows if not row['entry_status']['is_passed']]
+            page_title = 'Kirish yo‘riqnomasidan o‘tmaganlar'
+        else:
+            status = 'all'
+            page_title = 'Ishchilar reyestri'
+
+        context.update(
+            self.get_role_context()
+            | {
+                'workers': rows,
+                'departments': departments,
+                'sections': sections,
+                'q': q,
+                'selected_department': department_id,
+                'selected_section': section_id,
+                'status': status,
+                'page_title': page_title,
+                'page_description': 'Tashkilotdagi barcha xodimlar, biriktirilgan bo‘limlari, yo‘riqnoma va test holatlari.',
+                'status_tabs': [
+                    ('all', 'Barcha ishchilar'),
+                    ('unassigned', 'Ish berilmagan'),
+                    ('not-qualified', 'Ishga ruxsati yo‘q'),
+                    ('entry-passed', 'Yo‘riqnomadan o‘tgan'),
+                    ('entry-pending', 'Yo‘riqnomadan o‘tmagan'),
+                ],
+            }
+        )
+        return context
+
+
+class OrganizationEntryGuidelineOverviewView(OrgLeaderRequiredMixin, TemplateView):
+    template_name = 'accounts/org_entry_guidelines.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        departments = _org_leader_departments(self.request.user)
+        department_id = self.request.GET.get('department', '').strip()
+        guidelines = (
+            EntryGuideline.objects.filter(department__in=departments)
+            .select_related('department', 'created_by', 'created_by__profile')
+            .prefetch_related('dispatches__recipients')
+            .order_by('department__name', '-created_at')
+        )
+        if department_id.isdigit():
+            guidelines = guidelines.filter(department_id=int(department_id))
+
+        rows = []
+        for guideline in guidelines:
+            latest_dispatch = guideline.dispatches.order_by('-sent_at').first()
+            total = latest_dispatch.recipients.count() if latest_dispatch else 0
+            accepted = latest_dispatch.recipients.filter(is_acknowledged=True).count() if latest_dispatch else 0
+            rows.append(
+                {
+                    'guideline': guideline,
+                    'latest_dispatch': latest_dispatch,
+                    'total': total,
+                    'accepted': accepted,
+                    'pending': max(total - accepted, 0),
+                    'accepted_percent': _percent(accepted, total),
+                }
+            )
+
+        context.update(
+            self.get_role_context()
+            | {
+                'departments': departments,
+                'rows': rows,
+                'selected_department': department_id,
+                'page_title': 'Kirish yo‘riqnomalari nazorati',
+                'page_description': 'Boshqarmalar yaratgan kirish yo‘riqnomalari va xodimlar qabul holati.',
+            }
+        )
+        return context
+
+
 class DepartmentDeleteView(OrgLeaderRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         department = Department.objects.filter(pk=pk, leader=request.user.profile).first()
@@ -770,40 +1309,62 @@ class SectionAdminManagementView(DepartmentAdminRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        role_context = self.get_role_context()
         profile = self.request.user.profile
-        department = get_department_admin_department(self.request.user)
+        department = None
+        sections_qs = Section.objects.none()
 
-        if not department:
-            messages.error(self.request, "Sizga biriktirilgan boshqarma topilmadi.")
-            return context
+        if role_context.get('is_org_leader'):
+            departments = list(Department.objects.filter(leader=profile).order_by('name'))
+            sections_qs = _section_queryset_for_user(self.request.user).order_by('department__name', 'name')
+            department = departments[0] if departments else None
+        else:
+            departments = []
+            department = get_department_admin_department(self.request.user)
+            if not department:
+                messages.error(self.request, "Sizga biriktirilgan boshqarma topilmadi.")
+                return context
+            sections_qs = _section_queryset_for_user(self.request.user).filter(department=department).order_by('-created_at')
 
-        sections = list(
-            _section_queryset_for_user(self.request.user)
-            .filter(department=department)
-            .order_by('-created_at')
-        )
+        sections = list(sections_qs)
         for section in sections:
             section.supervisor_choices = get_section_supervisor_choices(self.request.user, section)
+            section.membership_list = list(get_section_team_memberships(section))
+            section.worker_count = len(section.membership_list)
 
-        workers_qs = get_department_workers_queryset(self.request.user)
+        workers_qs = get_department_workers_queryset(self.request.user) if department else User.objects.none()
         context.update(
             self.get_role_context()
             | {
                 'department': department,
+                'departments': departments,
                 'sections': sections,
                 'form': SectionCreateForm(dept_admin=self.request.user),
                 'workers_count': workers_qs.count(),
+                'sections_count': len(sections),
+                'total_workers': sum(section.worker_count for section in sections),
                 'page_title': 'Bo‘limlar',
-                'page_description': 'Boshqarmangiz bo‘limlarini qo‘shing va nazoratchilarni belgilang.',
+                'page_description': 'Tashkilotdagi bo‘limlar, nazoratchilar va ularning xodimlari haqida umumiy ko‘rinish.',
             }
         )
         return context
 
     def post(self, request, *args, **kwargs):
-        department = get_department_admin_department(request.user)
-        if not department:
-            messages.error(request, "Sizga biriktirilgan boshqarma topilmadi.")
-            return redirect('section-admins')
+        role_context = self.get_role_context()
+        profile = request.user.profile
+        department = None
+
+        if role_context.get('is_org_leader'):
+            department_id = request.POST.get('department_id', '').strip()
+            department = Department.objects.filter(pk=department_id, leader=profile).first()
+            if not department:
+                messages.error(request, "Bo‘lim yaratish uchun tegishli boshqarma tanlang.")
+                return redirect('section-admins')
+        else:
+            department = get_department_admin_department(request.user)
+            if not department:
+                messages.error(request, "Sizga biriktirilgan boshqarma topilmadi.")
+                return redirect('section-admins')
 
         form = SectionCreateForm(request.POST, dept_admin=request.user)
         if not form.is_valid():
@@ -1123,8 +1684,20 @@ def _safe_back_url(request, default_name):
 def _user_can_view_entry_guideline_pdf(user, guideline, receipt=None):
     if receipt is not None:
         return receipt.user_id == user.id and receipt.dispatch.guideline_id == guideline.pk
+    if user.is_superuser:
+        return True
+    profile = getattr(user, 'profile', None)
+    if profile and profile.role == UserProfile.ROLE_SUPER_ADMIN:
+        return True
+    if profile and profile.role == UserProfile.ROLE_ORG_LEADER:
+        return guideline.department.leader_id == profile.pk
     department = get_department_admin_department(user)
     return department is not None and guideline.department_id == department.id
+
+
+def _redirect_missing_guideline_file(request, default_name):
+    messages.error(request, 'Fayl serverda topilmadi. Iltimos, yo‘riqnomani tahrirlab faylni qayta yuklang.')
+    return redirect(_safe_back_url(request, default_name))
 
 
 class GuidelinePdfView(AuthenticatedRequiredMixin, View):
@@ -1137,6 +1710,8 @@ class GuidelinePdfView(AuthenticatedRequiredMixin, View):
         if not guideline.pdf_file:
             messages.error(request, 'PDF fayl topilmadi.')
             return redirect('dashboard')
+        if not guideline.pdf_file_exists:
+            return _redirect_missing_guideline_file(request, 'entry-guidelines')
 
         receipt = None
         receipt_id = request.GET.get('receipt')
@@ -1436,6 +2011,9 @@ class EntryGuidelineSendView(DepartmentSupervisorOnlyMixin, View):
         if not payload:
             messages.error(request, 'Boshqarma tarkibida bo‘lim nazoratchisi yoki xodim topilmadi.')
             return redirect('entry-guidelines')
+        if not guideline.pdf_file_exists:
+            messages.error(request, 'Fayl serverda topilmadi. Avval yo‘riqnomani tahrirlab faylni qayta yuklang.')
+            return redirect('entry-guidelines')
 
         GuidelineDispatch.objects.filter(guideline__department=department, is_active=True).update(is_active=False)
         dispatch = GuidelineDispatch.objects.create(guideline=guideline, sent_by=request.user)
@@ -1722,6 +2300,7 @@ def _build_worker_guideline_inbox_items(request):
                 'start_time': dispatch.start_time,
                 'registration_end_time': dispatch.registration_end_time,
                 'active_until': dispatch.active_until,
+                'pdf_available': guideline.pdf_file_exists,
                 'pdf_url': (
                     reverse('internal-guideline-pdf', args=[guideline.pk])
                     + f'?receipt={receipt.pk}&next={next_encoded}'
@@ -1743,6 +2322,7 @@ def _build_worker_guideline_inbox_items(request):
                 'sent_at': receipt.dispatch.sent_at,
                 'is_acknowledged': receipt.is_acknowledged,
                 'source_label': 'Boshqarma',
+                'pdf_available': guideline.pdf_file_exists,
                 'pdf_url': (
                     reverse('guideline-pdf', args=[guideline.pk])
                     + f'?receipt={receipt.pk}&next={next_encoded}'
@@ -1868,6 +2448,9 @@ class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
         if not all([guideline.start_time, guideline.registration_end_time, guideline.active_until]):
             messages.error(request, 'Avval yo‘riqnomaga boshlanish, ro‘yxatdan o‘tish oxiri va faollik tugash vaqtlarini kiriting.')
             return redirect('internal-guidelines')
+        if not guideline.pdf_file_exists:
+            messages.error(request, 'Fayl serverda topilmadi. Avval yo‘riqnomani tahrirlab faylni qayta yuklang.')
+            return redirect('internal-guidelines')
 
         SectionInternalGuidelineDispatch.objects.filter(guideline__section=section, is_active=True).update(is_active=False)
         dispatch = SectionInternalGuidelineDispatch.objects.create(
@@ -1893,6 +2476,8 @@ class InternalGuidelinePdfView(AuthenticatedRequiredMixin, View):
         if not guideline.pdf_file:
             messages.error(request, 'PDF fayl topilmadi.')
             return redirect('dashboard')
+        if not guideline.pdf_file_exists:
+            return _redirect_missing_guideline_file(request, 'internal-guidelines')
 
         receipt = None
         receipt_id = request.GET.get('receipt')
@@ -2079,6 +2664,31 @@ class SectionInternalGuidelineStatusView(SectionAdminRequiredMixin, TemplateView
         return context
 
 
+def _build_department_hierarchy(department):
+    return {
+        'department': department,
+        'section_groups': [
+            {
+                'section': section,
+                'members': (
+                    UserProfile.objects.filter(
+                        Q(section=section) | Q(user__section_memberships__section=section)
+                    )
+                    .select_related('user')
+                    .distinct()
+                    .order_by('full_name')
+                ),
+            }
+            for section in department.sections.all()
+        ],
+        'unassigned_members': (
+            UserProfile.objects.filter(department=department, section__isnull=True)
+            .select_related('user')
+            .order_by('full_name')
+        ),
+    }
+
+
 class WorkerHierarchyView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'accounts/hierarchy.html'
 
@@ -2087,33 +2697,62 @@ class WorkerHierarchyView(AuthenticatedRequiredMixin, TemplateView):
         role_context = self.get_role_context()
         profile = role_context.get('user_profile')
 
-        if role_context['is_org_leader']:
-            departments = Department.objects.filter(leader=profile).prefetch_related('sections')
+        if role_context['is_super_admin']:
+            organization_profiles = (
+                UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER)
+                .select_related('user')
+                .order_by('organization_name', 'full_name')
+            )
+            hierarchy = []
+            for org_profile in organization_profiles:
+                departments = (
+                    Department.objects.filter(leader=org_profile)
+                    .select_related('leader')
+                    .prefetch_related('sections')
+                    .order_by('name')
+                )
+                hierarchy.append({
+                    'organization': org_profile,
+                    'organization_name': org_profile.organization_name or org_profile.full_name or 'Tashkilot',
+                    'departments': [_build_department_hierarchy(dep) for dep in departments],
+                })
+        elif role_context['is_org_leader']:
+            departments = (
+                Department.objects.filter(leader=profile)
+                .select_related('leader')
+                .prefetch_related('sections')
+                .order_by('name')
+            )
+            hierarchy = [{
+                'organization': profile,
+                'organization_name': profile.organization_name or profile.full_name or 'Tashkilot',
+                'departments': [_build_department_hierarchy(dep) for dep in departments],
+            }]
         elif profile and profile.role in {UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_WORKER}:
-            departments = Department.objects.filter(pk=profile.department_id).prefetch_related('sections')
+            departments = (
+                Department.objects.filter(pk=profile.department_id)
+                .select_related('leader')
+                .prefetch_related('sections')
+                .order_by('name')
+            )
+            hierarchy = [{
+                'organization': profile.organization or profile,
+                'organization_name': (
+                    profile.organization_name
+                    or (profile.organization.organization_name if profile.organization else '')
+                    or 'Tashkilot'
+                ),
+                'departments': [_build_department_hierarchy(dep) for dep in departments],
+            }]
         else:
-            departments = Department.objects.none()
-
-        hierarchy = []
-        for dep in departments:
-            hierarchy.append({
-                'department': dep,
-                'section_groups': [
-                    {
-                        'section': section,
-                        'members': UserProfile.objects.filter(section=section).select_related('user').order_by('full_name'),
-                    }
-                    for section in dep.sections.all()
-                ],
-                'unassigned_members': UserProfile.objects.filter(department=dep, section__isnull=True).select_related('user').order_by('full_name'),
-            })
+            hierarchy = []
 
         context.update(
             self.get_role_context()
             | {
                 'hierarchy': hierarchy,
-                'page_title': 'Xodimlar shajarasi',
-                'page_description': 'Tashkilot, boshqarma va bo‘yicha xodimlar taqsimoti.',
+                'page_title': 'Tuzilma',
+                'page_description': 'Tashkilot, boshqarma va bo‘lim bo‘yicha xodimlar taqsimoti.',
             }
         )
         return context
@@ -2137,6 +2776,51 @@ def _work_practices_for_user(user):
         SectionWorkPractice.objects.filter(
             Q(created_by=user) | Q(responsible_user=user) | Q(assignees__user=user)
         )
+        .prefetch_related(
+            Prefetch(
+                'assignees',
+                queryset=SectionWorkPracticeAssignee.objects.select_related('user__profile'),
+            )
+        )
+        .select_related('created_by', 'section', 'responsible_user', 'responsible_user__profile')
+        .distinct()
+        .order_by('-start_time', '-created_at')
+    )
+
+
+def _work_practices_for_org_leader(org_leader_profile):
+    return (
+        SectionWorkPractice.objects.filter(section__department__leader=org_leader_profile)
+        .prefetch_related(
+            Prefetch(
+                'assignees',
+                queryset=SectionWorkPracticeAssignee.objects.select_related('user__profile'),
+            )
+        )
+        .select_related('created_by', 'section', 'responsible_user', 'responsible_user__profile')
+        .distinct()
+        .order_by('-start_time', '-created_at')
+    )
+
+
+def _work_practices_for_department_admin(department):
+    return (
+        SectionWorkPractice.objects.filter(section__department=department)
+        .prefetch_related(
+            Prefetch(
+                'assignees',
+                queryset=SectionWorkPracticeAssignee.objects.select_related('user__profile'),
+            )
+        )
+        .select_related('created_by', 'section', 'responsible_user', 'responsible_user__profile')
+        .distinct()
+        .order_by('-start_time', '-created_at')
+    )
+
+
+def _work_practices_for_super_admin():
+    return (
+        SectionWorkPractice.objects.all()
         .prefetch_related(
             Prefetch(
                 'assignees',
@@ -2229,13 +2913,62 @@ def _responsible_trainee_stats(practice):
         read = read_counts.get(user.id, 0)
         stats.append(
             {
+                'assignment': assignee,
                 'user': user,
                 'total': total,
                 'read': read,
                 'unread': max(total - read, 0),
+                'accepted': assignee.accepted_by_responsible,
+                'accepted_at': assignee.accepted_at,
             }
         )
     return stats
+
+
+def _build_work_practice_dashboard(practices):
+    rows = []
+    total_assignees = accepted_total = completed_total = failed_tests_total = 0
+    now = timezone.now()
+    for practice in practices:
+        assignees = list(practice.assignees.all())
+        assignee_ids = [item.user_id for item in assignees]
+        total_assignees += len(assignees)
+        accepted_count = sum(1 for item in assignees if item.accepted_by_responsible)
+        accepted_total += accepted_count
+        finished_attempts = WorkPracticeTestAttempt.objects.filter(
+            practice=practice,
+            user_id__in=assignee_ids,
+            finished_at__isnull=False,
+        )
+        passed_users = set(
+            finished_attempts.filter(score__gte=60).values_list('user_id', flat=True)
+        )
+        failed_users = set(
+            finished_attempts.filter(score__lt=60).exclude(user_id__in=passed_users).values_list('user_id', flat=True)
+        )
+        completed_total += len(passed_users)
+        failed_tests_total += len(failed_users)
+        duration_days = max((practice.end_time.date() - practice.start_time.date()).days + 1, 1)
+        stage = 'Tugatildi' if practice.closed_at else ('Muddat tugagan' if practice.end_time <= now else 'Jarayonda')
+        rows.append({
+            'practice': practice,
+            'assignee_count': len(assignees),
+            'accepted_count': accepted_count,
+            'pending_accept_count': max(len(assignees) - accepted_count, 0),
+            'passed_count': len(passed_users),
+            'failed_count': len(failed_users),
+            'duration_days': duration_days,
+            'stage': stage,
+        })
+    return {
+        'total_practices': len(practices),
+        'total_assignees': total_assignees,
+        'accepted_total': accepted_total,
+        'pending_accept_total': max(total_assignees - accepted_total, 0),
+        'completed_total': completed_total,
+        'failed_tests_total': failed_tests_total,
+        'rows': rows,
+    }
 
 
 class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView):
@@ -2246,7 +2979,17 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
         role = self.get_role_context()
         section = get_section_admin_section(self.request.user) if role.get('is_section_admin') else None
 
-        if section:
+        if role.get('is_super_admin'):
+            practices = list(_work_practices_for_super_admin())
+            section_workers = User.objects.none()
+        elif role.get('is_org_leader'):
+            practices = list(_work_practices_for_org_leader(self.request.user.profile))
+            section_workers = User.objects.none()
+        elif role.get('is_department_admin'):
+            department = get_department_admin_department(self.request.user)
+            practices = list(_work_practices_for_department_admin(department)) if department else []
+            section_workers = User.objects.none()
+        elif section:
             practices = list(_work_practices_for_section(section))
             section_workers = get_section_workers_for_internal_guidelines(section)
         else:
@@ -2260,6 +3003,8 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             practice.status_label, practice.status_class = _work_practice_status(practice)
             practice.is_responsible = practice.responsible_user_id == self.request.user.id
             practice.assignee_count = len(practice.assignees.all())
+            practice.accepted_assignee_count = sum(1 for item in practice.assignees.all() if item.accepted_by_responsible)
+            practice.pending_accept_count = max(practice.assignee_count - practice.accepted_assignee_count, 0)
             if practice.is_responsible:
                 practice.responsible_messages = _work_practice_messages_for_responsible(practice)
                 practice.trainee_stats = _responsible_trainee_stats(practice)
@@ -2312,6 +3057,8 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 'form': SectionWorkPracticeForm(),
                 'section_workers': section_workers,
                 'can_manage_work_practices': role.get('is_section_admin', False),
+                'can_monitor_work_practices': role.get('is_super_admin', False) or role.get('is_org_leader', False) or role.get('is_department_admin', False) or role.get('is_section_admin', False),
+                'practice_dashboard': _build_work_practice_dashboard(practices),
                 'practice_inbox': SectionWorkPracticeMessageReceipt.objects.filter(user=self.request.user)
                 .select_related(
                     'message',
@@ -2395,6 +3142,33 @@ class SectionWorkPracticeAssignWorkersView(SectionAdminRequiredMixin, View):
         return redirect('work-practices')
 
 
+class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        assignment = (
+            SectionWorkPracticeAssignee.objects
+            .select_related('practice', 'practice__responsible_user', 'user__profile')
+            .filter(pk=pk)
+            .first()
+        )
+        if not assignment:
+            messages.error(request, "Biriktirilgan ishchi topilmadi.")
+            return redirect('work-practices')
+        if assignment.practice.responsible_user_id != request.user.id:
+            messages.error(request, "Bu amaliyotchini qabul qilish huquqi sizda yo‘q.")
+            return redirect('work-practices')
+        if assignment.accepted_by_responsible:
+            messages.info(request, "Bu amaliyotchi avval qabul qilingan.")
+            return redirect('work-practices')
+        assignment.accepted_by_responsible = True
+        assignment.accepted_at = timezone.now()
+        assignment.save(update_fields=['accepted_by_responsible', 'accepted_at'])
+        messages.success(
+            request,
+            f"{assignment.user.profile.full_name or assignment.user.username} amaliyotchi sifatida qabul qilindi."
+        )
+        return redirect('work-practices')
+
+
 class SectionWorkPracticeFinishView(SectionAdminRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         section = _section_for_admin_or_redirect(request)
@@ -2428,9 +3202,11 @@ class SectionWorkPracticeMessageSendView(AuthenticatedRequiredMixin, View):
             messages.error(request, "Bu amaliyot uchun xabar yuborish huquqi sizda yo‘q.")
             return redirect('work-practices')
 
-        assignee_ids = set(practice.assignees.values_list('user_id', flat=True))
+        assignee_ids = set(
+            practice.assignees.filter(accepted_by_responsible=True).values_list('user_id', flat=True)
+        )
         if not assignee_ids:
-            messages.error(request, "Bu amaliyotga hali amaliyotchilar biriktirilmagan.")
+            messages.error(request, "Mas’ul hali birorta amaliyotchini qabul qilmagan.")
             return redirect('work-practices')
 
         title = (request.POST.get('title') or '').strip()
