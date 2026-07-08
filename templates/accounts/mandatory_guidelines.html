@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900"><i class="bi bi-shield-exclamation mr-2 text-emerald-600"></i>{{ selected_type_title }}</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ department.name }} boshqarmasi uchun yo'riqnoma.</p>
+        </div>
+        <button type="button" data-bs-toggle="modal" data-bs-target="#mandatoryAddModal" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+            <i class="bi bi-plus-circle"></i> Yo'riqnoma
+        </button>
+    </div>
+    <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr><th class="px-4 py-3">Turi</th><th class="px-4 py-3">Nomi</th><th class="px-4 py-3">Muddati</th><th class="px-4 py-3">PDF</th><th class="px-4 py-3 text-right">Amallar</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for guideline in guidelines %}
+                <tr>
+                    <td class="px-4 py-3 font-semibold text-slate-700">{{ guideline.get_guideline_type_display }}</td>
+                    <td class="px-4 py-3">{{ guideline.name }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">{{ guideline.start_time|date:'d.m.Y H:i' }} - {{ guideline.active_until|date:'d.m.Y H:i' }}</td>
+                    <td class="px-4 py-3"><a class="text-emerald-700 font-medium" href="{% url 'mandatory-guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}">Ko'rish</a></td>
+                    <td class="px-4 py-3 text-right">
+                        <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600" data-bs-toggle="modal" data-bs-target="#mandatoryEdit{{ guideline.id }}" type="button"><i class="bi bi-pencil-square"></i></button>
+                        <form class="inline" method="post" action="{% url 'mandatory-guideline-delete' guideline.id %}">{% csrf_token %}<button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600" type="submit"><i class="bi bi-trash"></i></button></form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="px-4 py-10 text-center text-slate-400">Yo'riqnoma yo'q</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="mandatoryAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <form method="post" action="{% url 'mandatory-guidelines' %}" enctype="multipart/form-data">{% csrf_token %}
+            <input type="hidden" name="selected_type" value="{{ selected_type }}">
+            <div class="modal-header"><h5 class="modal-title">Majburiy yo'riqnoma</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body space-y-3">
+                <label class="block text-sm font-medium text-slate-700">Turi</label>
+                {% if selected_type %}
+                    <select name="guideline_type" class="form-control" required>
+                        {% for value,label in form.fields.guideline_type.choices %}
+                            {% if value == selected_type %}<option value="{{ value }}" selected>{{ label }}</option>{% endif %}
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    {{ form.guideline_type }}
+                {% endif %}
+                <label class="block text-sm font-medium text-slate-700">Nomi</label>{{ form.name }}
+                <label class="block text-sm font-medium text-slate-700">Fayl</label>{{ form.pdf_file }}
+                <label class="block text-sm font-medium text-slate-700">Boshlanish</label>{{ form.start_time }}
+                <label class="block text-sm font-medium text-slate-700">Tugashi</label>{{ form.active_until }}
+            </div>
+            <div class="modal-footer"><button type="button" class="rounded-xl border px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button><button class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white">Saqlash</button></div>
+        </form>
+    </div></div>
+</div>
+
+{% for guideline in guidelines %}
+<div class="modal fade" id="mandatoryEdit{{ guideline.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <form method="post" action="{% url 'mandatory-guideline-edit' guideline.id %}" enctype="multipart/form-data">{% csrf_token %}
+            <div class="modal-header"><h5 class="modal-title">Tahrirlash</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body space-y-3">
+                <select name="guideline_type" class="form-control" required>
+                    {% for value,label in form.fields.guideline_type.choices %}<option value="{{ value }}" {% if guideline.guideline_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+                <input type="text" name="name" value="{{ guideline.name }}" class="form-control" required>
+                <input type="file" name="pdf_file" class="form-control" accept=".pdf,.docx">
+                <input type="datetime-local" name="start_time" value="{{ guideline.start_time|date:'Y-m-d\\TH:i' }}" class="form-control" required>
+                <input type="datetime-local" name="active_until" value="{{ guideline.active_until|date:'Y-m-d\\TH:i' }}" class="form-control" required>
+            </div>
+            <div class="modal-footer"><button type="button" class="rounded-xl border px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button><button class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white">Yangilash</button></div>
+        </form>
+    </div></div>
+</div>
+{% endfor %}
+{% endblock %}

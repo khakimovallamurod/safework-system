@@ -6,6 +6,7 @@ from django.views import View
 
 from accounts.mixins import ProfessionAccessRequiredMixin, ProfessionManageRequiredMixin
 from companies.models import Company
+from accounts.forms import get_department_admin_department, get_section_admin_section
 from industries.models import Industry
 from professions.forms import ProfessionForm
 from professions.models import Profession
@@ -31,9 +32,15 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
         if direction == 'desc':
             sort_field = f'-{sort_field}'
 
+        section = get_section_admin_section(request.user) if role.get('is_section_admin') else None
+        department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
+        scoped_industry = (
+            department.leader.industry if department else section.department.leader.industry if section else getattr(role.get('user_profile'), 'industry', None)
+        )
+
         professions = Profession.objects.select_related('industry').prefetch_related('industry__companies').all()
-        if role['user_profile'] and role['user_profile'].industry and not role['is_super_admin']:
-            professions = professions.filter(industry=role['user_profile'].industry)
+        if scoped_industry and not role['is_super_admin']:
+            professions = professions.filter(industry=scoped_industry)
         elif role['is_super_admin'] and company_id.isdigit():
             company = Company.objects.filter(id=company_id).first()
             if company:
@@ -60,6 +67,9 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
 
 class ProfessionCreateView(ProfessionManageRequiredMixin, View):
     def _resolve_industry(self, role, request):
+        if role.get('is_department_admin'):
+            department = get_department_admin_department(request.user)
+            return department.leader.industry if department else None
         if role['is_org_leader'] and role['user_profile']:
             return role['user_profile'].industry
 
@@ -94,15 +104,17 @@ class ProfessionEditView(ProfessionManageRequiredMixin, View):
         role = self.get_role_context()
         profession = get_object_or_404(Profession, pk=pk)
 
-        if role['is_org_leader'] and role['user_profile'] and profession.industry_id != role['user_profile'].industry_id:
+        department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
+        scoped_industry_id = department.leader.industry_id if department else getattr(role.get('user_profile'), 'industry_id', None)
+        if (role['is_org_leader'] or role.get('is_department_admin')) and scoped_industry_id and profession.industry_id != scoped_industry_id:
             messages.error(request, "Siz boshqa soha kasb turini tahrirlay olmaysiz.")
             return redirect('professions:list')
 
         form = ProfessionForm(request.POST, request.FILES, instance=profession)
         if form.is_valid():
             updated = form.save(commit=False)
-            if role['is_org_leader'] and role['user_profile']:
-                updated.industry = role['user_profile'].industry
+            if (role['is_org_leader'] or role.get('is_department_admin')) and scoped_industry_id:
+                updated.industry_id = scoped_industry_id
             updated.save()
             messages.success(request, "Kasb turi tahrirlandi.")
         else:
@@ -122,8 +134,11 @@ class ProfessionPdfView(ProfessionAccessRequiredMixin, View):
             return redirect('professions:list')
 
         role = self.get_role_context()
-        if role['user_profile'] and role['user_profile'].industry and not role['is_super_admin']:
-            if profession.industry_id != role['user_profile'].industry_id:
+        section = get_section_admin_section(request.user) if role.get('is_section_admin') else None
+        department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
+        scoped_industry_id = department.leader.industry_id if department else section.department.leader.industry_id if section else getattr(role.get('user_profile'), 'industry_id', None)
+        if scoped_industry_id and not role['is_super_admin']:
+            if profession.industry_id != scoped_industry_id:
                 messages.error(request, 'Ruxsat yo‘q.')
                 return redirect('professions:list')
 
@@ -152,7 +167,9 @@ class ProfessionDeleteView(ProfessionManageRequiredMixin, View):
         role = self.get_role_context()
         profession = get_object_or_404(Profession, pk=pk)
 
-        if role['is_org_leader'] and role['user_profile'] and profession.industry_id != role['user_profile'].industry_id:
+        department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
+        scoped_industry_id = department.leader.industry_id if department else getattr(role.get('user_profile'), 'industry_id', None)
+        if (role['is_org_leader'] or role.get('is_department_admin')) and scoped_industry_id and profession.industry_id != scoped_industry_id:
             messages.error(request, "Siz boshqa soha kasb turini o'chira olmaysiz.")
             return redirect('professions:list')
 

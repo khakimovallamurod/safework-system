@@ -123,7 +123,7 @@ class RoleContextMixin:
             'profile_short_name': profile_short_name,
             'company_profile': None,
             'company_industry': profile.industry if profile else None,
-            'can_manage_professions': is_super_admin or is_org_leader,
+            'can_manage_professions': is_super_admin or is_org_leader or is_department_admin,
             'has_dept_assessment': has_dept_assessment,
         }
         context.update(get_worker_entry_guideline_context(user, is_worker or is_section_admin))
@@ -176,7 +176,7 @@ class ProfessionManageRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Rol
 
     def test_func(self):
         role = self.get_role_context()
-        return role['is_super_admin'] or role['is_org_leader']
+        return role['is_super_admin'] or role['is_org_leader'] or role.get('is_department_admin')
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:

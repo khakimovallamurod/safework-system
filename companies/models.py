@@ -133,6 +133,14 @@ class SectionMembership(models.Model):
         on_delete=models.CASCADE,
         related_name='section_memberships',
     )
+    profession = models.ForeignKey(
+        'professions.Profession',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='section_memberships',
+        verbose_name='Kasb',
+    )
     assigned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -290,6 +298,99 @@ class GuidelineDispatchRecipient(models.Model):
 
     def __str__(self):
         return f'{self.user_id} ← {self.dispatch_id}'
+
+
+class MandatoryGuideline(models.Model):
+    TYPE_MEDICAL = 'medical'
+    TYPE_FIRE = 'fire'
+    TYPE_ELECTRIC = 'electric'
+
+    TYPE_CHOICES = [
+        (TYPE_MEDICAL, 'Tibbiy yordam yo‘riqnomasi'),
+        (TYPE_FIRE, "Yong'in xavfsizligi yo‘riqnomasi"),
+        (TYPE_ELECTRIC, 'Elektr xavfsizligi yo‘riqnomasi'),
+    ]
+
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        related_name='mandatory_guidelines',
+    )
+    guideline_type = models.CharField(max_length=24, choices=TYPE_CHOICES)
+    name = models.CharField(max_length=255)
+    pdf_file = models.FileField(upload_to='mandatory_guidelines/')
+    start_time = models.DateTimeField(verbose_name='Boshlanish vaqti')
+    active_until = models.DateTimeField(verbose_name='Faollik tugashi')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_mandatory_guidelines',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['guideline_type', '-created_at']
+        db_table = 'majburiy_yoriqnoma'
+        unique_together = ('department', 'guideline_type')
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def pdf_file_exists(self):
+        if not self.pdf_file:
+            return False
+        return self.pdf_file.storage.exists(self.pdf_file.name)
+
+    @property
+    def is_currently_active(self):
+        now = timezone.now()
+        return self.start_time <= now <= self.active_until
+
+
+class MandatoryGuidelineReceipt(models.Model):
+    guideline = models.ForeignKey(
+        MandatoryGuideline,
+        on_delete=models.CASCADE,
+        related_name='receipts',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='mandatory_guideline_receipts',
+    )
+    is_acknowledged = models.BooleanField(default=False)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['guideline__guideline_type', 'user__profile__full_name']
+        db_table = 'majburiy_yoriqnoma_qabul'
+        constraints = [
+            models.UniqueConstraint(fields=['guideline', 'user'], name='unique_mandatory_guideline_receipt'),
+        ]
+
+    def __str__(self):
+        return f'{self.user_id} ← {self.guideline_id}'
+
+
+class ProfessionGuidelineReceipt(models.Model):
+    membership = models.OneToOneField(
+        SectionMembership,
+        on_delete=models.CASCADE,
+        related_name='profession_guideline_receipt',
+    )
+    is_acknowledged = models.BooleanField(default=False)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'kasb_yoriqnoma_qabul'
+
+    def __str__(self):
+        return f'{self.membership.user_id} ← {self.membership.profession_id}'
 
 
 class SectionInternalGuideline(models.Model):

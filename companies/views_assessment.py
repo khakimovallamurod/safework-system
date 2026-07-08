@@ -88,7 +88,7 @@ def _promotion_recommendations(users):
         assessment_score = assessment_best.score if assessment_best else 0
         practice_score = practice_best.score if practice_best else 0
         task_score = min(accepted_practices * 10, 20)
-        activity_score = 10 if activity and activity.login_count >= 3 else 0
+        activity_score = 10 if activity and (activity.requests_count >= 3 or activity.total_active_seconds >= 300) else 0
         score = int((assessment_score * 0.55) + (practice_score * 0.25) + task_score + activity_score)
         if assessment_score >= 85 and practice_score >= 70 and score >= 80:
             level = "Mansab/oylik oshirishga nomzod"

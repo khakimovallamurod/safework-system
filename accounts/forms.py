@@ -10,6 +10,7 @@ from accounts.models import UserProfile
 from companies.models import (
     Department,
     EntryGuideline,
+    MandatoryGuideline,
     Section,
     SectionInternalGuideline,
     SectionMembership,
@@ -17,6 +18,7 @@ from companies.models import (
     SectionWorkPractice,
 )
 from industries.models import Industry
+from professions.models import Profession
 
 User = get_user_model()
 
@@ -227,6 +229,27 @@ class WorkerSignUpForm(BaseRegistrationForm):
                 address=self.cleaned_data.get('address', ''),
             )
         return user
+
+
+class MandatoryGuidelineForm(forms.ModelForm):
+    class Meta:
+        model = MandatoryGuideline
+        fields = ['guideline_type', 'name', 'pdf_file', 'start_time', 'active_until']
+        widgets = {
+            'guideline_type': forms.Select(attrs=_field_attrs('Yo‘riqnoma turi')),
+            'name': forms.TextInput(attrs=_field_attrs('Yo‘riqnoma nomi')),
+            'pdf_file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.docx'}),
+            'start_time': forms.DateTimeInput(attrs={**_field_attrs('Boshlanish vaqti'), 'type': 'datetime-local'}),
+            'active_until': forms.DateTimeInput(attrs={**_field_attrs('Faollik tugashi'), 'type': 'datetime-local'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('start_time')
+        active_until = cleaned.get('active_until')
+        if start and active_until and active_until <= start:
+            raise ValidationError("Faollik tugashi boshlanish vaqtidan keyin bo‘lishi kerak.")
+        return cleaned
 
 
 def get_selectable_workers_queryset(
@@ -521,7 +544,7 @@ def get_section_admin_section(section_admin):
 def get_section_team_memberships(section):
     return (
         SectionMembership.objects.filter(section=section)
-        .select_related('user', 'user__profile', 'section', 'section__department')
+        .select_related('user', 'user__profile', 'section', 'section__department', 'profession')
         .order_by('-assigned_at')
     )
 
@@ -565,10 +588,20 @@ class SectionMessageForm(forms.Form):
 
 
 class SectionMemberAddForm(forms.Form):
-    worker = forms.ModelChoiceField(
+    profession = forms.ModelChoiceField(
+        queryset=Profession.objects.none(),
+        label="Kasb",
+        widget=forms.Select(attrs=_field_attrs('Kasbni tanlang')),
+    )
+    workers = forms.ModelMultipleChoiceField(
         queryset=User.objects.none(),
-        label="Xodim",
-        widget=_worker_select_widget('Xodimni tanlang'),
+        label="Xodimlar",
+        widget=forms.SelectMultiple(
+            attrs={
+                **_field_attrs('Xodimlarni tanlang'),
+                'class': 'worker-select2 w-full',
+            }
+        ),
     )
 
     def __init__(self, *args, **kwargs):
@@ -576,19 +609,30 @@ class SectionMemberAddForm(forms.Form):
         super().__init__(*args, **kwargs)
         section = get_section_admin_section(section_admin) if section_admin else None
         if section:
-            self.fields['worker'].queryset = get_available_section_workers(section)
-            self.fields['worker'].label_from_instance = lambda user: (
+            self.fields['profession'].queryset = Profession.objects.filter(
+                industry=section.department.leader.industry
+            ).order_by('name')
+            self.fields['workers'].queryset = get_available_section_workers(section)
+            self.fields['workers'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
 
-    def clean_worker(self):
-        worker = self.cleaned_data['worker']
-        if worker.profile.role != UserProfile.ROLE_WORKER:
-            raise ValidationError("Faqat xodimlarni tanlashingiz mumkin.")
-        return worker
+    def clean_workers(self):
+        workers = self.cleaned_data['workers']
+        if not workers:
+            raise ValidationError("Kamida bitta xodimni tanlang.")
+        for worker in workers:
+            if worker.profile.role != UserProfile.ROLE_WORKER:
+                raise ValidationError("Faqat xodimlarni tanlashingiz mumkin.")
+        return workers
 
 
 class SectionMemberEditForm(forms.Form):
+    profession = forms.ModelChoiceField(
+        queryset=Profession.objects.none(),
+        label="Kasb",
+        widget=forms.Select(attrs=_field_attrs('Kasbni tanlang')),
+    )
     worker = forms.ModelChoiceField(
         queryset=User.objects.none(),
         label="Xodim",
@@ -599,11 +643,17 @@ class SectionMemberEditForm(forms.Form):
         section_admin = kwargs.pop('section_admin', None)
         membership = kwargs.pop('membership', None)
         super().__init__(*args, **kwargs)
-        if section_admin:
+        section = get_section_admin_section(section_admin) if section_admin else None
+        if section:
+            self.fields['profession'].queryset = Profession.objects.filter(
+                industry=section.department.leader.industry
+            ).order_by('name')
             self.fields['worker'].queryset = get_section_member_worker_choices(section_admin, membership)
             self.fields['worker'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
+        if membership and membership.profession_id:
+            self.fields['profession'].initial = membership.profession_id
 
     def clean_worker(self):
         worker = self.cleaned_data['worker']

@@ -20,6 +20,7 @@ from accounts.forms import (
     DepartmentCreateForm,
     DepartmentEditForm,
     EntryGuidelineForm,
+    MandatoryGuidelineForm,
     get_department_supervisor_choices,
     get_org_leader_workers_queryset,
     OrganizationLeaderSignUpForm,
@@ -65,6 +66,9 @@ from companies.models import (
     EntryGuideline,
     GuidelineDispatch,
     GuidelineDispatchRecipient,
+    MandatoryGuideline,
+    MandatoryGuidelineReceipt,
+    ProfessionGuidelineReceipt,
     Section,
     SectionInternalGuideline,
     SectionInternalGuidelineDispatch,
@@ -695,6 +699,71 @@ def _build_dashboard_overview(user, role_context):
     }
 
 
+def _build_worker_dashboard(user):
+    entry_receipts = GuidelineDispatchRecipient.objects.filter(user=user)
+    internal_receipts = SectionInternalGuidelineRecipient.objects.filter(user=user)
+    assessment_notifications = DepartmentAssessmentNotification.objects.filter(user=user)
+    assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user=user, finished_at__isnull=False)
+    practice_assignments = SectionWorkPracticeAssignee.objects.filter(user=user)
+    practice_attempts = WorkPracticeTestAttempt.objects.filter(user=user, finished_at__isnull=False)
+    unread_section_messages = SectionMessageReceipt.objects.filter(user=user, is_read=False).count()
+    unread_practice_messages = SectionWorkPracticeMessageReceipt.objects.filter(user=user, is_read=False).count()
+
+    best_assessment = assessment_attempts.order_by('-score', '-finished_at').first()
+    best_practice = practice_attempts.order_by('-score', '-finished_at').first()
+    entry_total = entry_receipts.count()
+    entry_accepted = entry_receipts.filter(is_acknowledged=True).count()
+    internal_total = internal_receipts.count()
+    internal_accepted = internal_receipts.filter(is_acknowledged=True).count()
+    assessment_total = assessment_notifications.count()
+    assessment_confirmed = assessment_notifications.filter(is_confirmed=True).count()
+    practice_total = practice_assignments.count()
+    practice_accepted = practice_assignments.filter(accepted_by_responsible=True).count()
+
+    return {
+        'cards': [
+            {
+                'label': "Kirish yo'riqnomasi",
+                'value': f'{entry_accepted}/{entry_total}',
+                'hint': f'{max(entry_total - entry_accepted, 0)} ta tasdiqlanmagan',
+                'icon': 'bi-shield-check',
+                'tone': 'emerald',
+                'percent': _percent(entry_accepted, entry_total),
+            },
+            {
+                'label': "Ichki yo'riqnoma",
+                'value': f'{internal_accepted}/{internal_total}',
+                'hint': f'{max(internal_total - internal_accepted, 0)} ta tasdiqlanmagan',
+                'icon': 'bi-journal-check',
+                'tone': 'sky',
+                'percent': _percent(internal_accepted, internal_total),
+            },
+            {
+                'label': 'Bilim testi',
+                'value': best_assessment.score if best_assessment else '-',
+                'hint': f'{assessment_confirmed}/{assessment_total} xabar tasdiqlangan',
+                'icon': 'bi-mortarboard',
+                'tone': 'violet',
+                'percent': best_assessment.score if best_assessment else 0,
+            },
+            {
+                'label': 'Ish amaliyoti',
+                'value': f'{practice_accepted}/{practice_total}',
+                'hint': f"Eng yaxshi test: {best_practice.score if best_practice else '-'}",
+                'icon': 'bi-briefcase',
+                'tone': 'amber',
+                'percent': _percent(practice_accepted, practice_total),
+            },
+        ],
+        'messages': [
+            {'label': "Bo'lim xabarlari", 'value': unread_section_messages, 'hint': "o'qilmagan"},
+            {'label': 'Amaliyot xabarlari', 'value': unread_practice_messages, 'hint': "o'qilmagan"},
+        ],
+        'latest_assessment_attempts': assessment_attempts.select_related('assessment').order_by('-finished_at')[:5],
+        'latest_practice_attempts': practice_attempts.select_related('practice', 'test').order_by('-finished_at')[:5],
+    }
+
+
 class DashboardView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
 
@@ -702,7 +771,11 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         role_context = self.get_role_context()
         context.update(role_context)
-        context['dashboard_overview'] = _build_dashboard_overview(self.request.user, role_context)
+        if role_context.get('is_worker'):
+            context['worker_dashboard'] = _build_worker_dashboard(self.request.user)
+            context['dashboard_overview'] = None
+        else:
+            context['dashboard_overview'] = _build_dashboard_overview(self.request.user, role_context)
 
         if role_context['is_super_admin']:
             context['total_industries'] = Industry.objects.count()
@@ -1461,11 +1534,11 @@ def _provision_active_entry_guideline(section, worker):
             )
 
 
-def _assign_worker_to_section(section, worker):
+def _assign_worker_to_section(section, worker, profession=None):
     if _worker_already_in_section(worker):
         raise ValueError("Xodim boshqa bo‘limda allaqachon biriktirilgan.")
     _sync_worker_section_profile(section, worker)
-    SectionMembership.objects.create(section=section, user=worker)
+    SectionMembership.objects.create(section=section, user=worker, profession=profession)
     _provision_active_entry_guideline(section, worker)
 
 
@@ -1489,9 +1562,14 @@ class SectionWorkerManagementView(SectionAdminRequiredMixin, TemplateView):
             messages.error(self.request, "Sizga biriktirilgan bo‘lim topilmadi.")
             return context
 
-        memberships = list(get_section_team_memberships(section))
+        selected_profession_id = self.request.GET.get('profession_id', '').strip()
+        memberships_qs = get_section_team_memberships(section)
+        if selected_profession_id.isdigit():
+            memberships_qs = memberships_qs.filter(profession_id=int(selected_profession_id))
+        memberships = list(memberships_qs)
         for membership in memberships:
             membership.worker_choices = get_section_member_worker_choices(self.request.user, membership)
+        profession_options = Profession.objects.filter(industry=section.department.leader.industry).order_by('name')
 
         context.update(
             self.get_role_context()
@@ -1500,6 +1578,8 @@ class SectionWorkerManagementView(SectionAdminRequiredMixin, TemplateView):
                 'department': section.department,
                 'memberships': memberships,
                 'form': SectionMemberAddForm(section_admin=self.request.user),
+                'profession_options': profession_options,
+                'selected_profession_id': selected_profession_id,
                 'workers_count': get_available_section_workers(section).count(),
                 'page_title': 'Xodimlar',
                 'page_description': 'Bo‘limingizga tegishli xodimlarni boshqaring.',
@@ -1518,17 +1598,17 @@ class SectionWorkerManagementView(SectionAdminRequiredMixin, TemplateView):
             messages.error(request, "Xodim qo‘shishda xatolik bor.")
             return redirect('section-workers')
 
-        worker = form.cleaned_data['worker']
-        if _worker_already_in_section(worker):
-            messages.error(request, "Bu xodim boshqa bo‘limda allaqachon biriktirilgan.")
-            return redirect('section-workers')
-
-        try:
-            _assign_worker_to_section(section, worker)
-        except ValueError as exc:
-            messages.error(request, str(exc))
-            return redirect('section-workers')
-        messages.success(request, "Xodim bo‘limga qo‘shildi.")
+        profession = form.cleaned_data['profession']
+        workers = form.cleaned_data['workers']
+        added_count = 0
+        for worker in workers:
+            try:
+                _assign_worker_to_section(section, worker, profession=profession)
+                added_count += 1
+            except ValueError as exc:
+                messages.warning(request, f"{worker.profile.full_name}: {exc}")
+        if added_count:
+            messages.success(request, f"{added_count} ta xodim bo‘limga qo‘shildi.")
         return redirect('section-workers')
 
 
@@ -1554,6 +1634,7 @@ class SectionWorkerEditView(SectionAdminRequiredMixin, View):
             return redirect('section-workers')
 
         new_worker = form.cleaned_data['worker']
+        new_profession = form.cleaned_data['profession']
         if new_worker.pk != membership.user_id:
             if _worker_already_in_section(new_worker, exclude_membership_id=membership.pk):
                 messages.error(request, "Tanlangan xodim boshqa bo‘limda allaqachon biriktirilgan.")
@@ -1566,6 +1647,9 @@ class SectionWorkerEditView(SectionAdminRequiredMixin, View):
             old_profile.save(update_fields=['section'])
             _sync_worker_section_profile(section, new_worker)
             _provision_active_entry_guideline(section, new_worker)
+        if membership.profession_id != new_profession.pk:
+            membership.profession = new_profession
+            membership.save(update_fields=['profession'])
 
         messages.success(request, "Xodim yangilandi.")
         return redirect('section-workers')
@@ -1719,6 +1803,12 @@ class GuidelinePdfView(AuthenticatedRequiredMixin, View):
             receipt = (
                 GuidelineDispatchRecipient.objects.select_related('dispatch')
                 .filter(pk=int(receipt_id), user=request.user, dispatch__guideline=guideline)
+                .first()
+            )
+        if receipt is None:
+            receipt = (
+                GuidelineDispatchRecipient.objects.select_related('dispatch')
+                .filter(user=request.user, dispatch__guideline=guideline, dispatch__is_active=True)
                 .first()
             )
 
@@ -2231,6 +2321,237 @@ class GuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
         ):
             next_url = reverse('notifications-inbox')
         return redirect(next_url)
+
+
+class MandatoryGuidelineListView(DepartmentSupervisorOnlyMixin, TemplateView):
+    template_name = 'accounts/mandatory_guidelines.html'
+    type_titles = dict(MandatoryGuideline.TYPE_CHOICES)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        department = _guideline_department_or_redirect(self.request)
+        if not department:
+            return context
+        selected_type = self.request.GET.get('type', '').strip()
+        guidelines = MandatoryGuideline.objects.filter(department=department)
+        if selected_type in self.type_titles:
+            guidelines = guidelines.filter(guideline_type=selected_type)
+        context.update(self.get_role_context() | {
+            'department': department,
+            'guidelines': guidelines,
+            'form': MandatoryGuidelineForm(),
+            'selected_type': selected_type,
+            'selected_type_title': self.type_titles.get(selected_type, 'Majburiy yo‘riqnomalar'),
+            'page_title': self.type_titles.get(selected_type, 'Majburiy yo‘riqnomalar'),
+        })
+        return context
+
+    def post(self, request, *args, **kwargs):
+        department = _guideline_department_or_redirect(request)
+        if not department:
+            return redirect('dashboard')
+        selected_type = request.POST.get('selected_type') or ''
+        form = MandatoryGuidelineForm(request.POST, request.FILES)
+        if form.is_valid():
+            guideline_type = form.cleaned_data['guideline_type']
+            if MandatoryGuideline.objects.filter(department=department, guideline_type=guideline_type).exists():
+                messages.error(request, 'Bu turdagi yo‘riqnoma allaqachon yaratilgan. Uni tahrirlang.')
+                return redirect(f"{reverse('mandatory-guidelines')}?type={guideline_type}")
+            guideline = form.save(commit=False)
+            guideline.department = department
+            guideline.created_by = request.user
+            guideline.save()
+            messages.success(request, 'Majburiy yo‘riqnoma saqlandi.')
+        else:
+            messages.error(request, 'Yo‘riqnoma yaratishda xatolik bor.')
+        return redirect(f"{reverse('mandatory-guidelines')}?type={selected_type}" if selected_type else 'mandatory-guidelines')
+
+
+class MandatoryGuidelineEditView(DepartmentSupervisorOnlyMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        department = _guideline_department_or_redirect(request)
+        guideline = MandatoryGuideline.objects.filter(pk=pk, department=department).first() if department else None
+        if not guideline:
+            messages.error(request, 'Yo‘riqnoma topilmadi.')
+            return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}" if guideline else 'mandatory-guidelines')
+        form = MandatoryGuidelineForm(request.POST, request.FILES, instance=guideline)
+        if form.is_valid():
+            guideline_type = form.cleaned_data['guideline_type']
+            if MandatoryGuideline.objects.filter(department=department, guideline_type=guideline_type).exclude(pk=guideline.pk).exists():
+                messages.error(request, 'Bu turdagi yo‘riqnoma allaqachon mavjud.')
+                return redirect(f"{reverse('mandatory-guidelines')}?type={guideline_type}")
+            form.save()
+            messages.success(request, 'Yo‘riqnoma yangilandi.')
+        else:
+            messages.error(request, 'Tahrirlashda xatolik bor.')
+        return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}")
+
+
+class MandatoryGuidelineDeleteView(DepartmentSupervisorOnlyMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        department = _guideline_department_or_redirect(request)
+        guideline = MandatoryGuideline.objects.filter(pk=pk, department=department).first() if department else None
+        if not guideline:
+            messages.error(request, 'Yo‘riqnoma topilmadi.')
+            return redirect('mandatory-guidelines')
+        guideline_type = guideline.guideline_type
+        guideline.delete()
+        messages.success(request, 'Yo‘riqnoma o‘chirildi.')
+        return redirect(f"{reverse('mandatory-guidelines')}?type={guideline_type}")
+
+
+class MandatoryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
+    template_name = 'accounts/mandatory_guidelines_inbox.html'
+    type_titles = dict(MandatoryGuideline.TYPE_CHOICES)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        role = self.get_role_context()
+        profile = role.get('user_profile')
+        receipts = MandatoryGuidelineReceipt.objects.none()
+        selected_type = self.request.GET.get('type', '').strip()
+        if profile and profile.department_id:
+            type_order = {
+                MandatoryGuideline.TYPE_MEDICAL: 0,
+                MandatoryGuideline.TYPE_FIRE: 1,
+                MandatoryGuideline.TYPE_ELECTRIC: 2,
+            }
+            active_all = list(MandatoryGuideline.objects.filter(
+                department_id=profile.department_id,
+                start_time__lte=timezone.now(),
+                active_until__gte=timezone.now(),
+            ))
+            active_all.sort(key=lambda item: type_order.get(item.guideline_type, 99))
+            for guideline in active_all:
+                MandatoryGuidelineReceipt.objects.get_or_create(guideline=guideline, user=self.request.user)
+            all_receipts = {
+                receipt.guideline.guideline_type: receipt
+                for receipt in MandatoryGuidelineReceipt.objects.filter(user=self.request.user, guideline__in=active_all).select_related('guideline')
+            }
+            active_qs = active_all
+            if selected_type in self.type_titles:
+                active_qs = [guideline for guideline in active_all if guideline.guideline_type == selected_type]
+            receipts = [all_receipts[guideline.guideline_type] for guideline in active_qs if guideline.guideline_type in all_receipts]
+            for receipt in receipts:
+                previous_types = [
+                    guideline_type for guideline_type, order in type_order.items()
+                    if order < type_order.get(receipt.guideline.guideline_type, 99)
+                ]
+                receipt.can_open = receipt.is_acknowledged or all(
+                    all_receipts.get(guideline_type) is None or all_receipts[guideline_type].is_acknowledged
+                    for guideline_type in previous_types
+                )
+        context.update(role | {
+            'receipts': receipts,
+            'selected_type': selected_type,
+            'selected_type_title': self.type_titles.get(selected_type, 'Majburiy yo‘riqnomalar'),
+            'page_title': self.type_titles.get(selected_type, 'Majburiy yo‘riqnomalar'),
+        })
+        return context
+
+
+class MandatoryGuidelinePdfView(AuthenticatedRequiredMixin, View):
+    template_name = 'accounts/guideline_pdf_view.html'
+
+    def get(self, request, pk, *args, **kwargs):
+        guideline = get_object_or_404(MandatoryGuideline, pk=pk)
+        receipt = MandatoryGuidelineReceipt.objects.filter(guideline=guideline, user=request.user).first()
+        department = get_department_admin_department(request.user)
+        can_manage = department is not None and department.pk == guideline.department_id
+        if not receipt and not can_manage:
+            messages.error(request, 'PDF ko‘rish uchun ruxsat yo‘q.')
+            return redirect('mandatory-guidelines-inbox')
+        if receipt and not receipt.is_acknowledged:
+            type_order = [
+                MandatoryGuideline.TYPE_MEDICAL,
+                MandatoryGuideline.TYPE_FIRE,
+                MandatoryGuideline.TYPE_ELECTRIC,
+            ]
+            previous_types = type_order[:type_order.index(guideline.guideline_type)] if guideline.guideline_type in type_order else []
+            previous_pending = MandatoryGuidelineReceipt.objects.filter(
+                user=request.user,
+                guideline__department=guideline.department,
+                guideline__start_time__lte=timezone.now(),
+                guideline__active_until__gte=timezone.now(),
+                guideline__guideline_type__in=previous_types,
+                is_acknowledged=False,
+            ).exists()
+            if previous_pending:
+                messages.warning(request, 'Yo‘riqnomalarni ketma-ket o‘qing.')
+                return redirect('mandatory-guidelines-inbox')
+        context = self.get_role_context() | {
+            'guideline': guideline,
+            'pdf_title': guideline.name,
+            'receipt': receipt,
+            'pdf_url': guideline.pdf_file.url,
+            'back_url': _safe_back_url(request, 'mandatory-guidelines-inbox' if receipt else 'mandatory-guidelines'),
+            'page_title': guideline.name,
+            'acknowledge_url': reverse('mandatory-guideline-acknowledge', args=[receipt.pk]) if receipt else None,
+        }
+        return render(request, self.template_name, context)
+
+
+class MandatoryGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        receipt = get_object_or_404(MandatoryGuidelineReceipt, pk=pk, user=request.user)
+        if not request.POST.get('agree'):
+            messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
+            return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+        receipt.is_acknowledged = True
+        receipt.acknowledged_at = timezone.now()
+        receipt.save(update_fields=['is_acknowledged', 'acknowledged_at'])
+        messages.success(request, 'Yo‘riqnoma qabul qilindi.')
+        return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+
+
+class ProfessionGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
+    template_name = 'accounts/profession_guideline_inbox.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        membership = SectionMembership.objects.filter(user=self.request.user, profession__nizom_file__isnull=False).select_related('profession').first()
+        receipt = None
+        if membership and membership.profession and membership.profession.nizom_file:
+            receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+        context.update(self.get_role_context() | {'membership': membership, 'receipt': receipt, 'page_title': 'Kasb yo‘riqnomasi'})
+        return context
+
+
+class ProfessionGuidelinePdfView(AuthenticatedRequiredMixin, View):
+    template_name = 'accounts/guideline_pdf_view.html'
+
+    def get(self, request, *args, **kwargs):
+        membership = SectionMembership.objects.filter(user=request.user, profession__nizom_file__isnull=False).select_related('profession').first()
+        if not membership or not membership.profession or not membership.profession.nizom_file:
+            messages.error(request, 'Kasb yo‘riqnomasi topilmadi.')
+            return redirect('profession-guideline-inbox')
+        receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+        context = self.get_role_context() | {
+            'guideline': membership.profession,
+            'pdf_title': f'{membership.profession.name} - kasb yo‘riqnomasi',
+            'receipt': receipt,
+            'pdf_url': membership.profession.nizom_file.url,
+            'back_url': _safe_back_url(request, 'profession-guideline-inbox'),
+            'page_title': 'Kasb yo‘riqnomasi',
+            'acknowledge_url': reverse('profession-guideline-acknowledge'),
+        }
+        return render(request, self.template_name, context)
+
+
+class ProfessionGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        membership = SectionMembership.objects.filter(user=request.user, profession__nizom_file__isnull=False).first()
+        if not membership:
+            return redirect('dashboard')
+        receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+        if not request.POST.get('agree'):
+            messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
+            return redirect('profession-guideline-inbox')
+        receipt.is_acknowledged = True
+        receipt.acknowledged_at = timezone.now()
+        receipt.save(update_fields=['is_acknowledged', 'acknowledged_at'])
+        messages.success(request, 'Kasb yo‘riqnomasi qabul qilindi.')
+        return redirect('dashboard')
 
 
 def _section_for_admin_or_redirect(request):
@@ -3162,6 +3483,10 @@ class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
         assignment.accepted_by_responsible = True
         assignment.accepted_at = timezone.now()
         assignment.save(update_fields=['accepted_by_responsible', 'accepted_at'])
+        profile = getattr(assignment.user, 'profile', None)
+        if profile and not profile.practice_qualified:
+            profile.practice_qualified = True
+            profile.save(update_fields=['practice_qualified'])
         messages.success(
             request,
             f"{assignment.user.profile.full_name or assignment.user.username} amaliyotchi sifatida qabul qilindi."

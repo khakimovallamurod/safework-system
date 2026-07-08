@@ -423,6 +423,26 @@
                         <i class="bi bi-lock-fill text-amber-300"></i>
                     {% endif %}
                 </a>
+                <a class="entry-guideline-nav nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'mandatory-guidelines-inbox' and request.GET.type == 'medical' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'mandatory-guidelines-inbox' %}?type=medical">
+                    <i class="bi bi-heart-pulse text-base"></i><span class="flex-1">Tibbiy yordam</span>{% if mandatory_guideline_locked %}<i class="bi bi-lock-fill text-amber-300"></i>{% endif %}
+                </a>
+                <a class="entry-guideline-nav nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'mandatory-guidelines-inbox' and request.GET.type == 'fire' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'mandatory-guidelines-inbox' %}?type=fire">
+                    <i class="bi bi-fire text-base"></i><span class="flex-1">Yong'in xavfsizligi</span>{% if mandatory_guideline_locked %}<i class="bi bi-lock-fill text-amber-300"></i>{% endif %}
+                </a>
+                <a class="entry-guideline-nav nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'mandatory-guidelines-inbox' and request.GET.type == 'electric' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'mandatory-guidelines-inbox' %}?type=electric">
+                    <i class="bi bi-lightning-charge text-base"></i><span class="flex-1">Elektr xavfsizligi</span>{% if mandatory_guideline_locked %}<i class="bi bi-lock-fill text-amber-300"></i>{% endif %}
+                </a>
+                {% if user_profile.practice_qualified %}
+                <a class="entry-guideline-nav nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'profession-guideline-inbox' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'profession-guideline-inbox' %}">
+                    <i class="bi bi-person-workspace text-base"></i>
+                    <span class="flex-1">Kasb yo'riqnomasi</span>
+                    {% if profession_guideline_locked %}<i class="bi bi-lock-fill text-amber-300"></i>{% endif %}
+                </a>
+                {% else %}
+                <span class="mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 opacity-60">
+                    <i class="bi bi-person-workspace text-base"></i><span class="flex-1">Kasb yo'riqnomasi</span><i class="bi bi-lock text-xs"></i>
+                </span>
+                {% endif %}
                 {% if worker_entry_guideline_locked %}
                     <div class="worker-lock-notice mb-2 rounded-xl px-3 py-2 text-[11px] leading-4">
                         Qolgan menyular yo'riqnoma tasdiqlangandan keyin ochiladi.
@@ -488,6 +508,18 @@
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'entry-guidelines' or request.resolver_match.url_name == 'entry-guideline-edit' or request.resolver_match.url_name == 'entry-guideline-send' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'entry-guidelines' %}">
                     <i class="bi bi-file-earmark-pdf text-base"></i> Kirish yo'riqnomalari
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'mandatory-guidelines' and request.GET.type == 'medical' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'mandatory-guidelines' %}?type=medical">
+                    <i class="bi bi-heart-pulse text-base"></i> Tibbiy yordam
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'mandatory-guidelines' and request.GET.type == 'fire' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'mandatory-guidelines' %}?type=fire">
+                    <i class="bi bi-fire text-base"></i> Yong'in xavfsizligi
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'mandatory-guidelines' and request.GET.type == 'electric' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'mandatory-guidelines' %}?type=electric">
+                    <i class="bi bi-lightning-charge text-base"></i> Elektr xavfsizligi
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
+                    <i class="bi bi-person-workspace text-base"></i> Kasblar
                 </a>
                 <div class="mb-1">
                   <button type="button" id="guideline-status-toggle"
@@ -1023,7 +1055,7 @@ function toggleSidebarSubmenu(menuId, chevronId) {
 
 document.addEventListener('change', function(e) {
     if (e.target && e.target.type === 'file') {
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 20 * 1024 * 1024; // 20MB
         const files = e.target.files;
         if (files) {
             for (let i = 0; i < files.length; i++) {
@@ -1032,12 +1064,12 @@ document.addEventListener('change', function(e) {
                         Swal.fire({
                             icon: 'error',
                             title: 'Fayl hajmi katta',
-                            text: "Iltimos, hajmi 5 MB dan oshmaydigan fayl yuklang.",
+                            text: "Iltimos, hajmi 20 MB dan oshmaydigan fayl yuklang.",
                             confirmButtonText: 'Tushunarli',
                             confirmButtonColor: '#16a34a'
                         });
                     } else {
-                        alert("Iltimos, hajmi 5 MB dan oshmaydigan fayl yuklang.");
+                        alert("Iltimos, hajmi 20 MB dan oshmaydigan fayl yuklang.");
                     }
                     e.target.value = ''; // clear the input
                     return;

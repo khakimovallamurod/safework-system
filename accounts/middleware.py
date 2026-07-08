@@ -1,12 +1,13 @@
 from django.contrib import messages
 from django.db.models import F
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import UserActivitySummary, UserProfile
 from accounts.role_navigation import (
     WORKER_ENTRY_GUIDELINE_ALLOWED_URLS,
-    get_pending_entry_guidelines_count,
+    get_guideline_gate_state,
 )
 
 
@@ -24,6 +25,10 @@ class WorkerEntryGuidelineGateMiddleware:
         if not user.is_authenticated or user.is_superuser:
             return None
 
+        path = request.path or ''
+        if path.startswith('/uploads/') or path.startswith('/static/'):
+            return None
+
         profile = getattr(user, 'profile', None)
         if not profile or profile.role not in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN}:
             return None
@@ -33,14 +38,17 @@ class WorkerEntryGuidelineGateMiddleware:
         if url_name in WORKER_ENTRY_GUIDELINE_ALLOWED_URLS:
             return None
 
-        if get_pending_entry_guidelines_count(user) == 0:
+        gate_state = get_guideline_gate_state(user)
+        if not gate_state.get('worker_entry_guideline_locked'):
             return None
 
         messages.warning(
             request,
-            "Avval kirish yo'riqnomasini o'qib tasdiqlang. Shundan keyin qolgan menyular ochiladi.",
+            "Avval majburiy yo'riqnomalarni ketma-ket o'qib tasdiqlang. Shundan keyin qolgan menyular ochiladi.",
         )
-        return redirect('worker-entry-guidelines')
+        if gate_state.get('next_guideline_url_name') == 'mandatory-guidelines-inbox' and gate_state.get('next_mandatory_guideline_type'):
+            return redirect(f"{reverse('mandatory-guidelines-inbox')}?type={gate_state['next_mandatory_guideline_type']}")
+        return redirect(gate_state.get('next_guideline_url_name') or 'worker-entry-guidelines')
 
 
 class UserActivityMiddleware:
