@@ -383,6 +383,13 @@ class ProfessionGuidelineReceipt(models.Model):
         on_delete=models.CASCADE,
         related_name='profession_guideline_receipt',
     )
+    profession = models.ForeignKey(
+        'professions.Profession',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='guideline_receipts',
+    )
     is_acknowledged = models.BooleanField(default=False)
     acknowledged_at = models.DateTimeField(null=True, blank=True)
 

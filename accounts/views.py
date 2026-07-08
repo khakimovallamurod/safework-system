@@ -764,6 +764,28 @@ def _build_worker_dashboard(user):
     }
 
 
+def _profession_membership_for_user(user):
+    return (
+        SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
+        .exclude(profession__nizom_file='')
+        .select_related('profession')
+        .first()
+    )
+
+
+def _current_profession_guideline_receipt(membership):
+    receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(
+        membership=membership,
+        defaults={'profession': membership.profession},
+    )
+    if receipt.profession_id != membership.profession_id:
+        receipt.profession = membership.profession
+        receipt.is_acknowledged = False
+        receipt.acknowledged_at = None
+        receipt.save(update_fields=['profession', 'is_acknowledged', 'acknowledged_at'])
+    return receipt
+
+
 class DashboardView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
 
@@ -1636,6 +1658,7 @@ class SectionWorkerEditView(SectionAdminRequiredMixin, View):
         new_worker = form.cleaned_data['worker']
         new_profession = form.cleaned_data['profession']
         if new_worker.pk != membership.user_id:
+            ProfessionGuidelineReceipt.objects.filter(membership=membership).delete()
             if _worker_already_in_section(new_worker, exclude_membership_id=membership.pk):
                 messages.error(request, "Tanlangan xodim boshqa bo‘limda allaqachon biriktirilgan.")
                 return redirect('section-workers')
@@ -1648,6 +1671,7 @@ class SectionWorkerEditView(SectionAdminRequiredMixin, View):
             _sync_worker_section_profile(section, new_worker)
             _provision_active_entry_guideline(section, new_worker)
         if membership.profession_id != new_profession.pk:
+            ProfessionGuidelineReceipt.objects.filter(membership=membership).delete()
             membership.profession = new_profession
             membership.save(update_fields=['profession'])
 
@@ -2509,10 +2533,10 @@ class ProfessionGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        membership = SectionMembership.objects.filter(user=self.request.user, profession__nizom_file__isnull=False).select_related('profession').first()
+        membership = _profession_membership_for_user(self.request.user)
         receipt = None
         if membership and membership.profession and membership.profession.nizom_file:
-            receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+            receipt = _current_profession_guideline_receipt(membership)
         context.update(self.get_role_context() | {'membership': membership, 'receipt': receipt, 'page_title': 'Kasb yo‘riqnomasi'})
         return context
 
@@ -2521,11 +2545,11 @@ class ProfessionGuidelinePdfView(AuthenticatedRequiredMixin, View):
     template_name = 'accounts/guideline_pdf_view.html'
 
     def get(self, request, *args, **kwargs):
-        membership = SectionMembership.objects.filter(user=request.user, profession__nizom_file__isnull=False).select_related('profession').first()
+        membership = _profession_membership_for_user(request.user)
         if not membership or not membership.profession or not membership.profession.nizom_file:
             messages.error(request, 'Kasb yo‘riqnomasi topilmadi.')
             return redirect('profession-guideline-inbox')
-        receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+        receipt = _current_profession_guideline_receipt(membership)
         context = self.get_role_context() | {
             'guideline': membership.profession,
             'pdf_title': f'{membership.profession.name} - kasb yo‘riqnomasi',
@@ -2540,10 +2564,10 @@ class ProfessionGuidelinePdfView(AuthenticatedRequiredMixin, View):
 
 class ProfessionGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        membership = SectionMembership.objects.filter(user=request.user, profession__nizom_file__isnull=False).first()
+        membership = _profession_membership_for_user(request.user)
         if not membership:
             return redirect('dashboard')
-        receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+        receipt = _current_profession_guideline_receipt(membership)
         if not request.POST.get('agree'):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
             return redirect('profession-guideline-inbox')

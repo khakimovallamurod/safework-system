@@ -115,12 +115,21 @@ def get_guideline_gate_state(user):
     if profile.role == UserProfile.ROLE_WORKER and getattr(profile, 'practice_qualified', False):
         from companies.models import ProfessionGuidelineReceipt, SectionMembership
         membership = (
-            SectionMembership.objects.filter(user=user, profession__nizom_file__isnull=False)
+            SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
+            .exclude(profession__nizom_file='')
             .select_related('profession')
             .first()
         )
         if membership and membership.profession.nizom_file:
-            receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(membership=membership)
+            receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(
+                membership=membership,
+                defaults={'profession': membership.profession},
+            )
+            if receipt.profession_id != membership.profession_id:
+                receipt.profession = membership.profession
+                receipt.is_acknowledged = False
+                receipt.acknowledged_at = None
+                receipt.save(update_fields=['profession', 'is_acknowledged', 'acknowledged_at'])
             if not receipt.is_acknowledged:
                 state['pending_profession_guidelines_count'] = 1
                 state['profession_guideline_locked'] = True
