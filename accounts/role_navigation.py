@@ -114,12 +114,16 @@ def get_guideline_gate_state(user):
 
     if profile.role == UserProfile.ROLE_WORKER and getattr(profile, 'practice_qualified', False):
         from companies.models import ProfessionGuidelineReceipt, SectionMembership
-        membership = (
+        memberships = (
             SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
             .exclude(profession__nizom_file='')
-            .select_related('profession')
-            .first()
+            .select_related('profession', 'section')
         )
+        membership = None
+        if profile.section_id:
+            membership = memberships.filter(section_id=profile.section_id).order_by('-assigned_at', '-pk').first()
+        if not membership:
+            membership = memberships.order_by('-assigned_at', '-pk').first()
         if membership and membership.profession.nizom_file:
             receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(
                 membership=membership,

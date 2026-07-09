@@ -19,6 +19,7 @@ from django.views.generic import FormView, TemplateView
 from accounts.forms import (
     DepartmentCreateForm,
     DepartmentEditForm,
+    EmployeeMedicalRecordForm,
     EntryGuidelineForm,
     MandatoryGuidelineForm,
     get_department_supervisor_choices,
@@ -63,6 +64,7 @@ from companies.models import (
     DepartmentAssessment,
     DepartmentAssessmentAttempt,
     DepartmentAssessmentNotification,
+    EmployeeMedicalRecord,
     EntryGuideline,
     GuidelineDispatch,
     GuidelineDispatchRecipient,
@@ -519,6 +521,7 @@ def _build_dashboard_overview(user, role_context):
     assessment_notifications = DepartmentAssessmentNotification.objects.filter(user_id__in=user_ids)
     practice_attempts = WorkPracticeTestAttempt.objects.filter(user_id__in=user_ids)
     assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user_id__in=user_ids)
+    medical_records = EmployeeMedicalRecord.objects.filter(user_id__in=user_ids)
 
     total_active_seconds = (
         UserActivitySummary.objects.filter(user_id__in=user_ids).aggregate(total=Sum('total_active_seconds'))['total']
@@ -653,6 +656,16 @@ def _build_dashboard_overview(user, role_context):
     assessment_failed = assessment_attempts.filter(finished_at__isnull=False, score__lt=60).count()
     practice_passed = practice_attempts.filter(finished_at__isnull=False, score__gte=60).count()
     practice_failed = practice_attempts.filter(finished_at__isnull=False, score__lt=60).count()
+    medical_latest = {}
+    for record in medical_records.order_by('user_id', '-end_date', '-created_at'):
+        medical_latest.setdefault(record.user_id, record)
+    medical_stats = {'ok': 0, 'warning': 0, 'danger': 0, 'missing': 0}
+    for uid in user_ids:
+        record = medical_latest.get(uid)
+        if not record:
+            medical_stats['missing'] += 1
+        else:
+            medical_stats[record.status_key] += 1
 
     return {
         'scope_title': scope['title'],
@@ -660,13 +673,14 @@ def _build_dashboard_overview(user, role_context):
             {'label': 'Foydalanuvchilar', 'value': total_users, 'icon': 'bi-people', 'tone': 'emerald'},
             {'label': 'Boshqarmalar', 'value': departments.count(), 'icon': 'bi-building', 'tone': 'sky'},
             {'label': 'Bo‘limlar', 'value': sections.count(), 'icon': 'bi-diagram-2', 'tone': 'amber'},
-            {'label': 'Aktiv vaqt', 'value': _format_active_seconds(total_active_seconds), 'icon': 'bi-clock-history', 'tone': 'violet'},
+            {'label': 'Tibbiy nazorat', 'value': medical_stats['danger'], 'icon': 'bi-heart-pulse', 'tone': 'rose'},
         ],
         'message_stats': [
             {'label': 'Bo‘lim xabarlari', 'value': section_messages.count(), 'hint': f"{SectionMessageReceipt.objects.filter(message__in=section_messages, is_read=False).count()} ta o‘qilmagan"},
             {'label': 'Amaliyot xabarlari', 'value': work_messages.count(), 'hint': f"{SectionWorkPracticeMessageReceipt.objects.filter(message__in=work_messages, is_read=False).count()} ta o‘qilmagan"},
             {'label': 'Kirish yo‘riqnomasi', 'value': entry_total, 'hint': f'{entry_accepted}/{entry_total} qabul qilingan'},
             {'label': 'Ichki yo‘riqnoma', 'value': internal_total, 'hint': f'{internal_accepted}/{internal_total} qabul qilingan'},
+            {'label': 'Tibbiy ma’lumot', 'value': medical_records.count(), 'hint': f"{medical_stats['ok']} faol · {medical_stats['warning']} yaqin · {medical_stats['danger']} tugayapti"},
         ],
         'test_stats': [
             {'label': 'Amaliyot testlari', 'value': WorkPracticeTest.objects.filter(section_id__in=section_ids).count(), 'hint': f'{finished_practice_attempts} ta yakunlangan urinish'},
@@ -719,6 +733,7 @@ def _build_worker_dashboard(user):
     assessment_confirmed = assessment_notifications.filter(is_confirmed=True).count()
     practice_total = practice_assignments.count()
     practice_accepted = practice_assignments.filter(accepted_by_responsible=True).count()
+    medical_record = EmployeeMedicalRecord.objects.filter(user=user).order_by('-end_date', '-created_at').first()
 
     return {
         'cards': [
@@ -747,12 +762,12 @@ def _build_worker_dashboard(user):
                 'percent': best_assessment.score if best_assessment else 0,
             },
             {
-                'label': 'Ish amaliyoti',
-                'value': f'{practice_accepted}/{practice_total}',
-                'hint': f"Eng yaxshi test: {best_practice.score if best_practice else '-'}",
-                'icon': 'bi-briefcase',
+                'label': 'Tibbiy ko‘rik',
+                'value': medical_record.end_date.strftime('%d.%m.%Y') if medical_record else '-',
+                'hint': medical_record.status_label if medical_record else "Ma'lumot kiritilmagan",
+                'icon': 'bi-heart-pulse',
                 'tone': 'amber',
-                'percent': _percent(practice_accepted, practice_total),
+                'percent': 100 if medical_record and medical_record.status_key == 'ok' else 45 if medical_record and medical_record.status_key == 'warning' else 15 if medical_record else 0,
             },
         ],
         'messages': [
@@ -765,12 +780,17 @@ def _build_worker_dashboard(user):
 
 
 def _profession_membership_for_user(user):
-    return (
+    profile = getattr(user, 'profile', None)
+    memberships = (
         SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
         .exclude(profession__nizom_file='')
-        .select_related('profession')
-        .first()
+        .select_related('profession', 'section')
     )
+    if profile and profile.section_id:
+        current_membership = memberships.filter(section_id=profile.section_id).order_by('-assigned_at', '-pk').first()
+        if current_membership:
+            return current_membership
+    return memberships.order_by('-assigned_at', '-pk').first()
 
 
 def _current_profession_guideline_receipt(membership):
@@ -1300,6 +1320,248 @@ class OrganizationWorkerRegistryView(OrgLeaderRequiredMixin, TemplateView):
                     ('entry-passed', 'Yo‘riqnomadan o‘tgan'),
                     ('entry-pending', 'Yo‘riqnomadan o‘tmagan'),
                 ],
+            }
+        )
+        return context
+
+
+def _medical_record_status_counts(records_by_user, user_ids):
+    stats = {'ok': 0, 'warning': 0, 'danger': 0, 'missing': 0}
+    for user_id in user_ids:
+        record = records_by_user.get(user_id)
+        if record:
+            stats[record.status_key] += 1
+        else:
+            stats['missing'] += 1
+    return stats
+
+
+def _latest_medical_records_for_users(user_ids):
+    records = {}
+    for record in (
+        EmployeeMedicalRecord.objects.filter(user_id__in=user_ids)
+        .select_related('user', 'department', 'section', 'profession', 'created_by')
+        .order_by('user_id', '-end_date', '-created_at')
+    ):
+        records.setdefault(record.user_id, record)
+    return records
+
+
+def _mandatory_guideline_statuses_for_user(user):
+    labels = dict(MandatoryGuideline.TYPE_CHOICES)
+    rows = []
+    receipts = {
+        receipt.guideline.guideline_type: receipt
+        for receipt in MandatoryGuidelineReceipt.objects.filter(user=user)
+        .select_related('guideline')
+        .order_by('guideline__guideline_type', '-acknowledged_at', '-created_at')
+    }
+    for guideline_type, label in MandatoryGuideline.TYPE_CHOICES:
+        receipt = receipts.get(guideline_type)
+        rows.append(
+            {
+                'label': labels.get(guideline_type, label),
+                'is_passed': bool(receipt and receipt.is_acknowledged),
+                'acknowledged_at': receipt.acknowledged_at if receipt else None,
+            }
+        )
+    return rows
+
+
+def _profession_guideline_status_for_membership(membership):
+    if not membership:
+        return {'label': 'Kasb yo‘riqnomasi', 'is_passed': False, 'acknowledged_at': None}
+    receipt = ProfessionGuidelineReceipt.objects.filter(membership=membership).first()
+    return {
+        'label': 'Kasb yo‘riqnomasi',
+        'is_passed': bool(receipt and receipt.is_acknowledged),
+        'acknowledged_at': receipt.acknowledged_at if receipt else None,
+    }
+
+
+def _employee_detail_rows(memberships):
+    memberships = list(memberships)
+    user_ids = [membership.user_id for membership in memberships]
+    records = _latest_medical_records_for_users(user_ids)
+    rows = []
+    for membership in memberships:
+        profile = getattr(membership.user, 'profile', None)
+        entry_status = _entry_guideline_status_for_user(membership.user)
+        rows.append(
+            {
+                'membership': membership,
+                'user': membership.user,
+                'profile': profile,
+                'department': membership.section.department,
+                'section': membership.section,
+                'profession': membership.profession,
+                'medical_record': records.get(membership.user_id),
+                'entry_status': entry_status,
+                'mandatory_statuses': _mandatory_guideline_statuses_for_user(membership.user),
+                'profession_status': _profession_guideline_status_for_membership(membership),
+            }
+        )
+    return rows
+
+
+class EmployeeMedicalRecordListView(AuthenticatedRequiredMixin, TemplateView):
+    template_name = 'accounts/medical_records.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        role = self.get_role_context()
+        if not (role.get('is_org_leader') or role.get('is_department_admin') or role.get('is_worker') or role.get('is_section_member')):
+            messages.error(request, "Tibbiy ma'lumotlar siz uchun yopiq.")
+            return redirect('dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
+    def _memberships(self):
+        role = self.get_role_context()
+        qs = (
+            SectionMembership.objects.select_related(
+                'user',
+                'user__profile',
+                'section',
+                'section__department',
+                'profession',
+            )
+            .order_by('user__profile__full_name', 'user__username')
+        )
+        if role.get('is_org_leader'):
+            return qs.filter(section__department__leader=self.request.user.profile)
+        if role.get('is_department_admin'):
+            department = get_department_admin_department(self.request.user)
+            return qs.filter(section__department=department) if department else qs.none()
+        return qs.filter(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        role = self.get_role_context()
+        memberships = list(self._memberships())
+        user_ids = [membership.user_id for membership in memberships]
+        records = _latest_medical_records_for_users(user_ids)
+        rows = []
+        for membership in memberships:
+            rows.append(
+                {
+                    'membership': membership,
+                    'user': membership.user,
+                    'profile': getattr(membership.user, 'profile', None),
+                    'section': membership.section,
+                    'department': membership.section.department,
+                    'profession': membership.profession,
+                    'record': records.get(membership.user_id),
+                    'form': EmployeeMedicalRecordForm(),
+                }
+            )
+        stats = _medical_record_status_counts(records, user_ids)
+        context.update(
+            role
+            | {
+                'rows': rows,
+                'stats': stats,
+                'can_manage_medical_records': role.get('is_department_admin'),
+                'page_title': "Tibbiy ma'lumot",
+                'page_description': "Xodimlarning tibbiy ko'rik muddatlari, fayllari va izohlari.",
+            }
+        )
+        return context
+
+
+class EmployeeMedicalRecordSaveView(DepartmentSupervisorOnlyMixin, View):
+    def post(self, request, *args, **kwargs):
+        department = get_department_admin_department(request.user)
+        membership = (
+            SectionMembership.objects.select_related('section', 'section__department', 'profession')
+            .filter(user_id=request.POST.get('user_id'), section__department=department)
+            .first()
+        )
+        if not membership:
+            messages.error(request, "Xodim topilmadi.")
+            return redirect('medical-records')
+        form = EmployeeMedicalRecordForm(request.POST, request.FILES)
+        if not form.is_valid():
+            messages.error(request, "Tibbiy ma'lumotni saqlashda xatolik bor.")
+            return redirect('medical-records')
+        record = form.save(commit=False)
+        record.user = membership.user
+        record.department = membership.section.department
+        record.section = membership.section
+        record.profession = membership.profession
+        record.created_by = request.user
+        record.save()
+        messages.success(request, "Tibbiy ma'lumot saqlandi.")
+        return redirect('medical-records')
+
+
+class DepartmentWorkerRegistryView(DepartmentSupervisorOnlyMixin, TemplateView):
+    template_name = 'accounts/department_workers.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        department = get_department_admin_department(self.request.user)
+        memberships = (
+            SectionMembership.objects.select_related('user', 'user__profile', 'section', 'section__department', 'profession')
+            .filter(section__department=department)
+            .order_by('section__name', 'user__profile__full_name')
+            if department
+            else SectionMembership.objects.none()
+        )
+        rows = _employee_detail_rows(memberships)
+        context.update(
+            self.get_role_context()
+            | {
+                'department': department,
+                'rows': rows,
+                'page_title': 'Boshqarma xodimlari',
+                'page_description': "Xodimlar, kasblar, loginlar va yo'riqnoma holatlari.",
+            }
+        )
+        return context
+
+
+class SectionDetailView(DepartmentAdminRequiredMixin, TemplateView):
+    template_name = 'accounts/section_detail.html'
+
+    def get_section(self):
+        role = self.get_role_context()
+        qs = Section.objects.select_related('department', 'department__leader', 'supervisor', 'supervisor__profile')
+        if role.get('is_org_leader'):
+            qs = qs.filter(department__leader=self.request.user.profile)
+        elif role.get('is_department_admin'):
+            qs = qs.filter(department=get_department_admin_department(self.request.user))
+        return qs.filter(pk=self.kwargs.get('pk')).first()
+
+    def dispatch(self, request, *args, **kwargs):
+        self.section = self.get_section()
+        if not self.section:
+            messages.error(request, "Bo'lim topilmadi.")
+            return redirect('section-admins')
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        memberships = (
+            SectionMembership.objects.select_related('user', 'user__profile', 'section', 'section__department', 'profession')
+            .filter(section=self.section)
+            .order_by('user__profile__full_name', 'user__username')
+        )
+        rows = _employee_detail_rows(memberships)
+        total = len(rows)
+        entry_passed = sum(1 for row in rows if row['entry_status']['is_passed'])
+        profession_passed = sum(1 for row in rows if row['profession_status']['is_passed'])
+        context.update(
+            self.get_role_context()
+            | {
+                'section': self.section,
+                'rows': rows,
+                'stats': {
+                    'total': total,
+                    'entry_passed': entry_passed,
+                    'entry_pending': max(total - entry_passed, 0),
+                    'profession_passed': profession_passed,
+                },
+                'page_title': self.section.name,
+                'page_description': "Bo'lim xodimlari va yo'riqnomalardan o'tish holati.",
             }
         )
         return context

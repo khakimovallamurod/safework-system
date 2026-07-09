@@ -404,16 +404,16 @@
     </style>
     {% block head %}{% endblock %}
 </head>
-<body class="bg-slate-100 text-slate-900 antialiased{% if worker_entry_guideline_locked %} worker-entry-guideline-locked{% endif %}">
-<div class="app-shell flex min-h-screen w-full">
-    <aside id="app-sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col border-r border-slate-700/40 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-100 shadow-xl lg:static lg:translate-x-0">
+<body class="overflow-x-hidden bg-slate-100 text-slate-900 antialiased{% if worker_entry_guideline_locked %} worker-entry-guideline-locked{% endif %}">
+<div class="app-shell flex min-h-screen w-full overflow-x-hidden">
+    <aside id="app-sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex max-h-screen w-64 shrink-0 -translate-x-full flex-col overflow-hidden border-r border-slate-700/40 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-100 shadow-xl lg:static lg:translate-x-0">
         <div class="flex items-center border-b border-slate-700/60 px-5 py-5">
             <div class="flex h-16 items-center justify-center rounded-xl bg-white px-2.5 py-1.5 shadow-sm">
                 <img src="{% static 'images/safework-logo2.png' %}" alt="SafeWork logo" class="h-12 w-auto object-contain" />
             </div>
         </div>
 
-        <nav class="flex-1 px-3 py-4">
+        <nav class="min-h-0 flex-1 overflow-y-auto px-3 py-4 pb-20">
             <div class="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Menyu</div>
             {% if is_worker or is_section_admin %}
                 <a class="entry-guideline-nav nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'worker-entry-guidelines' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'worker-entry-guidelines' %}">
@@ -476,6 +476,9 @@
                     {% include 'accounts/includes/nav_notification_badge.html' %}
                     <span>Xabarnomalar</span>
                 </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'medical-records' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'medical-records' %}">
+                    <i class="bi bi-heart-pulse text-base"></i> Tibbiy ma'lumot
+                </a>
             {% endif %}
             {% if is_org_leader %}
                 <div class="mb-1">
@@ -486,7 +489,7 @@
                     <span class="flex-1 text-left">Tashkilot boshqaruvi</span>
                     <i class="bi bi-chevron-down text-xs transition-transform" id="org-leader-menu-chevron"></i>
                   </button>
-                  <div id="org-leader-submenu" class="mt-1 ml-3 space-y-0.5 {% if request.resolver_match.url_name != 'department-admins' and request.resolver_match.url_name != 'section-admins' and request.resolver_match.url_name != 'org-workers' and request.resolver_match.url_name != 'org-workers-status' and request.resolver_match.url_name != 'org-entry-guidelines' and request.resolver_match.url_name != 'assessment-list' and request.resolver_match.url_name != 'assessment-create' and request.resolver_match.url_name != 'assessment-detail' and request.resolver_match.url_name != 'assessment-edit' and request.resolver_match.url_name != 'assessment-publish' and request.resolver_match.url_name != 'assessment-toggle' and request.resolver_match.url_name != 'assessment-question-add' and request.resolver_match.url_name != 'assessment-question-delete' and request.resolver_match.url_name != 'assessment-overview' and request.resolver_match.url_name != 'assessment-report' and request.resolver_match.url_name != 'work-practices' and request.resolver_match.url_name != 'work-practice-edit' and request.resolver_match.url_name != 'work-practice-assign-workers' and request.resolver_match.url_name != 'work-practice-finish' and request.resolver_match.url_name != 'work-practice-send-message' and request.resolver_match.url_name != 'work-practice-message-read' and request.resolver_match.url_name != 'work-practice-delete' and request.resolver_match.namespace != 'professions' %}hidden{% endif %}">
+                  <div id="org-leader-submenu" class="mt-1 ml-3 space-y-0.5 {% if request.resolver_match.url_name != 'department-admins' and request.resolver_match.url_name != 'section-admins' and request.resolver_match.url_name != 'section-detail' and request.resolver_match.url_name != 'org-workers' and request.resolver_match.url_name != 'org-workers-status' and request.resolver_match.url_name != 'org-entry-guidelines' and request.resolver_match.url_name != 'medical-records' and request.resolver_match.url_name != 'assessment-list' and request.resolver_match.url_name != 'assessment-create' and request.resolver_match.url_name != 'assessment-detail' and request.resolver_match.url_name != 'assessment-edit' and request.resolver_match.url_name != 'assessment-publish' and request.resolver_match.url_name != 'assessment-toggle' and request.resolver_match.url_name != 'assessment-question-add' and request.resolver_match.url_name != 'assessment-question-delete' and request.resolver_match.url_name != 'assessment-overview' and request.resolver_match.url_name != 'assessment-report' and request.resolver_match.url_name != 'work-practices' and request.resolver_match.url_name != 'work-practice-edit' and request.resolver_match.url_name != 'work-practice-assign-workers' and request.resolver_match.url_name != 'work-practice-finish' and request.resolver_match.url_name != 'work-practice-send-message' and request.resolver_match.url_name != 'work-practice-message-read' and request.resolver_match.url_name != 'work-practice-delete' and request.resolver_match.namespace != 'professions' %}hidden{% endif %}">
                     <a href="{% url 'department-admins' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'department-admins' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-building text-xs"></i> Boshqarmalar</a>
                     <a href="{% url 'section-admins' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'section-admins' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-diagram-2 text-xs"></i> Bo'limlar</a>
                     <div class="px-3 pt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Ishchilar</div>
@@ -496,6 +499,7 @@
                     <a href="{% url 'org-workers-status' 'entry-passed' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'org-workers-status' and request.resolver_match.kwargs.status == 'entry-passed' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-check2-circle text-xs"></i> Yo'riqnomadan o'tgan</a>
                     <a href="{% url 'org-workers-status' 'entry-pending' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'org-workers-status' and request.resolver_match.kwargs.status == 'entry-pending' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-hourglass-split text-xs"></i> Yo'riqnomadan o'tmagan</a>
                     <a href="{% url 'org-entry-guidelines' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'org-entry-guidelines' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-file-earmark-check text-xs"></i> Kirish yo'riqnomalari</a>
+                    <a href="{% url 'medical-records' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'medical-records' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-heart-pulse text-xs"></i> Tibbiy ma'lumot</a>
                     <div class="px-3 pt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Tahlil</div>
                     <a href="{% url 'assessment-overview' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'assessment-list' or request.resolver_match.url_name == 'assessment-create' or request.resolver_match.url_name == 'assessment-detail' or request.resolver_match.url_name == 'assessment-edit' or request.resolver_match.url_name == 'assessment-publish' or request.resolver_match.url_name == 'assessment-toggle' or request.resolver_match.url_name == 'assessment-question-add' or request.resolver_match.url_name == 'assessment-question-delete' or request.resolver_match.url_name == 'assessment-overview' or request.resolver_match.url_name == 'assessment-report' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-mortarboard text-xs"></i> Bilim baholash</a>
                     <a href="{% url 'work-practices' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'work-practices' or request.resolver_match.url_name == 'work-practice-edit' or request.resolver_match.url_name == 'work-practice-assign-workers' or request.resolver_match.url_name == 'work-practice-finish' or request.resolver_match.url_name == 'work-practice-send-message' or request.resolver_match.url_name == 'work-practice-message-read' or request.resolver_match.url_name == 'work-practice-delete' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}"><i class="bi bi-briefcase text-xs"></i> Ish amaliyotlari</a>
@@ -505,6 +509,12 @@
             {% elif is_department_admin %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'section-admins' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'section-admins' %}">
                     <i class="bi bi-diagram-2 text-base"></i> Bo'limlar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'department-workers' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'department-workers' %}">
+                    <i class="bi bi-people text-base"></i> Xodimlar
+                </a>
+                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'medical-records' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'medical-records' %}">
+                    <i class="bi bi-heart-pulse text-base"></i> Tibbiy ma'lumot
                 </a>
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'entry-guidelines' or request.resolver_match.url_name == 'entry-guideline-edit' or request.resolver_match.url_name == 'entry-guideline-send' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'entry-guidelines' %}">
                     <i class="bi bi-file-earmark-pdf text-base"></i> Kirish yo'riqnomalari
@@ -646,7 +656,7 @@
 
     <div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-slate-950/50 lg:hidden"></div>
 
-    <div id="main-wrap" class="flex min-h-screen min-w-0 flex-1 flex-col">
+    <div id="main-wrap" class="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
         <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:px-6">
             <div class="flex items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-2 lg:gap-3">
@@ -685,7 +695,7 @@
             </div>
         </header>
 
-        <main class="flex-1 px-4 py-5 lg:px-6 lg:py-6">
+        <main class="w-full min-w-0 flex-1 overflow-x-hidden px-4 py-5 lg:px-6 lg:py-6">
             {% if messages %}
                 <div id="django-messages" class="hidden">
                     {% for message in messages %}
@@ -696,7 +706,7 @@
             {% block content %}{% endblock %}
         </main>
 
-        <footer class="border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-500 lg:px-6">
+        <footer class="w-full shrink-0 border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-500 lg:px-6">
             © {% now "Y" %} SafeWork System. Barcha huquqlar himoyalangan.
         </footer>
     </div>

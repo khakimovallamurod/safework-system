@@ -400,6 +400,79 @@ class ProfessionGuidelineReceipt(models.Model):
         return f'{self.membership.user_id} ← {self.membership.profession_id}'
 
 
+class EmployeeMedicalRecord(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='medical_records',
+        verbose_name='Xodim',
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        related_name='medical_records',
+        verbose_name='Boshqarma',
+    )
+    section = models.ForeignKey(
+        Section,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='medical_records',
+        verbose_name="Bo'lim",
+    )
+    profession = models.ForeignKey(
+        'professions.Profession',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='medical_records',
+        verbose_name='Kasb',
+    )
+    start_date = models.DateField(verbose_name='Boshlanish sana')
+    end_date = models.DateField(verbose_name='Tugash sana')
+    file = models.FileField(upload_to='medical_records/', null=True, blank=True, verbose_name='Fayl')
+    note = models.TextField(blank=True, verbose_name='Izoh')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_medical_records',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['end_date', 'user__profile__full_name']
+        db_table = 'tibbiy_malumot'
+
+    def __str__(self):
+        return f'{self.user_id} · {self.end_date:%d.%m.%Y}'
+
+    @property
+    def days_left(self):
+        return (self.end_date - timezone.localdate()).days
+
+    @property
+    def status_key(self):
+        days = self.days_left
+        if days <= 7:
+            return 'danger'
+        if days <= 30:
+            return 'warning'
+        return 'ok'
+
+    @property
+    def status_label(self):
+        if self.days_left < 0:
+            return "Muddati o'tgan"
+        if self.status_key == 'danger':
+            return 'Tugash arafasida'
+        if self.status_key == 'warning':
+            return 'Yaqinlashmoqda'
+        return 'Faol'
+
+
 class SectionInternalGuideline(models.Model):
     section = models.ForeignKey(
         Section,

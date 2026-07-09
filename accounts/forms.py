@@ -9,6 +9,7 @@ from django.db.models import Q
 from accounts.models import UserProfile
 from companies.models import (
     Department,
+    EmployeeMedicalRecord,
     EntryGuideline,
     MandatoryGuideline,
     Section,
@@ -249,6 +250,26 @@ class MandatoryGuidelineForm(forms.ModelForm):
         active_until = cleaned.get('active_until')
         if start and active_until and active_until <= start:
             raise ValidationError("Faollik tugashi boshlanish vaqtidan keyin bo‘lishi kerak.")
+        return cleaned
+
+
+class EmployeeMedicalRecordForm(forms.ModelForm):
+    class Meta:
+        model = EmployeeMedicalRecord
+        fields = ['start_date', 'end_date', 'file', 'note']
+        widgets = {
+            'start_date': forms.DateInput(attrs={**_field_attrs('Boshlanish sana'), 'type': 'date'}),
+            'end_date': forms.DateInput(attrs={**_field_attrs('Tugash sana'), 'type': 'date'}),
+            'file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.jpg,.jpeg,.png,.doc,.docx'}),
+            'note': forms.Textarea(attrs={**_field_attrs('Izoh'), 'rows': 3}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('start_date')
+        end = cleaned.get('end_date')
+        if start and end and end < start:
+            raise ValidationError("Tugash sana boshlanish sanasidan oldin bo'lmasligi kerak.")
         return cleaned
 
 

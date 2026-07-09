@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-5">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+        <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900"><i class="bi bi-heart-pulse mr-2 text-emerald-600"></i>{{ page_title }}</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ page_description }}</p>
+            </div>
+        </div>
+
+        <div class="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-wide text-emerald-700">Faol</div>
+                <div class="mt-1 text-2xl font-extrabold text-emerald-900">{{ stats.ok }}</div>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-wide text-amber-700">Yaqinlashmoqda</div>
+                <div class="mt-1 text-2xl font-extrabold text-amber-900">{{ stats.warning }}</div>
+            </div>
+            <div class="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-wide text-rose-700">Tugayapti</div>
+                <div class="mt-1 text-2xl font-extrabold text-rose-900">{{ stats.danger }}</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Kiritilmagan</div>
+                <div class="mt-1 text-2xl font-extrabold text-slate-900">{{ stats.missing }}</div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <tr>
+                        <th class="px-4 py-3">Xodim</th>
+                        <th class="px-4 py-3">Boshqarma / bo'lim</th>
+                        <th class="px-4 py-3">Kasb / lavozim</th>
+                        <th class="px-4 py-3">Muddat</th>
+                        <th class="px-4 py-3">Holat</th>
+                        <th class="px-4 py-3">Fayl / izoh</th>
+                        {% if can_manage_medical_records %}<th class="px-4 py-3 text-right">Amal</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for row in rows %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3">
+                            <div class="font-semibold text-slate-900">{{ row.profile.full_name|default:row.user.username }}</div>
+                            <div class="text-xs text-slate-500">{{ row.user.username }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-600">
+                            <div>{{ row.department.name }}</div>
+                            <div>{{ row.section.name }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-600">
+                            <div>{{ row.profession.name|default:'Kasb belgilanmagan' }}</div>
+                            <div>{{ row.profile.position|default:'Lavozim kiritilmagan' }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-600">
+                            {% if row.record %}
+                                <div>{{ row.record.start_date|date:'d.m.Y' }} - {{ row.record.end_date|date:'d.m.Y' }}</div>
+                                <div>{{ row.record.days_left }} kun qoldi</div>
+                            {% else %}
+                                <span class="text-slate-400">Kiritilmagan</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if row.record %}
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {% if row.record.status_key == 'ok' %}bg-emerald-100 text-emerald-800{% elif row.record.status_key == 'warning' %}bg-amber-100 text-amber-800{% else %}bg-rose-100 text-rose-800{% endif %}">{{ row.record.status_label }}</span>
+                            {% else %}
+                                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Yo'q</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-600">
+                            {% if row.record.file %}
+                                <a class="font-semibold text-sky-700 hover:text-sky-900" href="{{ row.record.file.url }}" target="_blank">Faylni ochish</a>
+                            {% else %}
+                                <div class="text-slate-400">Fayl yo'q</div>
+                            {% endif %}
+                            <div class="mt-1 max-w-xs truncate">{{ row.record.note|default:'-' }}</div>
+                        </td>
+                        {% if can_manage_medical_records %}
+                        <td class="px-4 py-3 text-right">
+                            <button type="button" data-bs-toggle="modal" data-bs-target="#medicalModal{{ row.user.id }}" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100">
+                                <i class="bi bi-plus-circle"></i> Kiritish
+                            </button>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-400">Xodim topilmadi</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if can_manage_medical_records %}
+{% for row in rows %}
+<div class="modal fade" id="medicalModal{{ row.user.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'medical-record-save' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ row.user.id }}" />
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ row.profile.full_name|default:row.user.username }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body space-y-3">
+                    <label class="text-sm font-medium text-slate-700">Boshlanish sana</label>
+                    {{ row.form.start_date }}
+                    <label class="text-sm font-medium text-slate-700">Tugash sana</label>
+                    {{ row.form.end_date }}
+                    <label class="text-sm font-medium text-slate-700">Fayl</label>
+                    {{ row.form.file }}
+                    <label class="text-sm font-medium text-slate-700">Izoh</label>
+                    {{ row.form.note }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

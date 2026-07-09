@@ -79,7 +79,11 @@
                             <span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span>
                         </td>
                         <td class="px-4 py-3 text-slate-700">{{ section.department.name }}</td>
-                        <td class="px-4 py-3 font-medium text-slate-900">{{ section.name }}</td>
+                        <td class="px-4 py-3 font-medium text-slate-900">
+                            <a href="{% url 'section-detail' section.id %}" class="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-900">
+                                {{ section.name }} <i class="bi bi-arrow-up-right text-xs"></i>
+                            </a>
+                        </td>
                         <td class="px-4 py-3 text-slate-600">
                             <div class="font-medium text-slate-900">{{ section.worker_count }} ta xodim</div>
                             <div class="mt-1 flex flex-wrap gap-1">
