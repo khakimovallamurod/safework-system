@@ -70,6 +70,7 @@ def get_guideline_gate_state(user):
         'worker_entry_guideline_locked': False,
         'mandatory_guideline_locked': False,
         'profession_guideline_locked': False,
+        'has_profession_guideline': False,
     }
     if not user.is_authenticated:
         return state
@@ -112,7 +113,7 @@ def get_guideline_gate_state(user):
             state['next_guideline_url_name'] = 'mandatory-guidelines-inbox'
             return state
 
-    if profile.role == UserProfile.ROLE_WORKER and getattr(profile, 'practice_qualified', False):
+    if profile.role == UserProfile.ROLE_WORKER:
         from companies.models import ProfessionGuidelineReceipt, SectionMembership
         memberships = (
             SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
@@ -125,6 +126,7 @@ def get_guideline_gate_state(user):
         if not membership:
             membership = memberships.order_by('-assigned_at', '-pk').first()
         if membership and membership.profession.nizom_file:
+            state['has_profession_guideline'] = True
             receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(
                 membership=membership,
                 defaults={'profession': membership.profession},

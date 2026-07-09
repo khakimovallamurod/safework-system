@@ -80,6 +80,7 @@ class RoleContextMixin:
                 or is_org_leader
                 or is_department_admin
                 or is_section_admin
+                or is_section_member
                 or SectionWorkPracticeAssignee.objects.filter(user=user).exists()
                 or SectionWorkPractice.objects.filter(responsible_user=user).exists()
                 or SectionWorkPractice.objects.filter(created_by=user).exists()
