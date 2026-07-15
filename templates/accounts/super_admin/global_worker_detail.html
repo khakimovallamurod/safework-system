@@ -99,7 +99,7 @@
                         {% for attempt in assessments %}
                         <tr class="hover:bg-slate-50/50">
                             <td class="px-5 py-3 font-medium text-slate-800">{{ attempt.assessment.name }}</td>
-                            <td class="px-5 py-3 text-slate-500 text-xs">{{ attempt.created_at|date:"d.m.Y H:i" }}</td>
+                            <td class="px-5 py-3 text-slate-500 text-xs">{{ attempt.started_at|date:"d.m.Y H:i" }}</td>
                             <td class="px-5 py-3 text-right">
                                 <span class="font-bold {% if attempt.score >= 60 %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ attempt.score }}%</span>
                             </td>
@@ -206,7 +206,7 @@
                         <tr class="hover:bg-slate-50/50">
                             <td class="px-5 py-3">
                                 <div class="font-medium text-slate-800">{{ assignee.practice.name }}</div>
-                                {% if assignee.is_accepted %}
+                                {% if assignee.accepted_by_responsible %}
                                 <div class="text-[10px] text-emerald-600 font-semibold mt-0.5"><i class="bi bi-check2"></i> Qabul qilingan</div>
                                 {% else %}
                                 <div class="text-[10px] text-amber-600 font-semibold mt-0.5"><i class="bi bi-hourglass"></i> Kutilmoqda</div>

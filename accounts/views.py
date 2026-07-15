@@ -4012,7 +4012,7 @@ class GlobalWorkerDetailView(SuperuserActionRequiredMixin, TemplateView):
         # Entry guidelines
         context['entry_receipts'] = GuidelineDispatchRecipient.objects.filter(
             user=user
-        ).select_related('dispatch__guideline').order_by('-created_at')
+        ).select_related('dispatch__guideline').order_by('-id')
         
         # Mandatory guidelines
         context['mandatory_receipts'] = MandatoryGuidelineReceipt.objects.filter(
@@ -4027,11 +4027,11 @@ class GlobalWorkerDetailView(SuperuserActionRequiredMixin, TemplateView):
         # Assessments
         context['assessments'] = DepartmentAssessmentAttempt.objects.filter(
             user=user
-        ).select_related('assessment').order_by('-created_at')
+        ).select_related('assessment').order_by('-started_at')
         
         # Work practices
         context['work_practices'] = SectionWorkPracticeAssignee.objects.filter(
             user=user
-        ).select_related('practice__section').order_by('-created_at')
+        ).select_related('practice__section').order_by('-practice__created_at')
         
         return context
