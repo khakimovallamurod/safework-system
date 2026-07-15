@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Tashkilotlar tahlili - SafeWork{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Tashkilotlar kesimida tahlil</h1>
+        <p class="mt-1 text-sm text-slate-500">Tizimdagi barcha tashkilotlar va ularning tuzilmasi bo'yicha hisobot</p>
+    </div>
+</div>
+
+<div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="text-sm font-semibold text-slate-500 mb-1">Jami tashkilotlar</div>
+        <div class="text-3xl font-extrabold text-slate-900">{{ total_organizations }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="text-sm font-semibold text-slate-500 mb-1">Jami xodimlar</div>
+        <div class="text-3xl font-extrabold text-slate-900">{{ total_workers }}</div>
+    </div>
+</div>
+
+<div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="border-b border-slate-100 bg-slate-50 px-5 py-4">
+        <h2 class="font-bold text-slate-900">Tashkilotlar ro'yxati va ko'rsatkichlari</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                    <th class="px-5 py-3 font-semibold">Tashkilot / Rahbar</th>
+                    <th class="px-5 py-3 font-semibold">Soha</th>
+                    <th class="px-5 py-3 font-semibold text-center">Boshqarmalar</th>
+                    <th class="px-5 py-3 font-semibold text-center">Bo'limlar</th>
+                    <th class="px-5 py-3 font-semibold">Xodimlar taqsimoti</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for stat in org_stats %}
+                <tr class="hover:bg-slate-50/50">
+                    <td class="px-5 py-4">
+                        <div class="font-bold text-slate-900">{{ stat.org_name }}</div>
+                        <div class="text-xs text-slate-500">{{ stat.leader.full_name }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-slate-600">{{ stat.industry }}</td>
+                    <td class="px-5 py-4 text-center font-medium text-slate-700">{{ stat.departments_count }}</td>
+                    <td class="px-5 py-4 text-center font-medium text-slate-700">{{ stat.sections_count }}</td>
+                    <td class="px-5 py-4">
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="font-bold text-slate-700">{{ stat.workers_count }} xodim</span>
+                            <span class="text-slate-500">{{ stat.workers_percent }}%</span>
+                        </div>
+                        <div class="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div class="h-full rounded-full bg-brand-500" style="width: {{ stat.workers_percent }}%"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-5 py-8 text-center text-slate-500">Tashkilotlar mavjud emas</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

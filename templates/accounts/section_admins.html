@@ -151,6 +151,8 @@
                     {% endif %}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_name">{{ form.name.label }}</label>
                     {{ form.name }}
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_profession">{{ form.profession.label }}</label>
+                    {{ form.profession }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_supervisor">{{ form.supervisor.label }}</label>
                     {{ form.supervisor }}
                     {% if workers_count == 0 %}
@@ -188,6 +190,15 @@
                     </select>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'lim nomi</label>
                     <input type="text" name="name" value="{{ section.name }}" class="form-control" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Kasb</label>
+                    <select name="profession" class="form-control" required>
+                        <option value="">Kasbni tanlang</option>
+                        {% for profession in form.fields.profession.queryset %}
+                            <option value="{{ profession.pk }}" {% if section.supervisor and section.supervisor.section_memberships.first.profession_id == profession.pk %}selected{% endif %}>
+                                {{ profession.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'lim nazoratchisi</label>
                     <select name="supervisor" class="worker-select2 form-control" required data-current-supervisor="{{ section.supervisor_id|default:'' }}">
                         {% for worker in section.supervisor_choices %}

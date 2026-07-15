@@ -113,7 +113,7 @@ def get_guideline_gate_state(user):
             state['next_guideline_url_name'] = 'mandatory-guidelines-inbox'
             return state
 
-    if profile.role == UserProfile.ROLE_WORKER:
+    if profile.role in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN}:
         from companies.models import ProfessionGuidelineReceipt, SectionMembership
         memberships = (
             SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)

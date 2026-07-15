@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}Xodim tahlil varaqasi - SafeWork{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'global-workers' %}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
+        <i class="bi bi-arrow-left"></i> Barcha xodimlarga qaytish
+    </a>
+</div>
+
+<div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Shaxsiy tahlil varaqasi</h1>
+        <p class="mt-1 text-sm text-slate-500">Xodimning tizimdagi barcha faoliyat tarixi</p>
+    </div>
+    <div class="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-600">
+        <i class="bi bi-person-badge"></i> {{ profile.user.username }}
+    </div>
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+    <!-- Asosiy ma'lumotlar -->
+    <div class="lg:col-span-1 space-y-6">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-4 font-bold text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
+                <i class="bi bi-person text-indigo-600"></i> Xodim ma'lumotlari
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">F.I.O</div>
+                    <div class="font-bold text-slate-900">{{ profile.full_name }}</div>
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tashkilot</div>
+                    <div class="font-medium text-slate-700">{{ profile.organization_name|default:"-" }}</div>
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Boshqarma</div>
+                    <div class="font-medium text-slate-700">{{ profile.department.name|default:"-" }}</div>
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Bo'lim</div>
+                    <div class="font-medium text-slate-700">{{ profile.section.name|default:"-" }}</div>
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Soha</div>
+                    <div class="font-medium text-slate-700">{{ profile.industry.name|default:"-" }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="mb-4 font-bold text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
+                <i class="bi bi-shield-check text-emerald-600"></i> Ruxsatnomalar holati
+            </h2>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-600">Amaliyot:</span>
+                    {% if profile.practice_qualified %}
+                        <span class="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"><i class="bi bi-check-circle-fill"></i> O'tgan</span>
+                    {% else %}
+                        <span class="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700"><i class="bi bi-hourglass-split"></i> Kutilmoqda</span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-semibold text-slate-600">Bilim baholash:</span>
+                    {% if profile.assessment_qualified %}
+                        <span class="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700"><i class="bi bi-check-circle-fill"></i> O'tgan</span>
+                    {% elif profile.assessment_qualified == False %}
+                        <span class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700"><i class="bi bi-x-circle-fill"></i> O'tmagan</span>
+                    {% else %}
+                        <span class="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700"><i class="bi bi-hourglass-split"></i> Kutilmoqda</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tahlillar jadvallari -->
+    <div class="lg:col-span-2 space-y-6">
+        
+        <!-- Bilim baholash testlari -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="bi bi-mortarboard text-violet-600"></i> Bilim baholash natijalari</h3>
+            </div>
+            <div class="p-0">
+                {% if assessments %}
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50/50 text-[11px] uppercase tracking-wider text-slate-500">
+                        <tr>
+                            <th class="px-5 py-2 font-semibold">Test nomi</th>
+                            <th class="px-5 py-2 font-semibold">Sana</th>
+                            <th class="px-5 py-2 font-semibold text-right">Natija</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for attempt in assessments %}
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-5 py-3 font-medium text-slate-800">{{ attempt.assessment.name }}</td>
+                            <td class="px-5 py-3 text-slate-500 text-xs">{{ attempt.created_at|date:"d.m.Y H:i" }}</td>
+                            <td class="px-5 py-3 text-right">
+                                <span class="font-bold {% if attempt.score >= 60 %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ attempt.score }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-5 text-center text-sm text-slate-500">Test natijalari mavjud emas</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Yo'riqnomalar tarixi -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="border-b border-slate-100 bg-slate-50 px-5 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="bi bi-file-earmark-check text-sky-600"></i> Yo'riqnomalar bilan tanishish</h3>
+            </div>
+            <div class="p-0">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50/50 text-[11px] uppercase tracking-wider text-slate-500">
+                        <tr>
+                            <th class="px-5 py-2 font-semibold">Yo'riqnoma</th>
+                            <th class="px-5 py-2 font-semibold">Turi</th>
+                            <th class="px-5 py-2 font-semibold text-right">Holati</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <!-- Kirish -->
+                        {% for receipt in entry_receipts %}
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-5 py-3 font-medium text-slate-800">{{ receipt.dispatch.guideline.name }}</td>
+                            <td class="px-5 py-3 text-xs text-slate-500">Kirish yo'riqnomasi</td>
+                            <td class="px-5 py-3 text-right">
+                                {% if receipt.is_acknowledged %}
+                                <span class="inline-flex rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Tanishgan</span>
+                                <div class="text-[10px] text-slate-400 mt-1">{{ receipt.acknowledged_at|date:"d.m.Y H:i" }}</div>
+                                {% else %}
+                                <span class="inline-flex rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">O'qimagan</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Majburiy -->
+                        {% for receipt in mandatory_receipts %}
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-5 py-3 font-medium text-slate-800">{{ receipt.guideline.name }}</td>
+                            <td class="px-5 py-3 text-xs text-slate-500">Majburiy</td>
+                            <td class="px-5 py-3 text-right">
+                                {% if receipt.is_acknowledged %}
+                                <span class="inline-flex rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Tanishgan</span>
+                                <div class="text-[10px] text-slate-400 mt-1">{{ receipt.acknowledged_at|date:"d.m.Y H:i" }}</div>
+                                {% else %}
+                                <span class="inline-flex rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">O'qimagan</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Kasbiy -->
+                        {% for receipt in profession_receipts %}
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-5 py-3 font-medium text-slate-800">{{ receipt.profession.name }} bo'yicha</td>
+                            <td class="px-5 py-3 text-xs text-slate-500">Kasb yo'riqnomasi</td>
+                            <td class="px-5 py-3 text-right">
+                                {% if receipt.is_acknowledged %}
+                                <span class="inline-flex rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Tanishgan</span>
+                                <div class="text-[10px] text-slate-400 mt-1">{{ receipt.acknowledged_at|date:"d.m.Y H:i" }}</div>
+                                {% else %}
+                                <span class="inline-flex rounded bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">O'qimagan</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        {% if not entry_receipts and not mandatory_receipts and not profession_receipts %}
+                        <tr>
+                            <td colspan="3" class="px-5 py-5 text-center text-sm text-slate-500">Yo'riqnomalar mavjud emas</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Ish amaliyotlari (Stajirovka) -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="bi bi-briefcase text-amber-600"></i> Ish amaliyotlari (Stajirovka)</h3>
+            </div>
+            <div class="p-0">
+                {% if work_practices %}
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50/50 text-[11px] uppercase tracking-wider text-slate-500">
+                        <tr>
+                            <th class="px-5 py-2 font-semibold">Amaliyot nomi</th>
+                            <th class="px-5 py-2 font-semibold">Nazoratchi</th>
+                            <th class="px-5 py-2 font-semibold text-right">Muddati</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for assignee in work_practices %}
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-5 py-3">
+                                <div class="font-medium text-slate-800">{{ assignee.practice.name }}</div>
+                                {% if assignee.is_accepted %}
+                                <div class="text-[10px] text-emerald-600 font-semibold mt-0.5"><i class="bi bi-check2"></i> Qabul qilingan</div>
+                                {% else %}
+                                <div class="text-[10px] text-amber-600 font-semibold mt-0.5"><i class="bi bi-hourglass"></i> Kutilmoqda</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-5 py-3 text-slate-600 text-xs">
+                                {{ assignee.practice.section.supervisor.profile.full_name|default:"-" }}
+                            </td>
+                            <td class="px-5 py-3 text-right text-xs">
+                                <div><span class="text-slate-400">Bosh:</span> {{ assignee.practice.start_time|date:"d.m.Y" }}</div>
+                                <div><span class="text-slate-400">Tug:</span> <span class="font-semibold">{{ assignee.practice.end_time|date:"d.m.Y" }}</span></div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-5 text-center text-sm text-slate-500">Amaliyot (stajirovka) biriktirilmagan</div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

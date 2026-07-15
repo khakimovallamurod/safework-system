@@ -7,7 +7,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.views import LoginView, LogoutView
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Avg, Count, Prefetch, Q, Sum
 from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404, render
 from django.utils import timezone
@@ -815,6 +815,8 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
         context.update(role_context)
         if role_context.get('is_worker'):
             context['worker_dashboard'] = _build_worker_dashboard(self.request.user)
+            context['dashboard_overview'] = None
+        elif role_context.get('is_super_admin'):
             context['dashboard_overview'] = None
         else:
             context['dashboard_overview'] = _build_dashboard_overview(self.request.user, role_context)
@@ -1629,7 +1631,7 @@ class DepartmentDeleteView(OrgLeaderRequiredMixin, View):
         return redirect('department-admins')
 
 
-def _assign_section_supervisor(section, supervisor, department):
+def _assign_section_supervisor(section, supervisor, department, profession=None):
     Section.objects.filter(
         department=department,
         supervisor=supervisor,
@@ -1651,6 +1653,21 @@ def _assign_section_supervisor(section, supervisor, department):
     profile.save(update_fields=['role', 'organization', 'organization_name', 'industry', 'department', 'section'])
     section.supervisor = supervisor
     section.save(update_fields=['supervisor'])
+
+    # Ensure supervisor is in SectionMembership with correct profession
+    SectionMembership.objects.filter(user=supervisor).exclude(section=section).delete()
+    membership, created = SectionMembership.objects.get_or_create(
+        section=section,
+        user=supervisor,
+        defaults={'profession': profession}
+    )
+    if not created and membership.profession != profession:
+        membership.profession = profession
+        membership.save(update_fields=['profession'])
+        from companies.models import ProfessionGuidelineReceipt
+        ProfessionGuidelineReceipt.objects.filter(membership=membership).delete()
+
+    _provision_active_entry_guideline(section, supervisor)
 
 
 def _section_queryset_for_user(user):
@@ -1734,7 +1751,7 @@ class SectionAdminManagementView(DepartmentAdminRequiredMixin, TemplateView):
             return redirect('section-admins')
 
         section = Section.objects.create(department=department, name=name)
-        _assign_section_supervisor(section, form.cleaned_data['supervisor'], department)
+        _assign_section_supervisor(section, form.cleaned_data['supervisor'], department, form.cleaned_data.get('profession'))
         messages.success(request, "Bo‘lim muvaffaqiyatli qo‘shildi.")
         return redirect('section-admins')
 
@@ -1763,7 +1780,7 @@ class SectionEditView(DepartmentAdminRequiredMixin, View):
 
         section.name = new_name
         section.save(update_fields=['name'])
-        _assign_section_supervisor(section, form.cleaned_data['supervisor'], section.department)
+        _assign_section_supervisor(section, form.cleaned_data['supervisor'], section.department, form.cleaned_data.get('profession'))
         messages.success(request, "Bo‘lim yangilandi.")
         return redirect('section-admins')
 
@@ -3882,3 +3899,139 @@ class SectionWorkPracticeDeleteView(SectionAdminRequiredMixin, View):
         practice.delete()
         messages.success(request, 'Ish amaliyoti o‘chirildi.')
         return redirect('work-practices')
+
+
+class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
+    template_name = 'accounts/super_admin/org_stats.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get all users who are org leaders
+        leaders = UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER).select_related('user')
+        
+        # We need total workers to calculate percentage
+        total_workers = UserProfile.objects.filter(role=UserProfile.ROLE_WORKER).count()
+        
+        org_stats = []
+        for leader in leaders:
+            # Get departments for this organization
+            departments = Department.objects.filter(leader=leader)
+            dept_count = departments.count()
+            
+            # Get sections for this organization
+            sections = Section.objects.filter(department__in=departments)
+            section_count = sections.count()
+            
+            # Count workers for this organization
+            workers_count = UserProfile.objects.filter(
+                role=UserProfile.ROLE_WORKER,
+                organization_name=leader.organization_name
+            ).count()
+            
+            percent = (workers_count / total_workers * 100) if total_workers > 0 else 0
+            
+            org_stats.append({
+                'leader': leader,
+                'org_name': leader.organization_name or leader.full_name,
+                'industry': leader.industry.name if leader.industry else '-',
+                'departments_count': dept_count,
+                'sections_count': section_count,
+                'workers_count': workers_count,
+                'workers_percent': round(percent, 1)
+            })
+            
+        org_stats.sort(key=lambda x: x['workers_count'], reverse=True)
+        
+        context['org_stats'] = org_stats
+        context['total_workers'] = total_workers
+        context['total_organizations'] = leaders.count()
+        return context
+
+
+class SystemMetricsView(SuperuserActionRequiredMixin, TemplateView):
+    template_name = 'accounts/super_admin/sys_metrics.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        context['total_industries'] = Industry.objects.count()
+        context['total_professions'] = Profession.objects.count()
+        context['total_assessments'] = DepartmentAssessment.objects.count()
+        context['total_entry_guidelines'] = EntryGuideline.objects.count()
+        context['total_mandatory_guidelines'] = MandatoryGuideline.objects.count()
+        context['total_profession_guidelines'] = Profession.objects.exclude(nizom_file='').count()
+        
+        # Assessment stats
+        context['assessment_attempts'] = DepartmentAssessmentAttempt.objects.count()
+        context['assessment_avg_score'] = DepartmentAssessmentAttempt.objects.aggregate(Avg('score'))['score__avg'] or 0
+        
+        # Guideline receipts
+        context['entry_receipts_total'] = GuidelineDispatchRecipient.objects.count()
+        context['entry_receipts_accepted'] = GuidelineDispatchRecipient.objects.filter(is_acknowledged=True).count()
+        
+        return context
+
+
+class GlobalWorkersView(SuperuserActionRequiredMixin, TemplateView):
+    template_name = 'accounts/super_admin/global_workers.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        q = self.request.GET.get('q', '').strip()
+        
+        workers = UserProfile.objects.filter(
+            role=UserProfile.ROLE_WORKER
+        ).select_related('user', 'department', 'section', 'industry')
+        
+        if q:
+            workers = workers.filter(
+                Q(full_name__icontains=q) | 
+                Q(user__username__icontains=q) | 
+                Q(organization_name__icontains=q)
+            )
+            
+        context['workers'] = workers
+        context['q'] = q
+        return context
+
+
+class GlobalWorkerDetailView(SuperuserActionRequiredMixin, TemplateView):
+    template_name = 'accounts/super_admin/global_worker_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        worker_id = kwargs.get('pk')
+        profile = get_object_or_404(UserProfile, pk=worker_id, role=UserProfile.ROLE_WORKER)
+        user = profile.user
+        
+        context['profile'] = profile
+        
+        # Entry guidelines
+        context['entry_receipts'] = GuidelineDispatchRecipient.objects.filter(
+            user=user
+        ).select_related('dispatch__guideline').order_by('-created_at')
+        
+        # Mandatory guidelines
+        context['mandatory_receipts'] = MandatoryGuidelineReceipt.objects.filter(
+            user=user
+        ).select_related('guideline').order_by('-created_at')
+        
+        # Profession guidelines
+        context['profession_receipts'] = ProfessionGuidelineReceipt.objects.filter(
+            membership__user=user
+        ).select_related('profession')
+        
+        # Assessments
+        context['assessments'] = DepartmentAssessmentAttempt.objects.filter(
+            user=user
+        ).select_related('assessment').order_by('-created_at')
+        
+        # Work practices
+        context['work_practices'] = SectionWorkPracticeAssignee.objects.filter(
+            user=user
+        ).select_related('practice__section').order_by('-created_at')
+        
+        return context

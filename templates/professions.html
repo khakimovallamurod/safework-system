@@ -15,10 +15,10 @@
             {% if is_super_admin %}
             <form class="flex" method="get">
                 <select class="form-select min-w-[260px]" name="company_id" onchange="this.form.submit()">
-                    <option value="">Barcha kompaniyalar</option>
+                    <option value="">Barcha tashkilotlar</option>
                     {% for company in companies %}
                         <option value="{{ company.id }}" {% if selected_company_id == company.id|stringformat:"s" %}selected{% endif %}>
-                            {{ company.company_name }} ({{ company.industry.name }})
+                            {{ company.organization_name|default:company.full_name }} ({{ company.industry.name }})
                         </option>
                     {% endfor %}
                 </select>
@@ -72,18 +72,18 @@
                                 <span class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{{ profession.industry.name }}</span>
                             </td>
                             <td class="px-4 py-3">
-                                {% with comps=profession.industry.companies.all %}
+                                {% with comps=profession.org_leaders %}
                                     {% if comps %}
                                         {% for c in comps %}
                                             {% if forloop.counter <= 2 %}
-                                                <span class="mb-1 mr-1 inline-flex rounded-lg bg-slate-700 px-2 py-0.5 text-xs font-medium text-white">{{ c.company_name }}</span>
+                                                <span class="mb-1 mr-1 inline-flex rounded-lg bg-slate-700 px-2 py-0.5 text-xs font-medium text-white">{{ c.organization_name|default:c.full_name }}</span>
                                             {% endif %}
                                         {% endfor %}
                                         {% if comps|length > 2 %}
                                             <span id="more-companies-{{ profession.id }}" class="hidden">
                                                 {% for c in comps %}
                                                     {% if forloop.counter > 2 %}
-                                                        <span class="mb-1 mr-1 inline-flex rounded-lg bg-slate-700 px-2 py-0.5 text-xs font-medium text-white">{{ c.company_name }}</span>
+                                                        <span class="mb-1 mr-1 inline-flex rounded-lg bg-slate-700 px-2 py-0.5 text-xs font-medium text-white">{{ c.organization_name|default:c.full_name }}</span>
                                                     {% endif %}
                                                 {% endfor %}
                                             </span>
@@ -92,7 +92,7 @@
                                             </button>
                                         {% endif %}
                                     {% else %}
-                                        <span class="text-xs text-slate-400">Kompaniya yo'q</span>
+                                        <span class="text-xs text-slate-400">Tashkilot yo'q</span>
                                     {% endif %}
                                 {% endwith %}
                             </td>

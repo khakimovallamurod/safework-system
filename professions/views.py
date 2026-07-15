@@ -5,8 +5,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 
 from accounts.mixins import ProfessionAccessRequiredMixin, ProfessionManageRequiredMixin
-from companies.models import Company
 from accounts.forms import get_department_admin_department, get_section_admin_section
+from accounts.models import UserProfile
 from industries.models import Industry
 from professions.forms import ProfessionForm
 from professions.models import Profession
@@ -38,27 +38,37 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
             department.leader.industry if department else section.department.leader.industry if section else getattr(role.get('user_profile'), 'industry', None)
         )
 
-        professions = Profession.objects.select_related('industry').prefetch_related('industry__companies').all()
+        professions = Profession.objects.select_related('industry').all()
         if scoped_industry and not role['is_super_admin']:
             professions = professions.filter(industry=scoped_industry)
         elif role['is_super_admin'] and company_id.isdigit():
-            company = Company.objects.filter(id=company_id).first()
-            if company:
-                professions = professions.filter(industry=company.industry)
+            org = UserProfile.objects.filter(id=company_id, role=UserProfile.ROLE_ORG_LEADER).first()
+            if org:
+                professions = professions.filter(industry=org.industry)
 
         if q:
             professions = professions.filter(name__icontains=q)
         professions = professions.order_by(sort_field)
 
+        professions_list = list(professions)
+        if role['is_super_admin']:
+            industry_ids = {p.industry_id for p in professions_list if p.industry_id}
+            orgs = UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER, industry_id__in=industry_ids).order_by('organization_name')
+            org_map = {}
+            for org in orgs:
+                org_map.setdefault(org.industry_id, []).append(org)
+            for p in professions_list:
+                p.org_leaders = org_map.get(p.industry_id, [])
+
         form = ProfessionForm()
 
         context = {
             'form': form,
-            'professions': professions,
+            'professions': professions_list,
             'q': q,
             'sort': sort,
             'dir': direction,
-            'companies': Company.objects.select_related('industry').order_by('company_name') if role['is_super_admin'] else [],
+            'companies': UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER).select_related('industry').order_by('organization_name') if role['is_super_admin'] else [],
             'selected_company_id': company_id,
         }
         context.update(role)
