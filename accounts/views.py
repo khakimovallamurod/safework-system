@@ -4059,14 +4059,26 @@ class GlobalWorkerDetailView(AuthenticatedRequiredMixin, TemplateView):
         from django.http import Http404
         
         if request_profile.role == UserProfile.ROLE_ORG_LEADER:
-            if profile.organization_name != request_profile.organization_name and profile.organization != request_profile.organization:
+            org_match = profile.organization_name == request_profile.organization_name or profile.organization == request_profile.organization
+            dept_match = profile.department and profile.department.leader == request_profile
+            sec_match = profile.section and profile.section.department.leader == request_profile
+            mem_match = profile.user.section_memberships.filter(section__department__leader=request_profile).exists()
+            if not (org_match or dept_match or sec_match or mem_match):
                 raise Http404("Xodim topilmadi yoki ruxsat yo'q")
+                
         elif request_profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN:
-            if profile.department_id != request_profile.department_id:
+            dept_match = profile.department_id == request_profile.department_id
+            sec_match = profile.section and profile.section.department_id == request_profile.department_id
+            mem_match = profile.user.section_memberships.filter(section__department_id=request_profile.department_id).exists()
+            if not (dept_match or sec_match or mem_match):
                 raise Http404("Xodim topilmadi yoki ruxsat yo'q")
+                
         elif request_profile.role == UserProfile.ROLE_SECTION_ADMIN:
-            if profile.section_id != request_profile.section_id:
+            sec_match = profile.section_id == request_profile.section_id
+            mem_match = profile.user.section_memberships.filter(section_id=request_profile.section_id).exists()
+            if not (sec_match or mem_match):
                 raise Http404("Xodim topilmadi yoki ruxsat yo'q")
+                
         elif request_profile.role == UserProfile.ROLE_SUPER_ADMIN:
             pass # Super admin hammani ko'ra oladi
         else:
