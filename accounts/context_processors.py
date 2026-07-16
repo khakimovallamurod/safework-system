@@ -2,7 +2,7 @@ from accounts.mixins import RoleContextMixin
 from accounts.notifications import get_unread_notifications_count
 
 
-def safework_role_context(request):
+def sopline_role_context(request):
     if not request.user.is_authenticated:
         return {}
     mixin = RoleContextMixin()

@@ -96,72 +96,174 @@
         </div>
     </div>
 
-    <div class="overflow-x-auto rounded-xl border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                    <th class="px-4 py-3 w-16">#</th>
-                    <th class="px-4 py-3">Xodim</th>
-                    <th class="px-4 py-3">Joylashuv</th>
-                    <th class="px-4 py-3">Ish holati</th>
-                    <th class="px-4 py-3">Kirish yo'riqnomasi</th>
-                    <th class="px-4 py-3">Oxirgi faollik</th>
-                    <th class="px-4 py-3 text-right">Batafsil</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-                {% for row in workers %}
-                <tr class="hover:bg-slate-50">
-                    <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span></td>
-                    <td class="px-4 py-3">
-                        <div class="font-semibold text-slate-900">{{ row.profile.full_name }}</div>
-                        <div class="text-xs text-slate-500">{{ row.user.username }}</div>
-                    </td>
-                    <td class="px-4 py-3 text-xs text-slate-600">
-                        <div>{{ row.department.name|default:'Boshqarma yo‘q' }}</div>
-                        <div>{{ row.section.name|default:'Bo‘lim yo‘q' }}</div>
-                    </td>
-                    <td class="px-4 py-3">
-                        {% if row.profile.practice_qualified %}
-                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Ruxsat bor</span>
-                        {% else %}
-                        <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Ruxsat yo'q</span>
-                        {% endif %}
-                        {% if not row.is_assigned %}
-                        <div class="mt-1 text-xs font-semibold text-amber-600">Ish berilmagan</div>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3">
-                        {% if row.entry_status.is_passed %}
-                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{{ row.entry_status.label }}</span>
-                        {% else %}
-                        <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">{{ row.entry_status.label }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-xs text-slate-600">
-                        {% if row.activity_summary.last_seen_at %}
-                        {{ row.activity_summary.last_seen_at|date:'d.m.Y H:i' }}
-                        {% elif row.user.last_login %}
-                        {{ row.user.last_login|date:'d.m.Y H:i' }}
-                        {% else %}
-                        <span class="text-slate-400">Kirmagan</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                        <button type="button" data-bs-toggle="modal" data-bs-target="#workerDetail{{ row.user.id }}" class="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100">
-                            <i class="bi bi-eye"></i> Ko'rish
-                        </button>
-                    </td>
-                </tr>
+    <div class="space-y-4">
+        {% for data in grouped_data %}
+        <details class="group rounded-2xl border border-slate-200 bg-white shadow-sm [&_summary::-webkit-details-marker]:hidden">
+            <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 transition hover:bg-slate-50">
+                <h3 class="font-semibold text-lg"><i class="bi bi-building text-emerald-600 mr-2"></i> {{ data.department.name }}</h3>
+                <div class="flex items-center gap-3">
+                    <span class="rounded-lg bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">{{ data.sections|length }} bo'lim</span>
+                    <span class="transition duration-300 group-open:-rotate-180">
+                        <i class="bi bi-chevron-down"></i>
+                    </span>
+                </div>
+            </summary>
+            
+            <div class="border-t border-slate-100 p-4 bg-slate-50 space-y-4">
+                {% for sec_data in data.sections %}
+                <details class="group/section rounded-xl border border-slate-200 bg-white shadow-sm [&_summary::-webkit-details-marker]:hidden">
+                    <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-3 text-slate-900 transition hover:bg-slate-50">
+                        <h4 class="font-medium text-sm"><i class="bi bi-diagram-3 text-indigo-500 mr-2"></i> {{ sec_data.section.name }}</h4>
+                        <div class="flex items-center gap-3">
+                            <span class="rounded-lg bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">{{ sec_data.workers|length }} xodim</span>
+                            <span class="transition duration-300 group-open/section:-rotate-180">
+                                <i class="bi bi-chevron-down"></i>
+                            </span>
+                        </div>
+                    </summary>
+                    
+                    <div class="border-t border-slate-100 overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-sm">
+                            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3 w-16">#</th>
+                                    <th class="px-4 py-3">Xodim</th>
+                                    <th class="px-4 py-3">Ish holati</th>
+                                    <th class="px-4 py-3">Kirish yo'riqnomasi</th>
+                                    <th class="px-4 py-3">Oxirgi faollik</th>
+                                    <th class="px-4 py-3 text-right">Batafsil</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                {% for row in sec_data.workers %}
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span></td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-semibold text-slate-900">{{ row.profile.full_name }}</div>
+                                        <div class="text-xs text-slate-500">{{ row.user.username }}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {% if row.profile.practice_qualified %}
+                                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Ruxsat bor</span>
+                                        {% else %}
+                                        <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Ruxsat yo'q</span>
+                                        {% endif %}
+                                        {% if not row.is_assigned %}
+                                        <div class="mt-1 text-xs font-semibold text-amber-600">Ish berilmagan</div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        {% if row.entry_status.is_passed %}
+                                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{{ row.entry_status.label }}</span>
+                                        {% else %}
+                                        <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">{{ row.entry_status.label }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 text-xs text-slate-600">
+                                        {% if row.activity_summary.last_seen_at %}
+                                        {{ row.activity_summary.last_seen_at|date:'d.m.Y H:i' }}
+                                        {% elif row.user.last_login %}
+                                        {{ row.user.last_login|date:'d.m.Y H:i' }}
+                                        {% else %}
+                                        <span class="text-slate-400">Kirmagan</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button type="button" data-bs-toggle="modal" data-bs-target="#workerDetail{{ row.user.id }}" class="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100">
+                                                <i class="bi bi-eye"></i> Qisqacha
+                                            </button>
+                                            <a href="{% url 'global-worker-detail' row.profile.pk %}" class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800 hover:bg-indigo-100">
+                                                <i class="bi bi-journal-text"></i> Tahlil
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="px-4 py-10 text-center text-slate-400">
+                                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Ushbu bo'limda xodimlar yo'q
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
                 {% empty %}
-                <tr>
-                    <td colspan="7" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Bu filter bo'yicha xodim topilmadi
-                    </td>
-                </tr>
+                <div class="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ushbu boshqarmaga hozircha bo'lim biriktirilmagan</div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </details>
+        {% empty %}
+        <div class="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-400">
+            <i class="bi bi-inbox mb-2 block text-2xl"></i>Bu filter bo'yicha boshqarmalar topilmadi
+        </div>
+        {% endfor %}
+        
+        {% if unassigned_workers %}
+        <details class="group rounded-2xl border border-amber-200 bg-white shadow-sm [&_summary::-webkit-details-marker]:hidden">
+            <summary class="flex cursor-pointer items-center justify-between gap-1.5 p-4 text-slate-900 transition hover:bg-amber-50">
+                <h3 class="font-semibold text-lg text-amber-800"><i class="bi bi-exclamation-triangle mr-2"></i> Boshqarma yoki Bo'limsiz xodimlar</h3>
+                <div class="flex items-center gap-3">
+                    <span class="rounded-lg bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{{ unassigned_workers|length }} xodim</span>
+                    <span class="transition duration-300 group-open:-rotate-180 text-amber-800">
+                        <i class="bi bi-chevron-down"></i>
+                    </span>
+                </div>
+            </summary>
+            
+            <div class="border-t border-amber-200 overflow-x-auto">
+                <table class="min-w-full divide-y divide-amber-100 text-sm">
+                    <thead class="bg-amber-50 text-left text-xs font-semibold uppercase tracking-wide text-amber-700">
+                        <tr>
+                            <th class="px-4 py-3 w-16">#</th>
+                            <th class="px-4 py-3">Xodim</th>
+                            <th class="px-4 py-3">Ish holati</th>
+                            <th class="px-4 py-3">Kirish yo'riqnomasi</th>
+                            <th class="px-4 py-3 text-right">Batafsil</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-amber-100 bg-white">
+                        {% for row in unassigned_workers %}
+                        <tr class="hover:bg-amber-50/50">
+                            <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span></td>
+                            <td class="px-4 py-3">
+                                <div class="font-semibold text-slate-900">{{ row.profile.full_name }}</div>
+                                <div class="text-xs text-slate-500">{{ row.user.username }}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                {% if row.profile.practice_qualified %}
+                                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Ruxsat bor</span>
+                                {% else %}
+                                <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Ruxsat yo'q</span>
+                                {% endif %}
+                                <div class="mt-1 text-xs font-semibold text-amber-600">Ish berilmagan</div>
+                            </td>
+                            <td class="px-4 py-3">
+                                {% if row.entry_status.is_passed %}
+                                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{{ row.entry_status.label }}</span>
+                                {% else %}
+                                <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">{{ row.entry_status.label }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    <button type="button" data-bs-toggle="modal" data-bs-target="#workerDetail{{ row.user.id }}" class="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100">
+                                        <i class="bi bi-eye"></i> Qisqacha
+                                    </button>
+                                    <a href="{% url 'global-worker-detail' row.profile.pk %}" class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800 hover:bg-indigo-100">
+                                        <i class="bi bi-journal-text"></i> Tahlil
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+        {% endif %}
     </div>
 </div>
 

@@ -1,6 +1,6 @@
-# SafeWork System
+# Sopline System
 
-SafeWork System - Django asosida qurilgan multi-role web platforma.
+Sopline System - Django asosida qurilgan multi-role web platforma.
 Tizimda `Tashkilot rahbari` va `Ishchi` rollari bo'yicha alohida dashboard, autentifikatsiya va huquqlar boshqaruvi mavjud.
 
 ## Asosiy imkoniyatlar
@@ -49,7 +49,7 @@ Tizimda `Tashkilot rahbari` va `Ishchi` rollari bo'yicha alohida dashboard, aute
 1. Loyihaga kiring:
 
 ```bash
-cd /home/xakimov-allamurod/Documents/computer-vision/safework-system
+cd /home/xakimov-allamurod/Documents/computer-vision/sopline-system
 ```
 
 2. Virtual muhitni yoqing (agar kerak bo'lsa):

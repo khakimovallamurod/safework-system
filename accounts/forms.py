@@ -54,7 +54,7 @@ def phone_widget_attrs(placeholder='90 123 45 67'):
     return attrs
 
 
-class SafeWorkAuthenticationForm(AuthenticationForm):
+class SoplineAuthenticationForm(AuthenticationForm):
     username = forms.CharField(label='Telefon raqam', widget=forms.TextInput(attrs={**phone_widget_attrs(), 'autofocus': True}))
     password = forms.CharField(
         widget=forms.PasswordInput(attrs={**_field_attrs('Parolni kiriting'), 'id': 'pw-field', 'class': _field_attrs('Parolni kiriting')['class'] + ' pr-12'})

@@ -78,7 +78,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'accounts.context_processors.safework_role_context',
+                'accounts.context_processors.sopline_role_context',
             ],
         },
     },

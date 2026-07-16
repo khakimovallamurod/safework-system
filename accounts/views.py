@@ -25,7 +25,7 @@ from accounts.forms import (
     get_department_supervisor_choices,
     get_org_leader_workers_queryset,
     OrganizationLeaderSignUpForm,
-    SafeWorkAuthenticationForm,
+    SoplineAuthenticationForm,
     SectionCreateForm,
     SectionEditForm,
     SectionMemberAddForm,
@@ -106,7 +106,7 @@ def _build_project_ai_context(user, role_context):
     profession_labels = [f"{profession.name} ({profession.industry.name})" for profession in all_professions]
 
     common_lines = [
-        "Loyiha nomi: SafeWork System.",
+        "Loyiha nomi: Sopline System.",
         "Loyiha vazifasi: mehnat xavfsizligi tizimida foydalanuvchilar, sohalar va kasb turlarini boshqarish.",
         f"Jami sohalar: {Industry.objects.count()}.",
         f"Jami kasb turlari: {Profession.objects.count()}.",
@@ -150,7 +150,7 @@ def _build_project_ai_context(user, role_context):
         ]
 
     behavior_lines = [
-        "Siz faqat SafeWork System ichidagi real funksiyalar, rollar, sahifalar va ma'lumotlar haqida javob berasiz.",
+        "Siz faqat Sopline System ichidagi real funksiyalar, rollar, sahifalar va ma'lumotlar haqida javob berasiz.",
         "Agar savol loyiha doirasidan tashqarida bo'lsa, muloyim rad eting va faqat loyiha bo'yicha yordam bera olishingizni ayting.",
         "Mavjud bo'lmagan funksiya yoki sahifani bor deb aytmang.",
         "Javobni o'zbek tilida, qisqa va amaliy yozing.",
@@ -253,7 +253,7 @@ class LandingPageView(TemplateView):
 class AdminLoginView(LoginView):
     template_name = 'accounts/login.html'
     redirect_authenticated_user = False
-    authentication_form = SafeWorkAuthenticationForm
+    authentication_form = SoplineAuthenticationForm
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -945,7 +945,7 @@ class AiAssistantView(AuthenticatedRequiredMixin, View):
         prompt = (
             f"{context_text}\n\n"
             f"Foydalanuvchi savoli: {question}\n\n"
-            "Endi shu savolga faqat SafeWork System loyihasi doirasida javob bering."
+            "Endi shu savolga faqat Sopline System loyihasi doirasida javob bering."
         )
 
         try:
@@ -1303,10 +1303,43 @@ class OrganizationWorkerRegistryView(OrgLeaderRequiredMixin, TemplateView):
             status = 'all'
             page_title = 'Ishchilar reyestri'
 
+        grouped_data = []
+        unassigned_workers = []
+        dept_map = {}
+
+        for dep in departments:
+            dept_map[dep.id] = {'department': dep, 'sections': {}}
+            for sec in sections:
+                if sec.department_id == dep.id:
+                    dept_map[dep.id]['sections'][sec.id] = {'section': sec, 'workers': []}
+
+        for row in rows:
+            dep = row['department']
+            sec = row['section']
+            if not row['is_assigned'] or not dep or not sec:
+                unassigned_workers.append(row)
+            else:
+                if dep.id in dept_map:
+                    if sec.id in dept_map[dep.id]['sections']:
+                        dept_map[dep.id]['sections'][sec.id]['workers'].append(row)
+                    else:
+                        dept_map[dep.id]['sections'][sec.id] = {'section': sec, 'workers': [row]}
+                else:
+                    unassigned_workers.append(row)
+
+        for dep_id, dep_data in dept_map.items():
+            sec_list = list(dep_data['sections'].values())
+            grouped_data.append({
+                'department': dep_data['department'],
+                'sections': sec_list
+            })
+
         context.update(
             self.get_role_context()
             | {
                 'workers': rows,
+                'grouped_data': grouped_data,
+                'unassigned_workers': unassigned_workers,
                 'departments': departments,
                 'sections': sections,
                 'q': q,
@@ -1509,11 +1542,25 @@ class DepartmentWorkerRegistryView(DepartmentSupervisorOnlyMixin, TemplateView):
             else SectionMembership.objects.none()
         )
         rows = _employee_detail_rows(memberships)
+        grouped_data = []
+        unassigned_workers = []
+        if department:
+            sections = department.sections.all()
+            sec_map = {sec.id: {'section': sec, 'workers': []} for sec in sections}
+            for row in rows:
+                sec = row.get('section')
+                if sec and sec.id in sec_map:
+                    sec_map[sec.id]['workers'].append(row)
+                else:
+                    unassigned_workers.append(row)
+            grouped_data = list(sec_map.values())
+
         context.update(
             self.get_role_context()
             | {
                 'department': department,
-                'rows': rows,
+                'grouped_data': grouped_data,
+                'unassigned_workers': unassigned_workers,
                 'page_title': 'Boshqarma xodimlari',
                 'page_description': "Xodimlar, kasblar, loginlar va yo'riqnoma holatlari.",
             }
@@ -3997,32 +4044,95 @@ class GlobalWorkersView(SuperuserActionRequiredMixin, TemplateView):
         return context
 
 
-class GlobalWorkerDetailView(SuperuserActionRequiredMixin, TemplateView):
+class GlobalWorkerDetailView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'accounts/super_admin/global_worker_detail.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
         worker_id = kwargs.get('pk')
-        profile = get_object_or_404(UserProfile, pk=worker_id, role=UserProfile.ROLE_WORKER)
+        profile = get_object_or_404(UserProfile, pk=worker_id)
         user = profile.user
         
+        # Xavfsizlik tekshiruvi: faqat o'z ishchilarini ko'rsin
+        request_profile = self.request.user.profile
+        from django.http import Http404
+        
+        if request_profile.role == UserProfile.ROLE_ORG_LEADER:
+            if profile.organization_name != request_profile.organization_name and profile.organization != request_profile.organization:
+                raise Http404("Xodim topilmadi yoki ruxsat yo'q")
+        elif request_profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN:
+            if profile.department_id != request_profile.department_id:
+                raise Http404("Xodim topilmadi yoki ruxsat yo'q")
+        elif request_profile.role == UserProfile.ROLE_SECTION_ADMIN:
+            if profile.section_id != request_profile.section_id:
+                raise Http404("Xodim topilmadi yoki ruxsat yo'q")
+        elif request_profile.role == UserProfile.ROLE_SUPER_ADMIN:
+            pass # Super admin hammani ko'ra oladi
+        else:
+            raise Http404("Ruxsat yo'q")
+
         context['profile'] = profile
         
-        # Entry guidelines
-        context['entry_receipts'] = GuidelineDispatchRecipient.objects.filter(
-            user=user
-        ).select_related('dispatch__guideline').order_by('-id')
+        journal = {}
+
+        # Kirish yo'riqnomalari
+        entry_receipts = GuidelineDispatchRecipient.objects.filter(
+            user=user, is_acknowledged=True
+        ).select_related('dispatch__guideline')
+        for r in entry_receipts:
+            name = r.dispatch.guideline.name
+            if name not in journal:
+                journal[name] = {'name': name, 'type': "Kirish yo'riqnomasi", 'count': 0, 'dates': []}
+            journal[name]['count'] += 1
+            if r.acknowledged_at:
+                journal[name]['dates'].append(r.acknowledged_at)
         
-        # Mandatory guidelines
-        context['mandatory_receipts'] = MandatoryGuidelineReceipt.objects.filter(
-            user=user
-        ).select_related('guideline').order_by('-created_at')
+        # Majburiy yo'riqnomalar
+        mandatory_receipts = MandatoryGuidelineReceipt.objects.filter(
+            user=user, is_acknowledged=True
+        ).select_related('guideline')
+        for r in mandatory_receipts:
+            name = r.guideline.name
+            if name not in journal:
+                journal[name] = {'name': name, 'type': "Majburiy", 'count': 0, 'dates': []}
+            journal[name]['count'] += 1
+            if r.acknowledged_at:
+                journal[name]['dates'].append(r.acknowledged_at)
         
-        # Profession guidelines
-        context['profession_receipts'] = ProfessionGuidelineReceipt.objects.filter(
-            membership__user=user
+        # Kasbiy yo'riqnomalar
+        profession_receipts = ProfessionGuidelineReceipt.objects.filter(
+            membership__user=user, is_acknowledged=True
         ).select_related('profession')
+        for r in profession_receipts:
+            name = f"{r.profession.name} bo'yicha"
+            if name not in journal:
+                journal[name] = {'name': name, 'type': "Kasb yo'riqnomasi", 'count': 0, 'dates': []}
+            journal[name]['count'] += 1
+            if r.acknowledged_at:
+                journal[name]['dates'].append(r.acknowledged_at)
+                
+        # Ichki yo'riqnomalar
+        try:
+            from companies.models import SectionInternalGuidelineRecipient
+            internal_receipts = SectionInternalGuidelineRecipient.objects.filter(
+                user=user, is_acknowledged=True
+            ).select_related('dispatch__guideline')
+            for r in internal_receipts:
+                name = r.dispatch.guideline.name
+                if name not in journal:
+                    journal[name] = {'name': name, 'type': "Ichki yo'riqnoma", 'count': 0, 'dates': []}
+                journal[name]['count'] += 1
+                if r.acknowledged_at:
+                    journal[name]['dates'].append(r.acknowledged_at)
+        except Exception:
+            pass
+
+        journal_list = list(journal.values())
+        for j in journal_list:
+            j['dates'].sort(reverse=True)
+            
+        context['journal_entries'] = journal_list
         
         # Assessments
         context['assessments'] = DepartmentAssessmentAttempt.objects.filter(
