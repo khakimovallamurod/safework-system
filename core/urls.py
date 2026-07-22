@@ -2,9 +2,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 from django.http import JsonResponse
+from core.views import robots_txt, sitemap_xml
 
 urlpatterns = [
     path('', include('accounts.urls')),
+    path('robots.txt', robots_txt, name='robots-txt'),
+    path('sitemap.xml', sitemap_xml, name='sitemap'),
     path('roles/super-admin/', include('super_admin.urls')),
     path('roles/tashkilot-rahbari/', include('organization_leader.urls')),
     path('roles/boshqarma-rahbari/', include('department_admin.urls')),
@@ -18,4 +21,3 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-

@@ -4,7 +4,44 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sopline System | Multi-role platforma</title>
+    <title>Sopline | Mehnat muhofazasi va xavfsizlik boshqaruv tizimi</title>
+    <meta name="description" content="Sopline - tashkilotlar uchun mehnat muhofazasi, xodimlar tahlili, yo'riqnomalar, stajirovka, tibbiy ko'rik va xavfsizlik nazoratini boshqaruvchi elektron platforma." />
+    <meta name="keywords" content="Sopline, Sopline System, mehnat muhofazasi, xavfsizlik tizimi, xodimlar nazorati, yo'riqnoma, stajirovka, tibbiy ko'rik, tashkilot boshqaruvi" />
+    <meta name="author" content="Sopline" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}" />
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}" />
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}" />
+    <link rel="apple-touch-icon" href="{% static 'images/sopline-logo2.png' %}" />
+    <meta property="og:title" content="Sopline | Mehnat muhofazasi va xavfsizlik boshqaruv tizimi" />
+    <meta property="og:description" content="Sopline tashkilotlarda xodimlar, yo'riqnomalar, stajirovka, tibbiy ko'rik va xavfsizlik jarayonlarini yagona platformada boshqarishga yordam beradi." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/sopline-logo2.png' %}" />
+    <meta property="og:site_name" content="Sopline" />
+    <meta property="og:locale" content="uz_UZ" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sopline | Mehnat muhofazasi va xavfsizlik boshqaruv tizimi" />
+    <meta name="twitter:description" content="Tashkilotlar uchun mehnat muhofazasi, xodimlar va xavfsizlik yo'riqnomalarini boshqarish platformasi." />
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/sopline-logo2.png' %}" />
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Sopline",
+        "alternateName": "Sopline System",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "url": "{{ request.scheme }}://{{ request.get_host }}{{ request.path }}",
+        "description": "Sopline tashkilotlar uchun mehnat muhofazasi, xodimlar tahlili, yo'riqnomalar, stajirovka, tibbiy ko'rik va xavfsizlik nazoratini boshqaruvchi elektron platforma.",
+        "publisher": {
+            "@type": "Organization",
+            "name": "Sopline",
+            "url": "{{ request.scheme }}://{{ request.get_host }}/"
+        }
+    }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <style>
