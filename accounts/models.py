@@ -95,3 +95,26 @@ class UserActivitySummary(models.Model):
 
     def __str__(self):
         return f'{self.user_id} activity'
+
+
+class SystemNotification(models.Model):
+    TYPE_CHOICES = (
+        ('guideline', "Yo'riqnoma"),
+        ('test', "Test va baholash"),
+        ('practice', "Ish amaliyoti"),
+        ('system', "Tizim xabari"),
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='system_notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='system')
+    url = models.CharField(max_length=500, blank=True, null=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'tizim_xabarnomasi'
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"

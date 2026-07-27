@@ -1,6 +1,11 @@
 from django.urls import path
 
 from companies.views_assessment import (
+    DepartmentTestBaseListView,
+    DepartmentTestBaseCreateView,
+    DepartmentTestBaseEditView,
+    DepartmentTestBaseDeleteView,
+    DepartmentTestBaseImportView,
     AssessmentListView,
     AssessmentCreateView,
     AssessmentDetailView,
@@ -61,6 +66,7 @@ from accounts.views import (
     SectionWorkPracticeDeleteView,
     SectionWorkPracticeAssigneeAcceptView,
     SectionWorkPracticeAssignWorkersView,
+    SectionWorkPracticeAssignTestsView,
     SectionWorkPracticeEditView,
     SectionWorkPracticeFinishView,
     SectionWorkPracticeListView,
@@ -86,6 +92,8 @@ from accounts.views import (
     UserManagementView,
     WorkerHierarchyView,
     WorkerRegisterView,
+    NotificationListView,
+    NotificationMarkReadView,
 )
 
 urlpatterns = [
@@ -98,6 +106,8 @@ urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
     path('profil/', ProfilePageView.as_view(), name='profile'),
     path('profile/update/', ProfileUpdateView.as_view(), name='profile-update'),
+    path('bildirishnomalar/', NotificationListView.as_view(), name='notifications'),
+    path('bildirishnomalar/mark-read/', NotificationMarkReadView.as_view(), name='notification-mark-read'),
     path('pdf/yoriknoma/<int:pk>/', GuidelinePdfView.as_view(), name='guideline-pdf'),
     path('dashboard/ai-assistant/', AiAssistantView.as_view(), name='ai-assistant'),
     path('users/', UserManagementView.as_view(), name='users'),
@@ -107,6 +117,11 @@ urlpatterns = [
     path('global-workers/<int:pk>/', GlobalWorkerDetailView.as_view(), name='global-worker-detail'),
     path('users/<int:pk>/toggle-block/', ToggleUserBlockView.as_view(), name='toggle-block'),
     # Bilimni baholash (Department Assessment)
+    path('bilim-baholash/baza/', DepartmentTestBaseListView.as_view(), name='test-base-list'),
+    path('bilim-baholash/baza/yaratish/', DepartmentTestBaseCreateView.as_view(), name='test-base-create'),
+    path('bilim-baholash/baza/import/', DepartmentTestBaseImportView.as_view(), name='test-base-import'),
+    path('bilim-baholash/baza/<int:pk>/tahrirlash/', DepartmentTestBaseEditView.as_view(), name='test-base-edit'),
+    path('bilim-baholash/baza/<int:pk>/ochirish/', DepartmentTestBaseDeleteView.as_view(), name='test-base-delete'),
     path('bilim-baholash/', AssessmentListView.as_view(), name='assessment-list'),
     path('bilim-baholash/hisobot/', AssessmentOverviewView.as_view(), name='assessment-overview'),
     path('bilim-baholash/yaratish/', AssessmentCreateView.as_view(), name='assessment-create'),
@@ -162,6 +177,7 @@ urlpatterns = [
     path('ish-amaliyotlari/', SectionWorkPracticeListView.as_view(), name='work-practices'),
     path('ish-amaliyotlari/<int:pk>/edit/', SectionWorkPracticeEditView.as_view(), name='work-practice-edit'),
     path('ish-amaliyotlari/<int:pk>/assign-workers/', SectionWorkPracticeAssignWorkersView.as_view(), name='work-practice-assign-workers'),
+    path('ish-amaliyotlari/<int:pk>/assign-tests/', SectionWorkPracticeAssignTestsView.as_view(), name='work-practice-assign-tests'),
     path('ish-amaliyotlari/biriktirma/<int:pk>/qabul/', SectionWorkPracticeAssigneeAcceptView.as_view(), name='work-practice-assignee-accept'),
     path('ish-amaliyotlari/<int:pk>/finish/', SectionWorkPracticeFinishView.as_view(), name='work-practice-finish'),
     path('ish-amaliyotlari/<int:pk>/send-message/', SectionWorkPracticeMessageSendView.as_view(), name='work-practice-send-message'),

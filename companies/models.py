@@ -809,6 +809,28 @@ class WorkPracticeTestAttemptAnswer(models.Model):
 #  BOSHQARMA DARAJASIDAGI BILIMNI BAHOLASH (Department Assessment)
 # ─────────────────────────────────────────────────────────────
 
+class DepartmentTestBaseQuestion(models.Model):
+    department = models.ForeignKey(
+        Department, on_delete=models.CASCADE, related_name='test_base_questions',
+    )
+    text = models.TextField(verbose_name="Savol matni")
+    option_1 = models.CharField(max_length=500, verbose_name="A variant")
+    option_2 = models.CharField(max_length=500, verbose_name="B variant")
+    option_3 = models.CharField(max_length=500, verbose_name="C variant")
+    correct_option = models.IntegerField(
+        choices=[(1, 'A'), (2, 'B'), (3, 'C')],
+        verbose_name="To'g'ri variant",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'boshqarma_test_bazasi_savol'
+
+    def __str__(self):
+        return f"Savol {self.id} — {self.department.name}"
+
+
 class DepartmentAssessment(models.Model):
     department = models.ForeignKey(
         Department,

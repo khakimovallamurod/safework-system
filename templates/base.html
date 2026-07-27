@@ -148,6 +148,17 @@
             gap: 0.6rem;
         }
 
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            z-index: 1050;
+            background-color: #fff;
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+        }
+
         .modal-header { border-bottom: 1px solid #e2e8f0; }
         .modal-body { padding: 1rem; }
         .modal-footer { border-top: 1px solid #e2e8f0; justify-content: flex-end; }
@@ -590,6 +601,11 @@
                   </button>
                   <div id="assess-submenu"
                        class="mt-1 ml-3 space-y-0.5 {% if request.resolver_match.url_name != 'assessment-list' and request.resolver_match.url_name != 'assessment-create' and request.resolver_match.url_name != 'assessment-detail' and request.resolver_match.url_name != 'assessment-edit' and request.resolver_match.url_name != 'assessment-publish' and request.resolver_match.url_name != 'assessment-toggle' and request.resolver_match.url_name != 'assessment-question-add' and request.resolver_match.url_name != 'assessment-question-delete' and request.resolver_match.url_name != 'assessment-overview' and request.resolver_match.url_name != 'assessment-report' %}hidden{% endif %}">
+                    <a href="{% url 'test-base-list' %}"
+                       class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                              {% if 'test-base' in request.resolver_match.url_name %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                      <i class="bi bi-database text-xs"></i> Test bazasi
+                    </a>
                     <a href="{% url 'assessment-list' %}"
                        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
                               {% if request.resolver_match.url_name == 'assessment-list' or request.resolver_match.url_name == 'assessment-create' or request.resolver_match.url_name == 'assessment-detail' or request.resolver_match.url_name == 'assessment-edit' or request.resolver_match.url_name == 'assessment-question-add' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
@@ -637,20 +653,36 @@
                     </a>
                   </div>
                 </div>
-                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if 'test' in request.resolver_match.url_name or 'question' in request.resolver_match.url_name %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'companies:test_list' %}">
-                    <i class="bi bi-journal-check text-base"></i> Test boshqaruvi
-                </a>
-                <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'notifications-inbox' or request.resolver_match.url_name == 'guideline-inbox' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'notifications-inbox' %}">
-                    {% include 'accounts/includes/nav_notification_badge.html' %}
-                    <span>Xabarnomalar</span>
-                </a>
+                <div class="mb-1">
+                  <button type="button" id="practice-toggle"
+                          onclick="togglePracticeMenu()"
+                          class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                                 {% if 'test' in request.resolver_match.url_name or 'question' in request.resolver_match.url_name or 'work-practice' in request.resolver_match.url_name %}bg-brand-500/30 text-white{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                    <i class="bi bi-briefcase text-base flex-shrink-0"></i>
+                    <span class="flex-1 text-left">Stajirovka va Testlar</span>
+                    <i class="bi bi-chevron-down text-xs transition-transform" id="practice-chevron"></i>
+                  </button>
+                  <div id="practice-submenu"
+                       class="mt-1 ml-3 space-y-0.5 {% if 'test' not in request.resolver_match.url_name and 'question' not in request.resolver_match.url_name and 'work-practice' not in request.resolver_match.url_name %}hidden{% endif %}">
+                    <a href="{% url 'work-practices' %}"
+                       class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                              {% if request.resolver_match.url_name == 'work-practices' or request.resolver_match.url_name == 'work-practice-edit' or request.resolver_match.url_name == 'work-practice-delete' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                      <i class="bi bi-card-checklist text-xs"></i> Stajirovkalar ro'yxati
+                    </a>
+                    <a href="{% url 'companies:test_list' %}"
+                       class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                              {% if 'test' in request.resolver_match.url_name or 'question' in request.resolver_match.url_name %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                      <i class="bi bi-journal-check text-xs"></i> Test yaratish va boshqarish
+                    </a>
+                  </div>
+                </div>
             {% endif %}
             {% if has_dept_assessment and not is_department_admin %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if 'assessment' in request.resolver_match.url_name %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'assessment-inbox' %}">
                     <i class="bi bi-mortarboard text-base"></i> Bilimni baholash
                 </a>
             {% endif %}
-            {% if can_view_work_practices and not is_super_admin and not is_org_leader and not is_department_admin %}
+            {% if can_view_work_practices and not is_super_admin and not is_org_leader and not is_department_admin and not is_section_admin %}
                 <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'work-practices' or request.resolver_match.url_name == 'work-practice-edit' or request.resolver_match.url_name == 'work-practice-delete' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'work-practices' %}">
                     <i class="bi bi-briefcase text-base"></i> Stajirovka
                 </a>
@@ -692,28 +724,77 @@
                 </div>
 
                 {% if request.user.is_authenticated %}
-                <div class="header-user-strip flex shrink-0 items-stretch overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                    <div class="flex items-center gap-1.5 border-r border-slate-100 bg-slate-50/80 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 sm:px-3">
-                        <i class="bi bi-calendar3 shrink-0 text-slate-400"></i>
-                        <span class="whitespace-nowrap">{% now "d.m.Y" %}</span>
-                    </div>
-                    <div class="flex items-center justify-center px-2 py-1">
-                        {% if profile_photo_url %}
-                            <img src="{{ profile_photo_url }}" alt="" class="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-emerald-100 sm:h-9 sm:w-9" />
-                        {% else %}
-                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-xs font-bold text-white ring-2 ring-emerald-100 sm:h-9 sm:w-9 sm:text-sm">
-                                {{ profile_display_name|default:request.user.username|slice:":1"|upper }}
-                            </span>
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <!-- Notifications -->
+                    <a href="{% url 'notifications' %}" class="relative flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:bg-slate-50 hover:text-emerald-600">
+                        <i class="bi bi-bell text-lg"></i>
+                        {% if unread_notifications_count %}
+                        <span class="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+                            {{ unread_notifications_count }}
+                        </span>
                         {% endif %}
-                    </div>
-                    <div class="flex min-w-0 max-w-[7.5rem] flex-col justify-center px-2.5 py-1 sm:max-w-[10rem] sm:px-3">
-                        <p class="truncate text-[9px] font-semibold uppercase leading-tight tracking-wide text-emerald-600 sm:text-[10px]">{{ role_name|default:'Foydalanuvchi' }}</p>
-                        <p class="truncate text-xs font-semibold leading-snug text-slate-900 sm:text-sm">{{ profile_short_name|default:request.user.username }}</p>
+                    </a>
+
+                    <!-- User Dropdown -->
+                    <div class="relative" id="profile-dropdown-container">
+                        <button type="button" id="profile-dropdown-btn" onclick="toggleProfileDropdown()" class="header-user-strip flex shrink-0 items-stretch overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-1.5 border-r border-slate-100 bg-slate-50/80 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 sm:px-3 hidden sm:flex">
+                                <i class="bi bi-calendar3 shrink-0 text-slate-400"></i>
+                                <span class="whitespace-nowrap">{% now "d.m.Y" %}</span>
+                            </div>
+                            <div class="flex items-center justify-center px-2 py-1 pl-3">
+                                {% if profile_photo_url %}
+                                    <img src="{{ profile_photo_url }}" alt="" class="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-emerald-100 sm:h-9 sm:w-9" />
+                                {% else %}
+                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-xs font-bold text-white ring-2 ring-emerald-100 sm:h-9 sm:w-9 sm:text-sm">
+                                        {{ profile_display_name|default:request.user.username|slice:":1"|upper }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <div class="flex min-w-0 max-w-[7.5rem] flex-col justify-center px-2.5 py-1 text-left sm:max-w-[10rem] sm:px-3">
+                                <p class="truncate text-[9px] font-semibold uppercase leading-tight tracking-wide text-emerald-600 sm:text-[10px]">{{ role_name|default:'Foydalanuvchi' }}</p>
+                                <p class="truncate text-xs font-semibold leading-snug text-slate-900 sm:text-sm">{{ profile_short_name|default:request.user.username }}</p>
+                            </div>
+                            <div class="flex items-center justify-center pr-3 pl-1 text-slate-400">
+                                <i class="bi bi-chevron-down text-xs"></i>
+                            </div>
+                        </button>
+                        
+                        <ul id="profile-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-100 bg-white p-2 shadow-lg shadow-slate-200/50 z-50">
+                            <li>
+                                <a class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition" href="{% url 'profile' %}">
+                                    <i class="bi bi-person text-lg text-slate-400"></i> Shaxsiy profil
+                                </a>
+                            </li>
+                            <li><hr class="my-1 border-slate-100"></li>
+                            <li>
+                                <form method="post" action="{% url 'logout' %}" class="m-0">
+                                    {% csrf_token %}
+                                    <button type="submit" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 transition">
+                                        <i class="bi bi-box-arrow-right text-lg text-rose-500"></i> Chiqish
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
                 </div>
                 {% endif %}
             </div>
         </header>
+
+        <script>
+        function toggleProfileDropdown() {
+            var menu = document.getElementById('profile-dropdown-menu');
+            if (menu) menu.classList.toggle('hidden');
+        }
+        document.addEventListener('click', function(event) {
+            var container = document.getElementById('profile-dropdown-container');
+            var menu = document.getElementById('profile-dropdown-menu');
+            if (container && menu && !container.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+        </script>
 
         <main class="w-full min-w-0 flex-1 overflow-x-hidden px-4 py-5 lg:px-6 lg:py-6">
             {% if messages %}
@@ -1036,6 +1117,22 @@ function toggleGuidelineStatusMenu() {
 (function() {
   var menu = document.getElementById('guideline-status-submenu');
   var chevron = document.getElementById('guideline-status-chevron');
+  if (menu && !menu.classList.contains('hidden') && chevron) {
+    chevron.style.transform = 'rotate(180deg)';
+  }
+})();
+
+function togglePracticeMenu() {
+  var menu = document.getElementById('practice-submenu');
+  var chevron = document.getElementById('practice-chevron');
+  if (menu) {
+    menu.classList.toggle('hidden');
+    if (chevron) chevron.style.transform = menu.classList.contains('hidden') ? '' : 'rotate(180deg)';
+  }
+}
+(function() {
+  var menu = document.getElementById('practice-submenu');
+  var chevron = document.getElementById('practice-chevron');
   if (menu && !menu.classList.contains('hidden') && chevron) {
     chevron.style.transform = 'rotate(180deg)';
   }

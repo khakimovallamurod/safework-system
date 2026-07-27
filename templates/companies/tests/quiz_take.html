@@ -28,7 +28,7 @@
                         <span class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-sm mt-0.5">
                             {{ forloop.counter }}
                         </span>
-                        <h3 class="text-lg font-semibold text-slate-800 leading-relaxed">{{ question.text }}</h3>
+                        <h3 class="text-lg font-semibold text-slate-800 leading-relaxed">{{ question.text|safe }}</h3>
                     </div>
                     
                     <div class="space-y-3 ml-12">

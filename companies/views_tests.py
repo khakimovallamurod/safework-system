@@ -16,7 +16,8 @@ from companies.models import (
     WorkPracticeTestAttemptAnswer,
     WorkPracticeTestPermission,
     SectionWorkPractice,
-    SectionWorkPracticeAssignee
+    SectionWorkPracticeAssignee,
+    DepartmentTestBaseQuestion
 )
 
 class TestListView(SectionAdminRequiredMixin, View):
@@ -85,9 +86,41 @@ class TestCreateView(SectionAdminRequiredMixin, View):
         form = WorkPracticeTestForm(request.POST)
         if form.is_valid():
             test = form.save(commit=False)
-            test.section = request.user.profile.section
+            section = request.user.profile.section
+            test.section = section
+            
+            # Check if there are enough questions in the test base
+            department = section.department
+            test_base_questions = list(DepartmentTestBaseQuestion.objects.filter(department=department))
+            
+            if len(test_base_questions) < test.questions_count:
+                messages.error(
+                    request, 
+                    f"Boshqarma test bazasida yetarli savol yo'q. Bazada {len(test_base_questions)} ta savol mavjud, lekin siz {test.questions_count} ta kiritdingiz."
+                )
+                context = self.get_role_context()
+                context.update({'form': form, 'title': 'Yangi test yaratish'})
+                return render(request, self.template_name, context)
+
             test.save()
-            messages.success(request, "Test muvaffaqiyatli yaratildi.")
+            
+            # Auto-populate questions
+            random.shuffle(test_base_questions)
+            selected_questions = test_base_questions[:test.questions_count]
+            questions_to_create = [
+                WorkPracticeTestQuestion(
+                    test=test,
+                    text=q.text,
+                    option_1=q.option_1,
+                    option_2=q.option_2,
+                    option_3=q.option_3,
+                    correct_option=q.correct_option
+                )
+                for q in selected_questions
+            ]
+            WorkPracticeTestQuestion.objects.bulk_create(questions_to_create)
+
+            messages.success(request, f"Test muvaffaqiyatli yaratildi va bazadan {test.questions_count} ta savol olindi.")
             return redirect('companies:test_list')
         
         context = self.get_role_context()

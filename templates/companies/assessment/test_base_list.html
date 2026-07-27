@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div>
+        <h1 class="text-xl font-bold text-slate-900 sm:text-2xl">Test bazasi</h1>
+        <p class="mt-1 text-sm text-slate-500">Boshqarma bilimlarini baholash va stajirovka uchun savollar bazasi</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <button type="button" onclick="openImportModal()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition">
+            <i class="bi bi-filetype-csv text-brand-600"></i>
+            CSV yuklash
+        </button>
+        <a href="{% url 'test-base-create' %}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 transition hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+            <i class="bi bi-plus-lg"></i>
+            Yangi savol qo'shish
+        </a>
+    </div>
+</div>
+
+<div class="mb-6 flex items-center justify-between gap-4">
+    <div class="w-full max-w-md">
+        <form method="get" class="relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <i class="bi bi-search text-slate-400"></i>
+            </div>
+            <input type="text" name="q" value="{{ q }}" placeholder="Savol matni bo'yicha qidirish..." class="block w-full rounded-xl border-0 py-2.5 pl-10 pr-4 text-sm text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-brand-600" />
+        </form>
+    </div>
+    <div class="text-sm font-medium text-slate-500">
+        Jami: {{ questions.count }} ta
+    </div>
+</div>
+
+<div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th scope="col" class="px-4 py-3.5 text-left text-xs font-semibold tracking-wide text-slate-500 sm:px-6">№</th>
+                    <th scope="col" class="px-4 py-3.5 text-left text-xs font-semibold tracking-wide text-slate-500 sm:px-6">Savol</th>
+                    <th scope="col" class="px-4 py-3.5 text-left text-xs font-semibold tracking-wide text-slate-500 sm:px-6">Variantlar</th>
+                    <th scope="col" class="px-4 py-3.5 text-right text-xs font-semibold tracking-wide text-slate-500 sm:px-6">Amallar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+                {% for q in questions %}
+                <tr class="hover:bg-slate-50/50">
+                    <td class="whitespace-nowrap px-4 py-4 text-sm text-slate-500 sm:px-6">{{ forloop.counter }}</td>
+                    <td class="px-4 py-4 text-sm text-slate-900 sm:px-6">
+                        <div class="font-medium">{{ q.text|safe }}</div>
+                        <div class="mt-1 text-xs text-slate-500">Qo'shilgan: {{ q.created_at|date:"d.m.Y H:i" }}</div>
+                    </td>
+                    <td class="px-4 py-4 text-sm text-slate-700 sm:px-6">
+                        <ul class="space-y-1">
+                            <li class="{% if q.correct_option == 1 %}font-bold text-emerald-600{% endif %}">
+                                A) {{ q.option_1 }}
+                                {% if q.correct_option == 1 %}<i class="bi bi-check-circle-fill ml-1"></i>{% endif %}
+                            </li>
+                            <li class="{% if q.correct_option == 2 %}font-bold text-emerald-600{% endif %}">
+                                B) {{ q.option_2 }}
+                                {% if q.correct_option == 2 %}<i class="bi bi-check-circle-fill ml-1"></i>{% endif %}
+                            </li>
+                            <li class="{% if q.correct_option == 3 %}font-bold text-emerald-600{% endif %}">
+                                C) {{ q.option_3 }}
+                                {% if q.correct_option == 3 %}<i class="bi bi-check-circle-fill ml-1"></i>{% endif %}
+                            </li>
+                        </ul>
+                    </td>
+                    <td class="whitespace-nowrap px-4 py-4 text-right text-sm font-medium sm:px-6">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="{% url 'test-base-edit' q.pk %}" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-brand-600 transition" title="Tahrirlash">
+                                <i class="bi bi-pencil-square text-lg"></i>
+                            </a>
+                            <form action="{% url 'test-base-delete' q.pk %}" method="post" class="inline delete-form">
+                                {% csrf_token %}
+                                <button type="button" onclick="confirmDelete(this)" class="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition" title="O'chirish">
+                                    <i class="bi bi-trash3 text-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-4 py-12 text-center text-sm text-slate-500">
+                        <div class="flex flex-col items-center justify-center">
+                            <i class="bi bi-inbox text-4xl text-slate-300 mb-3"></i>
+                            <p>Hozircha savollar yo'q</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- CSV Import Modal -->
+<div id="importModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/50 backdrop-blur-sm" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+    <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+      <form method="post" action="{% url 'test-base-import' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+          <div class="sm:flex sm:items-start">
+            <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 sm:mx-0 sm:h-10 sm:w-10">
+              <i class="bi bi-filetype-csv text-brand-600"></i>
+            </div>
+            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+              <h3 class="text-base font-semibold leading-6 text-slate-900" id="modal-title">CSV dan savollarni yuklash</h3>
+              <div class="mt-2">
+                <p class="text-sm text-slate-500 mb-4">Yuklanadigan fayl <strong>.csv</strong> formatida bo'lishi va quyidagi ustunlarga ega bo'lishi kerak: <br><i>1. Savol matni, 2. A varianti, 3. B varianti, 4. C varianti, 5. To'g'ri javob (A,B,C)</i></p>
+                <div class="mt-2 flex justify-center rounded-xl border border-dashed border-slate-300 px-6 py-8">
+                  <div class="text-center">
+                    <i class="bi bi-cloud-arrow-up text-4xl text-slate-300"></i>
+                    <div class="mt-4 flex text-sm leading-6 text-slate-600 justify-center">
+                      <label for="csv_file" class="relative cursor-pointer rounded-md bg-white font-semibold text-brand-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-brand-600 focus-within:ring-offset-2 hover:text-brand-500">
+                        <span>Fayl tanlash</span>
+                        <input id="csv_file" name="csv_file" type="file" accept=".csv" class="sr-only" required>
+                      </label>
+                    </div>
+                    <p class="text-xs leading-5 text-slate-500" id="file-name-display">Faqat CSV fayllar</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+          <button type="submit" class="inline-flex w-full justify-center rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-500 sm:ml-3 sm:w-auto transition">Yuklash</button>
+          <button type="button" onclick="closeImportModal()" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto transition">Bekor qilish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openImportModal() {
+  document.getElementById('importModal').classList.remove('hidden');
+}
+function closeImportModal() {
+  document.getElementById('importModal').classList.add('hidden');
+}
+document.getElementById('csv_file').addEventListener('change', function(e) {
+  var fileName = e.target.files[0] ? e.target.files[0].name : "Faqat CSV fayllar";
+  document.getElementById('file-name-display').textContent = fileName;
+});
+
+function confirmDelete(button) {
+  Swal.fire({
+    title: "O'chirishni tasdiqlaysizmi?",
+    text: "Rostdan ham bu savolni o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#94a3b8',
+    confirmButtonText: "Ha, o'chirish",
+    cancelButtonText: "Bekor qilish",
+    borderRadius: '16px',
+    customClass: { popup: 'rounded-2xl' }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      button.closest('form').submit();
+    }
+  });
+}
+</script>
+{% endblock %}

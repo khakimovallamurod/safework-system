@@ -3718,6 +3718,15 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
         participant_practices = [p for p in practices if not p.is_responsible]
         responsible_practices = [p for p in practices if p.is_responsible]
 
+        section_tests = []
+        if role.get('is_section_admin', False) and section:
+            from companies.models import WorkPracticeTest
+            section_tests = list(WorkPracticeTest.objects.filter(section=section))
+            
+            # Populate assigned tests for each practice
+            for practice in practices:
+                practice.assigned_tests = [p.test for p in practice.test_permissions.select_related('test').all()]
+
         context.update(
             role
             | {
@@ -3727,6 +3736,7 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 'responsible_practices': responsible_practices,
                 'form': SectionWorkPracticeForm(),
                 'section_workers': section_workers,
+                'section_tests': section_tests,
                 'can_manage_work_practices': role.get('is_section_admin', False),
                 'can_monitor_work_practices': role.get('is_super_admin', False) or role.get('is_org_leader', False) or role.get('is_department_admin', False) or role.get('is_section_admin', False),
                 'practice_dashboard': _build_work_practice_dashboard(practices),
@@ -3770,6 +3780,33 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 label = form.fields.get(field).label if field in form.fields else field
                 for error in errors:
                     messages.error(request, f'{label}: {error}')
+        return redirect('work-practices')
+
+
+class SectionWorkPracticeAssignTestsView(SectionAdminRequiredMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        section = _section_for_admin_or_redirect(request)
+        if not section:
+            return redirect('dashboard')
+
+        practice = _work_practices_for_section(section).filter(pk=pk).first()
+        if not practice:
+            messages.error(request, 'Ish amaliyoti topilmadi.')
+            return redirect('work-practices')
+
+        from companies.models import WorkPracticeTest, WorkPracticeTestPermission
+        
+        test_ids = request.POST.getlist('test_ids')
+        
+        # O'chirish (Avvalgi testlarni o'chirish)
+        WorkPracticeTestPermission.objects.filter(practice=practice).delete()
+        
+        # Yangilarini qo'shish
+        valid_tests = WorkPracticeTest.objects.filter(section=section, id__in=test_ids)
+        for test in valid_tests:
+            WorkPracticeTestPermission.objects.create(test=test, practice=practice)
+            
+        messages.success(request, 'Testlar amaliyotga biriktirildi.')
         return redirect('work-practices')
 
 
@@ -4157,3 +4194,46 @@ class GlobalWorkerDetailView(AuthenticatedRequiredMixin, TemplateView):
         ).select_related('practice__section').order_by('-practice__created_at')
         
         return context
+
+
+from accounts.mixins import RoleContextMixin
+
+class NotificationListView(AuthenticatedRequiredMixin, RoleContextMixin, TemplateView):
+    template_name = 'accounts/notifications.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from accounts.notifications import get_all_notifications
+        
+        notifications = get_all_notifications(self.request.user)
+        context['notifications'] = notifications
+        return context
+
+
+class NotificationMarkReadView(AuthenticatedRequiredMixin, View):
+    def post(self, request):
+        from accounts.models import SystemNotification
+        from companies.models import GuidelineDispatchRecipient, SectionInternalGuidelineRecipient, DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt
+        
+        notif_id = request.POST.get('id')
+        if notif_id:
+            # Check prefix
+            if notif_id.startswith('sn_'):
+                SystemNotification.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_read=True)
+            elif notif_id.startswith('gd_'):
+                GuidelineDispatchRecipient.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_acknowledged=True)
+            elif notif_id.startswith('ig_'):
+                SectionInternalGuidelineRecipient.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_acknowledged=True)
+            elif notif_id.startswith('da_'):
+                DepartmentAssessmentNotification.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_confirmed=True)
+            elif notif_id.startswith('pm_'):
+                SectionWorkPracticeMessageReceipt.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_read=True)
+        else:
+            # Mark all as read
+            SystemNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+            GuidelineDispatchRecipient.objects.filter(user=request.user, is_acknowledged=False).update(is_acknowledged=True)
+            SectionInternalGuidelineRecipient.objects.filter(user=request.user, is_acknowledged=False).update(is_acknowledged=True)
+            DepartmentAssessmentNotification.objects.filter(user=request.user, is_confirmed=False).update(is_confirmed=True)
+            SectionWorkPracticeMessageReceipt.objects.filter(user=request.user, is_read=False).update(is_read=True)
+            
+        return JsonResponse({'success': True})

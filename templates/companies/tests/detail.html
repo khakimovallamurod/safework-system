@@ -17,9 +17,6 @@
             </p>
         </div>
     </div>
-    <a href="{% url 'companies:question_create' test.id %}" class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 shadow-sm shadow-indigo-200">
-        <i class="bi bi-plus-lg"></i> Yangi savol qo'shish
-    </a>
 </div>
 
 {% if questions %}
@@ -27,17 +24,13 @@
     {% for question in questions %}
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow group relative">
         
-        <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors" data-bs-toggle="modal" data-bs-target="#questionDeleteModal{{ question.id }}">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>
+        
         
         <div class="flex items-start gap-3 mb-4 pr-10">
             <span class="flex-shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs mt-0.5">
                 {{ forloop.counter }}
             </span>
-            <p class="text-slate-800 font-medium whitespace-pre-wrap">{{ question.text }}</p>
+            <div class="text-slate-800 font-medium w-full">{{ question.text|safe }}</div>
         </div>
         
         <div class="space-y-2 ml-10">
@@ -56,27 +49,7 @@
         </div>
     </div>
     
-    <!-- Delete Modal -->
-    <div class="modal fade" id="questionDeleteModal{{ question.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-2xl">
-                <div class="modal-header border-b border-slate-100">
-                    <h5 class="modal-title font-semibold text-slate-800">Savolni o'chirish</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
-                </div>
-                <div class="modal-body py-5 text-center">
-                    <p class="text-slate-600">Bu savolni haqiqatdan ham o'chirmoqchimisiz?</p>
-                </div>
-                <div class="modal-footer border-t border-slate-100 flex justify-center gap-3">
-                    <button type="button" class="rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
-                    <form method="post" action="{% url 'companies:question_delete' test.id question.id %}" class="m-0">
-                        {% csrf_token %}
-                        <button type="submit" class="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700">O'chirish</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+    
     {% endfor %}
 </div>
 {% else %}
@@ -85,10 +58,7 @@
         <i class="bi bi-question-square"></i>
     </div>
     <h3 class="text-lg font-bold text-slate-800 mb-2">Savollar mavjud emas</h3>
-    <p class="text-slate-500 mb-6 max-w-sm mx-auto">Bu test uchun hali savollar qo'shilmagan. Yuqoridagi "Yangi savol qo'shish" tugmasi orqali savollar qo'shishingiz mumkin.</p>
-    <a href="{% url 'companies:question_create' test.id %}" class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700">
-        <i class="bi bi-plus-lg"></i> Savol qo'shish
-    </a>
+    <p class="text-slate-500 mb-6 max-w-sm mx-auto">Bu test uchun hali savollar qo'shilmagan.</p>
 </div>
 {% endif %}
 {% endblock %}

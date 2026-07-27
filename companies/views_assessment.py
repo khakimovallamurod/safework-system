@@ -1,3 +1,5 @@
+import csv
+import io
 import random
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -14,6 +16,7 @@ from companies.models import (
     Department,
     Section,
     SectionMembership,
+    DepartmentTestBaseQuestion,
     DepartmentAssessment,
     DepartmentAssessmentQuestion,
     DepartmentAssessmentNotification,
@@ -133,6 +136,199 @@ def _user_dept(user):
     return None
 
 
+# ─── Department Test Base views ──────────────────────────────────────────────
+
+class DepartmentTestBaseListView(DepartmentAdminRequiredMixin, View):
+    template_name = 'companies/assessment/test_base_list.html'
+
+    def get(self, request):
+        dept = _dept_for_admin(request.user)
+        if not dept:
+            messages.error(request, "Boshqarma topilmadi.")
+            return redirect('dashboard')
+        
+        q = request.GET.get('q', '').strip()
+        questions = DepartmentTestBaseQuestion.objects.filter(department=dept)
+        if q:
+            questions = questions.filter(text__icontains=q)
+            
+        ctx = self.get_role_context()
+        ctx.update({'questions': questions, 'dept': dept, 'q': q})
+        return render(request, self.template_name, ctx)
+
+
+class DepartmentTestBaseCreateView(DepartmentAdminRequiredMixin, View):
+    template_name = 'companies/assessment/test_base_form.html'
+
+    def get(self, request):
+        ctx = self.get_role_context()
+        ctx.update({'title': "Yangi savol qo'shish"})
+        return render(request, self.template_name, ctx)
+
+    def post(self, request):
+        dept = _dept_for_admin(request.user)
+        if not dept:
+            return redirect('dashboard')
+            
+        text = request.POST.get('text', '').strip()
+        option_1 = request.POST.get('option_1', '').strip()
+        option_2 = request.POST.get('option_2', '').strip()
+        option_3 = request.POST.get('option_3', '').strip()
+        try:
+            correct_option = int(request.POST.get('correct_option', 0))
+        except ValueError:
+            correct_option = 0
+
+        if not all([text, option_1, option_2, option_3]) or correct_option not in [1, 2, 3]:
+            messages.error(request, "Barcha maydonlar to'ldirilishi va to'g'ri variant tanlanishi kerak.")
+            ctx = self.get_role_context()
+            ctx.update({'title': "Yangi savol qo'shish"})
+            return render(request, self.template_name, ctx)
+
+        DepartmentTestBaseQuestion.objects.create(
+            department=dept, text=text,
+            option_1=option_1, option_2=option_2, option_3=option_3,
+            correct_option=correct_option,
+        )
+        
+        if 'save_and_add' in request.POST:
+            messages.success(request, "Savol qo'shildi. Yangi savol qo'shing.")
+            return redirect('test-base-create')
+            
+        messages.success(request, "Savol muvaffaqiyatli qo'shildi.")
+        return redirect('test-base-list')
+
+
+class DepartmentTestBaseEditView(DepartmentAdminRequiredMixin, View):
+    template_name = 'companies/assessment/test_base_form.html'
+
+    def get(self, request, pk):
+        dept = _dept_for_admin(request.user)
+        question = get_object_or_404(DepartmentTestBaseQuestion, pk=pk, department=dept)
+        ctx = self.get_role_context()
+        ctx.update({'title': "Savolni tahrirlash", 'question': question})
+        return render(request, self.template_name, ctx)
+
+    def post(self, request, pk):
+        dept = _dept_for_admin(request.user)
+        question = get_object_or_404(DepartmentTestBaseQuestion, pk=pk, department=dept)
+        
+        text = request.POST.get('text', '').strip()
+        option_1 = request.POST.get('option_1', '').strip()
+        option_2 = request.POST.get('option_2', '').strip()
+        option_3 = request.POST.get('option_3', '').strip()
+        try:
+            correct_option = int(request.POST.get('correct_option', 0))
+        except ValueError:
+            correct_option = 0
+
+        if not all([text, option_1, option_2, option_3]) or correct_option not in [1, 2, 3]:
+            messages.error(request, "Barcha maydonlar to'ldirilishi va to'g'ri variant tanlanishi kerak.")
+            ctx = self.get_role_context()
+            ctx.update({'title': "Savolni tahrirlash", 'question': question})
+            return render(request, self.template_name, ctx)
+
+        question.text = text
+        question.option_1 = option_1
+        question.option_2 = option_2
+        question.option_3 = option_3
+        question.correct_option = correct_option
+        question.save()
+            
+        messages.success(request, "Savol tahrirlandi.")
+        return redirect('test-base-list')
+
+
+class DepartmentTestBaseDeleteView(DepartmentAdminRequiredMixin, View):
+    def post(self, request, pk):
+        dept = _dept_for_admin(request.user)
+        question = get_object_or_404(DepartmentTestBaseQuestion, pk=pk, department=dept)
+        question.delete()
+        messages.success(request, "Savol o'chirildi.")
+        return redirect('test-base-list')
+
+
+class DepartmentTestBaseImportView(DepartmentAdminRequiredMixin, View):
+    def post(self, request):
+        dept = _dept_for_admin(request.user)
+        if not dept:
+            messages.error(request, "Boshqarma topilmadi.")
+            return redirect('dashboard')
+
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            messages.error(request, "Iltimos, fayl yuklang.")
+            return redirect('test-base-list')
+
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, "Faqat .csv formatidagi fayllarni yuklash mumkin.")
+            return redirect('test-base-list')
+
+        try:
+            # Decode the file contents
+            decoded_file = csv_file.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.reader(io_string, delimiter=',')
+            
+            # Skip the header
+            next(reader, None)
+
+            questions_to_create = []
+            skipped = 0
+            
+            for row in reader:
+                if len(row) < 5:
+                    skipped += 1
+                    continue
+                    
+                text = row[0].strip()
+                option_1 = row[1].strip()
+                option_2 = row[2].strip()
+                option_3 = row[3].strip()
+                correct_str = row[4].strip().upper()
+                
+                # Map correct option
+                if correct_str == 'A':
+                    correct_option = 1
+                elif correct_str == 'B':
+                    correct_option = 2
+                elif correct_str == 'C':
+                    correct_option = 3
+                else:
+                    skipped += 1
+                    continue
+                    
+                if not all([text, option_1, option_2, option_3]):
+                    skipped += 1
+                    continue
+
+                questions_to_create.append(
+                    DepartmentTestBaseQuestion(
+                        department=dept,
+                        text=text,
+                        option_1=option_1,
+                        option_2=option_2,
+                        option_3=option_3,
+                        correct_option=correct_option
+                    )
+                )
+
+            if questions_to_create:
+                DepartmentTestBaseQuestion.objects.bulk_create(questions_to_create)
+                messages.success(
+                    request, 
+                    f"Muvaffaqiyatli {len(questions_to_create)} ta savol yuklandi." 
+                    + (f" ({skipped} ta qator o'tkazib yuborildi)" if skipped else "")
+                )
+            else:
+                messages.warning(request, "Fayldan hech qanday to'g'ri savol topilmadi yoki barcha qatorlar xato.")
+
+        except Exception as e:
+            messages.error(request, f"Faylni o'qishda xatolik yuz berdi: {str(e)}")
+
+        return redirect('test-base-list')
+
+
 # ─── Department Admin views ──────────────────────────────────────────────────
 
 class AssessmentListView(DepartmentAdminRequiredMixin, View):
@@ -193,12 +389,40 @@ class AssessmentCreateView(DepartmentAdminRequiredMixin, View):
             ctx.update({'title': "Yangi test yaratish"})
             return render(request, self.template_name, ctx)
 
+        # Check if enough questions exist in the test base
+        test_base_questions = list(DepartmentTestBaseQuestion.objects.filter(department=dept))
+        if len(test_base_questions) < questions_count:
+            messages.error(
+                request,
+                f"Test bazasida yetarli savol yo'q. Bazada {len(test_base_questions)} ta savol mavjud, lekin siz {questions_count} ta kiritdingiz."
+            )
+            ctx = self.get_role_context()
+            ctx.update({'title': "Yangi test yaratish"})
+            return render(request, self.template_name, ctx)
+
         assessment = DepartmentAssessment.objects.create(
             department=dept, name=name, duration=duration,
             questions_count=questions_count, attempts_allowed=attempts_allowed,
             notes=notes, created_by=request.user,
         )
-        messages.success(request, f"'{name}' testi yaratildi. Endi savollar qo'shing.")
+
+        # Auto-populate questions
+        random.shuffle(test_base_questions)
+        selected_questions = test_base_questions[:questions_count]
+        questions_to_create = [
+            DepartmentAssessmentQuestion(
+                assessment=assessment,
+                text=q.text,
+                option_1=q.option_1,
+                option_2=q.option_2,
+                option_3=q.option_3,
+                correct_option=q.correct_option
+            )
+            for q in selected_questions
+        ]
+        DepartmentAssessmentQuestion.objects.bulk_create(questions_to_create)
+
+        messages.success(request, f"'{name}' testi yaratildi va test bazasidan {questions_count} ta savol olindi.")
         return redirect('assessment-detail', pk=assessment.pk)
 
 
@@ -209,8 +433,9 @@ class AssessmentDetailView(DepartmentAdminRequiredMixin, View):
         dept = _dept_for_admin(request.user)
         assessment = get_object_or_404(DepartmentAssessment, pk=pk, department=dept)
         questions = assessment.questions.all()
+        sections = dept.sections.all()
         ctx = self.get_role_context()
-        ctx.update({'assessment': assessment, 'questions': questions})
+        ctx.update({'assessment': assessment, 'questions': questions, 'sections': sections})
         return render(request, self.template_name, ctx)
 
 
@@ -240,14 +465,34 @@ class AssessmentPublishView(DepartmentAdminRequiredMixin, View):
             )
             return redirect('assessment-detail', pk=pk)
 
+        section_ids = request.POST.getlist('sections')
+        if not section_ids:
+            messages.error(request, "Iltimos, kamida bitta bo'limni tanlang.")
+            return redirect('assessment-detail', pk=pk)
+
         # Mark published
         assessment.is_published = True
         assessment.is_active = True
         assessment.published_at = timezone.now()
         assessment.save(update_fields=['is_published', 'is_active', 'published_at'])
 
-        # Send notifications to all section admins and workers
-        user_ids = _all_dept_users(dept)
+        # Send notifications only to selected sections
+        user_ids = set()
+        
+        # Check if 'all' is selected
+        if 'all' in section_ids:
+            user_ids = set(_all_dept_users(dept))
+        else:
+            # Gather users for selected sections
+            selected_sections = Section.objects.filter(id__in=section_ids, department=dept)
+            for section in selected_sections:
+                if section.supervisor_id:
+                    user_ids.add(section.supervisor_id)
+                for m in section.memberships.select_related('user'):
+                    user_ids.add(m.user_id)
+        
+        user_ids = list(user_ids)
+
         existing = set(
             DepartmentAssessmentNotification.objects.filter(
                 assessment=assessment
@@ -493,8 +738,10 @@ class AssessmentReportView(DepartmentAdminRequiredMixin, View):
         )
 
     def get(self, request, pk):
+        role = self.get_role_context()
         dept = _dept_for_admin(request.user)
         assessment = get_object_or_404(DepartmentAssessment, pk=pk, department=dept)
+        status = request.GET.get('status', 'all')
 
         # All sections in dept
         sections = _sections_for_assessment_scope(dept, request.user, role).prefetch_related('memberships__user__profile')

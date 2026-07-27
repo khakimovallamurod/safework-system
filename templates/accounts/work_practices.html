@@ -35,9 +35,11 @@
             </p>
         </div>
         {% if can_manage_work_practices and section %}
-        <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700">
-            <i class="bi bi-plus-circle"></i> Qo'shish
-        </button>
+        <div class="flex gap-2">
+            <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 shadow-sm">
+                <i class="bi bi-plus-circle text-lg"></i> Amaliyot qo'shish
+            </button>
+        </div>
         {% endif %}
     </div>
 
@@ -117,6 +119,9 @@
                         {% if can_manage_work_practices %}
                         <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-300 text-sky-600 transition hover:bg-sky-50" data-bs-toggle="modal" data-bs-target="#practiceAssignModal{{ practice.id }}" title="Amaliyotchi biriktirish">
                             <i class="bi bi-person-plus"></i>
+                        </button>
+                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-300 text-violet-600 transition hover:bg-violet-50" data-bs-toggle="modal" data-bs-target="#practiceTestModal{{ practice.id }}" title="Testlarni biriktirish">
+                            <i class="bi bi-journal-check"></i>
                         </button>
                         <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#practiceEditModal{{ practice.id }}" title="Tahrirlash">
                             <i class="bi bi-pencil-square"></i>
@@ -484,7 +489,7 @@
                         </select>
                     </div>
                     <div>
-                        <p class="mt-1 text-xs text-slate-500">Amaliyot yaratilgach, “Amaliyotchi biriktirish” orqali bir nechta ishchini qo'shasiz</p>
+                        <p class="mt-1 text-xs text-slate-500 bg-blue-50 p-3 rounded-lg border border-blue-100"><i class="bi bi-info-circle text-blue-500 mr-1"></i>Amaliyot yaratilgach, quyidagi amallar ustunidan <strong>"Amaliyotchi biriktirish"</strong> (<i class="bi bi-person-plus text-sky-500"></i>) orqali xodimlarni biriktirasiz. Test qo'shish uchun esa yuqoridagi <strong>"Test qo'shish"</strong> (<i class="bi bi-journal-plus text-violet-500"></i>) tugmasini bosing.</p>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-slate-700">Izoh</label>
@@ -525,6 +530,38 @@
                 <div class="modal-footer">
                     <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
                     <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="practiceTestModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{% url 'work-practice-assign-tests' practice.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Testlarni biriktirish: {{ practice.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body space-y-3">
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'limdagi mavjud testlar</label>
+                    <div class="space-y-2 max-h-60 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50">
+                        {% for test in section_tests %}
+                        <label class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
+                            <input type="checkbox" name="test_ids" value="{{ test.id }}" class="w-4 h-4 text-violet-600 rounded border-slate-300"
+                                   {% if test in practice.assigned_tests %}checked{% endif %} />
+                            <div class="text-sm font-medium text-slate-800">{{ test.name }}</div>
+                        </label>
+                        {% empty %}
+                        <div class="text-xs text-slate-500">Bo'limda testlar mavjud emas. Avval <a href="{% url 'companies:test_list' %}" class="text-violet-600 font-bold">Test boshqaruvi</a> orqali test yarating.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
+                    <button type="submit" class="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">Saqlash</button>
                 </div>
             </form>
         </div>
