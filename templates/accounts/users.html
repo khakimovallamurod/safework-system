@@ -9,13 +9,13 @@
             </h2>
             <p class="mt-1 text-sm text-slate-500">{{ page_description }}</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <form class="flex" method="get">
-                <input class="form-control min-w-[220px]" type="search" name="q" value="{{ q }}" placeholder="Ism, login, tashkilot..." onblur="this.form.submit()" />
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            <form class="flex w-full sm:w-auto" method="get">
+                <input class="form-control w-full sm:min-w-[220px]" type="search" name="q" value="{{ q }}" placeholder="Ism, login, tashkilot..." onblur="this.form.submit()" />
                 <input type="hidden" name="organization" value="{{ selected_organization }}" />
             </form>
-            <form method="get">
-                <select class="form-select min-w-[240px]" name="organization" onchange="this.form.submit()">
+            <form class="w-full sm:w-auto" method="get">
+                <select class="form-select w-full sm:min-w-[240px]" name="organization" onchange="this.form.submit()">
                     <option value="">Tashkilotni tanlang</option>
                     {% for organization in organizations %}
                         <option value="{{ organization }}" {% if selected_organization == organization %}selected{% endif %}>{{ organization }}</option>

@@ -6,6 +6,18 @@ from industries.models import Industry
 User = get_user_model()
 
 
+class Region(models.Model):
+    name = models.CharField(max_length=255, unique=True, verbose_name="Viloyat nomi")
+
+    class Meta:
+        ordering = ['name']
+        db_table = 'viloyat'
+        verbose_name_plural = 'Regions'
+
+    def __str__(self):
+        return self.name
+
+
 class UserProfile(models.Model):
     ROLE_SUPER_ADMIN = 'super_admin'
     ROLE_ORG_LEADER = 'organization_leader'
@@ -45,6 +57,14 @@ class UserProfile(models.Model):
         null=True,
         blank=True,
         related_name='user_profiles',
+    )
+    region = models.ForeignKey(
+        Region,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_profiles',
+        verbose_name='Viloyat'
     )
     department = models.ForeignKey(
         'companies.Department',

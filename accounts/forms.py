@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
-from accounts.models import UserProfile
+from accounts.models import UserProfile, Region
 from companies.models import (
     Department,
     EmployeeMedicalRecord,
@@ -157,13 +157,23 @@ class OrganizationLeaderSignUpForm(BaseRegistrationForm):
             }
         ),
     )
+    region = forms.ModelChoiceField(
+        label='Viloyatni tanlang',
+        queryset=Region.objects.order_by('name'),
+        empty_label='Viloyatni tanlang',
+        widget=forms.Select(
+            attrs={
+                'class': 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10',
+            }
+        ),
+    )
 
     class Meta(BaseRegistrationForm.Meta):
-        fields = ('first_name', 'last_name', 'middle_name', 'username', 'organization_name', 'industry', 'address')
+        fields = ('first_name', 'last_name', 'middle_name', 'username', 'organization_name', 'industry', 'region', 'address')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.order_fields(['first_name', 'last_name', 'middle_name', 'username', 'organization_name', 'industry', 'address', 'password1', 'password2'])
+        self.order_fields(['first_name', 'last_name', 'middle_name', 'username', 'organization_name', 'industry', 'region', 'address', 'password1', 'password2'])
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -178,6 +188,7 @@ class OrganizationLeaderSignUpForm(BaseRegistrationForm):
                 organization_name=self.cleaned_data['organization_name'],
                 address=self.cleaned_data.get('address', ''),
                 industry=self.cleaned_data['industry'],
+                region=self.cleaned_data['region'],
                 is_new_registration=True,
             )
             profile = user.profile
@@ -197,9 +208,19 @@ class WorkerSignUpForm(BaseRegistrationForm):
             }
         ),
     )
+    region = forms.ModelChoiceField(
+        label='Viloyatni tanlang',
+        queryset=Region.objects.order_by('name'),
+        empty_label='Viloyatni tanlang',
+        widget=forms.Select(
+            attrs={
+                'class': 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10',
+            }
+        ),
+    )
 
     class Meta(BaseRegistrationForm.Meta):
-        fields = ('first_name', 'last_name', 'middle_name', 'username', 'organization', 'address')
+        fields = ('first_name', 'last_name', 'middle_name', 'username', 'organization', 'region', 'address')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -212,7 +233,7 @@ class WorkerSignUpForm(BaseRegistrationForm):
             f"{profile.organization_name or profile.full_name}"
             f"{f' ({profile.industry.name})' if profile.industry else ''}"
         )
-        self.order_fields(['first_name', 'last_name', 'middle_name', 'username', 'organization', 'address', 'password1', 'password2'])
+        self.order_fields(['first_name', 'last_name', 'middle_name', 'username', 'organization', 'region', 'address', 'password1', 'password2'])
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -227,6 +248,7 @@ class WorkerSignUpForm(BaseRegistrationForm):
                 organization=self.cleaned_data['organization'],
                 organization_name=self.cleaned_data['organization'].organization_name,
                 industry=self.cleaned_data['organization'].industry,
+                region=self.cleaned_data['region'],
                 address=self.cleaned_data.get('address', ''),
             )
         return user
@@ -725,6 +747,7 @@ class ProfileEditForm(forms.Form):
     email = forms.EmailField(label='Elektron pochta', required=False, widget=forms.EmailInput(attrs=_field_attrs('Elektron pochta')))
     position = forms.CharField(label='Lavozim', required=False, max_length=255, widget=forms.TextInput(attrs=_field_attrs('Lavozim')))
     address = forms.CharField(label='Manzil', required=False, widget=forms.Textarea(attrs={**_field_attrs('Manzil'), 'rows': 2}))
+    region = forms.ModelChoiceField(queryset=Region.objects.all(), label='Viloyat', required=False, widget=forms.Select(attrs=_field_attrs('Viloyat')))
     organization_name = forms.CharField(label='Tashkilot nomi', required=False, max_length=255, widget=forms.TextInput(attrs=_field_attrs('Tashkilot nomi')))
     industry = forms.ModelChoiceField(queryset=Industry.objects.all(), label='Soha', required=False, widget=forms.Select(attrs=_field_attrs('Soha')))
     profile_photo = forms.ImageField(
@@ -764,6 +787,7 @@ class ProfileEditForm(forms.Form):
             self.fields['phone'].initial = profile.phone_number or user.username
             self.fields['position'].initial = profile.position
             self.fields['address'].initial = profile.address
+            self.fields['region'].initial = profile.region
             
             if profile.role == UserProfile.ROLE_ORG_LEADER:
                 self.fields['organization_name'].initial = profile.organization_name
@@ -825,6 +849,8 @@ class ProfileEditForm(forms.Form):
         profile.phone_number = phone
         profile.position = self.cleaned_data.get('position', '')
         profile.address = self.cleaned_data.get('address', '')
+        if 'region' in self.cleaned_data:
+            profile.region = self.cleaned_data.get('region')
         
         if profile.role == UserProfile.ROLE_ORG_LEADER:
             profile.organization_name = self.cleaned_data.get('organization_name', '')

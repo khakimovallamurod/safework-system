@@ -22,32 +22,48 @@
 </div>
 
 <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-    <div class="border-b border-slate-100 bg-slate-50 px-5 py-4">
+    <div class="border-b border-slate-100 bg-slate-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 class="font-bold text-slate-900">Tashkilotlar ro'yxati va ko'rsatkichlari</h2>
+        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <select id="filterIndustry" class="rounded-lg border-slate-300 py-1.5 pl-3 pr-8 text-sm focus:border-emerald-500 focus:ring-emerald-500 outline-none border bg-white w-full sm:w-auto">
+                <option value="">Barcha sohalar</option>
+                {% for ind in industries_list %}
+                <option value="{{ ind }}">{{ ind }}</option>
+                {% endfor %}
+            </select>
+            <select id="filterRegion" class="rounded-lg border-slate-300 py-1.5 pl-3 pr-8 text-sm focus:border-emerald-500 focus:ring-emerald-500 outline-none border bg-white w-full sm:w-auto">
+                <option value="">Barcha viloyatlar</option>
+                {% for reg in regions_list %}
+                <option value="{{ reg }}">{{ reg }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
-                    <th class="px-5 py-3 font-semibold">Tashkilot / Rahbar</th>
-                    <th class="px-5 py-3 font-semibold">Soha</th>
-                    <th class="px-5 py-3 font-semibold text-center">Boshqarmalar</th>
-                    <th class="px-5 py-3 font-semibold text-center">Bo'limlar</th>
-                    <th class="px-5 py-3 font-semibold">Xodimlar taqsimoti</th>
+                    <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="name">Tashkilot / Rahbar <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
+                    <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="industry">Soha <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
+                    <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="region">Viloyat <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
+                    <th class="px-5 py-3 font-semibold text-center cursor-pointer select-none hover:text-emerald-600 transition" data-sort="depts">Boshqarmalar <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
+                    <th class="px-5 py-3 font-semibold text-center cursor-pointer select-none hover:text-emerald-600 transition" data-sort="sections">Bo'limlar <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
+                    <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="workers">Xodimlar <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
                     <th class="px-5 py-3 font-semibold text-right">Amallar</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody id="orgTableBody" class="divide-y divide-slate-100">
                 {% for stat in org_stats %}
-                <tr class="hover:bg-slate-50/50">
-                    <td class="px-5 py-4">
+                <tr class="hover:bg-slate-50/50 org-row" data-industry="{{ stat.industry }}" data-region="{{ stat.region }}">
+                    <td class="px-5 py-4" data-value="{{ stat.org_name }}">
                         <div class="font-bold text-slate-900">{{ stat.org_name }}</div>
                         <div class="text-xs text-slate-500">{{ stat.leader.full_name }}</div>
                     </td>
-                    <td class="px-5 py-4 text-slate-600">{{ stat.industry }}</td>
-                    <td class="px-5 py-4 text-center font-medium text-slate-700">{{ stat.departments_count }}</td>
-                    <td class="px-5 py-4 text-center font-medium text-slate-700">{{ stat.sections_count }}</td>
-                    <td class="px-5 py-4">
+                    <td class="px-5 py-4 text-slate-600" data-value="{{ stat.industry }}">{{ stat.industry }}</td>
+                    <td class="px-5 py-4 text-slate-600" data-value="{{ stat.region }}">{{ stat.region }}</td>
+                    <td class="px-5 py-4 text-center font-medium text-slate-700" data-value="{{ stat.departments_count }}">{{ stat.departments_count }}</td>
+                    <td class="px-5 py-4 text-center font-medium text-slate-700" data-value="{{ stat.sections_count }}">{{ stat.sections_count }}</td>
+                    <td class="px-5 py-4" data-value="{{ stat.workers_count }}">
                         <div class="flex items-center justify-between text-xs mb-1">
                             <span class="font-bold text-slate-700">{{ stat.workers_count }} xodim</span>
                             <span class="text-slate-500">{{ stat.workers_percent }}%</span>
@@ -78,11 +94,87 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="px-5 py-8 text-center text-slate-500">Tashkilotlar mavjud emas</td>
+                    <td colspan="7" class="px-5 py-8 text-center text-slate-500">Tashkilotlar mavjud emas</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const industrySelect = document.getElementById('filterIndustry');
+        const regionSelect = document.getElementById('filterRegion');
+        const tbody = document.getElementById('orgTableBody');
+        const rows = Array.from(tbody.querySelectorAll('.org-row'));
+
+        function applyFilters() {
+            const indFilter = industrySelect.value;
+            const regFilter = regionSelect.value;
+            
+            rows.forEach(row => {
+                const rInd = row.getAttribute('data-industry');
+                const rReg = row.getAttribute('data-region');
+                let matchInd = !indFilter || rInd === indFilter;
+                let matchReg = !regFilter || rReg === regFilter;
+                
+                if (matchInd && matchReg) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        industrySelect.addEventListener('change', applyFilters);
+        regionSelect.addEventListener('change', applyFilters);
+
+        // Sorting
+        let currentSortCol = null;
+        let currentSortAsc = true;
+
+        document.querySelectorAll('th[data-sort]').forEach(th => {
+            th.addEventListener('click', () => {
+                const sortType = th.getAttribute('data-sort');
+                let colIndex = 0;
+                if (sortType === 'name') colIndex = 0;
+                else if (sortType === 'industry') colIndex = 1;
+                else if (sortType === 'region') colIndex = 2;
+                else if (sortType === 'depts') colIndex = 3;
+                else if (sortType === 'sections') colIndex = 4;
+                else if (sortType === 'workers') colIndex = 5;
+
+                if (currentSortCol === sortType) {
+                    currentSortAsc = !currentSortAsc;
+                } else {
+                    currentSortAsc = true;
+                    currentSortCol = sortType;
+                }
+
+                const visibleRows = Array.from(tbody.querySelectorAll('.org-row'));
+                
+                visibleRows.sort((a, b) => {
+                    const aCell = a.children[colIndex];
+                    const bCell = b.children[colIndex];
+                    let aVal = aCell.getAttribute('data-value');
+                    let bVal = bCell.getAttribute('data-value');
+                    
+                    // Convert to numbers if numeric
+                    if (!isNaN(aVal) && !isNaN(bVal)) {
+                        aVal = parseFloat(aVal);
+                        bVal = parseFloat(bVal);
+                    }
+
+                    if (aVal < bVal) return currentSortAsc ? -1 : 1;
+                    if (aVal > bVal) return currentSortAsc ? 1 : -1;
+                    return 0;
+                });
+
+                // Re-append sorted rows
+                visibleRows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    });
+</script>
 {% endblock %}

@@ -57,7 +57,7 @@ from accounts.mixins import (
     SectionMemberRequiredMixin,
     SuperuserActionRequiredMixin,
 )
-from accounts.models import UserActivitySummary, UserProfile
+from accounts.models import UserActivitySummary, UserProfile, Region
 from companies.models import (
     Company,
     Department,
@@ -830,6 +830,40 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
                 role=UserProfile.ROLE_ORG_LEADER,
                 is_new_registration=True,
             ).count()
+
+            # Region stats for charts
+            from accounts.models import Region
+            regions_qs = Region.objects.annotate(
+                org_count=Count('user_profiles', filter=Q(user_profiles__role=UserProfile.ROLE_ORG_LEADER)),
+                worker_count=Count('user_profiles', filter=Q(user_profiles__role=UserProfile.ROLE_WORKER)),
+            ).order_by('name')
+            
+            labels = []
+            orgs = []
+            workers = []
+            for r in regions_qs:
+                labels.append(r.name)
+                orgs.append(r.org_count)
+                workers.append(r.worker_count)
+                
+            context['chart_data_json'] = json.dumps({
+                'labels': labels,
+                'orgs': orgs,
+                'workers': workers
+            })
+
+            # Industry stats for the table/simple bars
+            industry_counts = UserProfile.objects.filter(
+                role__in=[UserProfile.ROLE_WORKER, UserProfile.ROLE_ORG_LEADER]
+            ).values('industry__name').annotate(total=Count('id')).order_by('-total')
+            
+            context['industry_stats'] = [
+                {
+                    'label': item['industry__name'] or 'Soha belgilanmagan',
+                    'value': item['total'],
+                }
+                for item in industry_counts
+            ]
         elif role_context.get('is_department_admin') and role_context['user_profile']:
             profile = role_context['user_profile']
             department = profile.department
@@ -4178,6 +4212,7 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
                 'leader': leader,
                 'org_name': leader.organization_name or leader.full_name,
                 'industry': leader.industry.name if leader.industry else '-',
+                'region': leader.region.name if leader.region else '-',
                 'departments_count': dept_count,
                 'sections_count': section_count,
                 'workers_count': workers_count,
@@ -4185,6 +4220,10 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
             })
             
         org_stats.sort(key=lambda x: x['workers_count'], reverse=True)
+        
+        # Get distinct regions and industries for filters
+        context['regions_list'] = Region.objects.values_list('name', flat=True).order_by('name')
+        context['industries_list'] = Industry.objects.values_list('name', flat=True).order_by('name')
         
         context['org_stats'] = org_stats
         context['total_workers'] = total_workers
