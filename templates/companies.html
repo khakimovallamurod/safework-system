@@ -4,7 +4,7 @@
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-lg font-semibold text-slate-900">
-            <i class="bi bi-buildings mr-2 text-emerald-600"></i>Kompaniyalar ro'yxati
+            <i class="bi bi-buildings mr-2 text-emerald-600"></i>Boshqarmalar ro'yxati
         </h2>
         <div class="flex flex-wrap items-center gap-2">
             <form class="flex" method="get">
@@ -14,67 +14,52 @@
                     type="search"
                     name="q"
                     value="{{ q }}"
-                    placeholder="Kompaniya qidirish"
+                    placeholder="Boshqarma qidirish"
                     onblur="this.form.submit()"
                 />
                 <input type="hidden" name="sort" value="{{ sort }}" />
                 <input type="hidden" name="dir" value="{{ dir }}" />
             </form>
-            {% if is_super_admin %}
-                <button class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700" data-bs-toggle="modal" data-bs-target="#companyAddModal" type="button">
-                    <i class="bi bi-plus-circle"></i> Qo'shish
-                </button>
-            {% endif %}
         </div>
     </div>
-
-    <div id="company-tools" data-table-id="company-table" data-search-id="company-search"></div>
 
     <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table id="company-table" class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                     <th class="px-4 py-3 w-16"><a class="table-head-link" href="?q={{ q }}&sort=id&dir={% if sort == 'id' and dir == 'asc' %}desc{% else %}asc{% endif %}">#</a></th>
-                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=company_name&dir={% if sort == 'company_name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Kompaniya</a></th>
-                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=industry&dir={% if sort == 'industry' and dir == 'asc' %}desc{% else %}asc{% endif %}">Soha</a></th>
-                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=username&dir={% if sort == 'username' and dir == 'asc' %}desc{% else %}asc{% endif %}">Login</a></th>
-                    <th class="px-4 py-3">Parol</th>
-                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=created_at&dir={% if sort == 'created_at' and dir == 'asc' %}desc{% else %}asc{% endif %}">Yaratilgan</a></th>
-                    {% if is_super_admin %}
-                        <th class="px-4 py-3 text-right w-32">Amallar</th>
-                    {% endif %}
+                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Boshqarma nomi</a></th>
+                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=leader&dir={% if sort == 'leader' and dir == 'asc' %}desc{% else %}asc{% endif %}">Tashkilot</a></th>
+                    <th class="px-4 py-3 text-center">Nazoratchi</th>
+                    <th class="px-4 py-3 text-center">Bo'limlar</th>
+                    <th class="px-4 py-3 text-center">Xodimlar</th>
+                    <th class="px-4 py-3 text-right"><a class="table-head-link" href="?q={{ q }}&sort=created_at&dir={% if sort == 'created_at' and dir == 'asc' %}desc{% else %}asc{% endif %}">Yaratilgan</a></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
-                {% for company in companies %}
+                {% for dept in departments %}
                     <tr class="hover:bg-slate-50">
                         <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span></td>
-                        <td class="px-4 py-3 font-semibold text-slate-900">{{ company.company_name }}</td>
-                        <td class="px-4 py-3"><span class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{{ company.industry.name }}</span></td>
-                        <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white">{{ company.username }}</span></td>
+                        <td class="px-4 py-3 font-bold text-slate-900">{{ dept.name }}</td>
                         <td class="px-4 py-3">
-                            <div class="flex max-w-[210px] overflow-hidden rounded-xl border border-slate-300">
-                                <input id="pw-{{ company.id }}" type="password" class="w-full border-0 px-3 py-1.5 text-sm outline-none" value="{{ company.password }}" readonly />
-                                <button class="grid w-10 place-items-center border-l border-slate-300 text-slate-600 hover:bg-slate-50" type="button" onclick="togglePassword('pw-{{ company.id }}', this)">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                            </div>
+                            <span class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                                {{ dept.leader.organization_name|default:dept.leader.full_name }}
+                            </span>
                         </td>
-                        <td class="px-4 py-3 text-slate-500">{{ company.created_at|date:'Y-m-d H:i' }}</td>
-                        {% if is_super_admin %}
-                            <td class="px-4 py-3 text-right">
-                                <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#companyEditModal{{ company.id }}" type="button">
-                                    <i class="bi bi-pencil-square"></i>
-                                </button>
-                                <button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#companyDeleteModal{{ company.id }}" type="button">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        {% endif %}
+                        <td class="px-4 py-3 text-center text-slate-600">
+                            {% if dept.supervisor %}
+                                <div class="font-medium text-slate-800">{{ dept.supervisor.profile.full_name|default:dept.supervisor.username }}</div>
+                            {% else %}
+                                <span class="text-xs italic text-slate-400">Biriktirilmagan</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center font-semibold text-slate-700">{{ dept.sections_count }}</td>
+                        <td class="px-4 py-3 text-center font-semibold text-slate-700">{{ dept.workers_count }}</td>
+                        <td class="px-4 py-3 text-right text-slate-500">{{ dept.created_at|date:'Y-m-d' }}</td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="{% if is_super_admin %}7{% else %}6{% endif %}" class="px-4 py-10 text-center text-slate-400">
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-400">
                             <i class="bi bi-inbox mb-2 block text-2xl"></i>Ma'lumot topilmadi
                         </td>
                     </tr>
@@ -83,96 +68,4 @@
         </table>
     </div>
 </div>
-
-{% if is_super_admin %}
-<div class="modal fade" id="companyAddModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" action="{% url 'companies:create' %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Yangi kompaniya qo'shish</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
-                </div>
-                <div class="modal-body space-y-3">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_company_name">Kompaniya nomi</label>
-                    {{ form.company_name }}
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_industry">Soha</label>
-                    {{ form.industry }}
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
-                    <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">Saqlash</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-{% for company in companies %}
-<div class="modal fade" id="companyEditModal{{ company.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" action="{% url 'companies:edit' company.id %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Kompaniya tahrirlash</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
-                </div>
-                <div class="modal-body space-y-3">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Kompaniya nomi</label>
-                    <input type="text" name="company_name" value="{{ company.company_name }}" class="form-control" required />
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Soha</label>
-                    <select name="industry" class="form-select" required>
-                        {% for ind in industries %}
-                            <option value="{{ ind.id }}" {% if ind.id == company.industry.id %}selected{% endif %}>{{ ind.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
-                    <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">Yangilash</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="companyDeleteModal{{ company.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Tasdiqlash</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-sm text-slate-700"><strong>{{ company.company_name }}</strong> kompaniyasini o'chirmoqchimisiz?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
-                <form method="post" action="{% url 'companies:delete' company.id %}" class="m-0">
-                    {% csrf_token %}
-                    <button class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700" type="submit">Ha, o'chirish</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
-{% endif %}
-
-<script>
-function togglePassword(inputId, btn) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    const icon = btn.querySelector('i');
-    if (input.type === 'password') {
-        input.type = 'text';
-        if (icon) icon.className = 'bi bi-eye-slash';
-    } else {
-        input.type = 'password';
-        if (icon) icon.className = 'bi bi-eye';
-    }
-}
-</script>
 {% endblock %}

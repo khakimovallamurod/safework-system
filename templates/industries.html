@@ -35,6 +35,7 @@
                 <tr>
                     <th class="px-4 py-3 w-16"><a class="table-head-link" href="?q={{ q }}&sort=id&dir={% if sort == 'id' and dir == 'asc' %}desc{% else %}asc{% endif %}">#</a></th>
                     <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Nomi</a></th>
+                    <th class="px-4 py-3">Biriktirilgan tashkilotlar</th>
                     <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}&sort=created_at&dir={% if sort == 'created_at' and dir == 'asc' %}desc{% else %}asc{% endif %}">Yaratilgan sana</a></th>
                     {% if is_super_admin %}
                         <th class="px-4 py-3 text-right w-32">Amallar</th>
@@ -48,6 +49,21 @@
                             <span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span>
                         </td>
                         <td class="px-4 py-3 font-medium text-slate-900">{{ industry.name }}</td>
+                        <td class="px-4 py-3 text-xs text-slate-600">
+                            {% if industry.organizations %}
+                                <div class="font-semibold text-emerald-600 mb-1">{{ industry.organizations|length }} ta tashkilot</div>
+                                <div class="flex flex-wrap gap-1">
+                                    {% for org in industry.organizations|slice:":3" %}
+                                        <span class="inline-flex rounded bg-slate-100 px-2 py-0.5 border border-slate-200" title="{{ org.organization_name|default:org.full_name }}">{{ org.organization_name|default:org.full_name|truncatechars:20 }}</span>
+                                    {% endfor %}
+                                    {% if industry.organizations|length > 3 %}
+                                        <span class="inline-flex rounded bg-slate-100 px-2 py-0.5 border border-slate-200">... va yana {{ industry.organizations|length|add:"-3" }}</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="text-slate-400 italic">Biriktirilmagan</span>
+                            {% endif %}
+                        </td>
                         <td class="px-4 py-3 text-slate-500">{{ industry.created_at|date:'Y-m-d H:i' }}</td>
                         {% if is_super_admin %}
                             <td class="px-4 py-3 text-right">
@@ -62,7 +78,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="{% if is_super_admin %}4{% else %}3{% endif %}" class="px-4 py-10 text-center text-slate-400">
+                        <td colspan="{% if is_super_admin %}5{% else %}4{% endif %}" class="px-4 py-10 text-center text-slate-400">
                             <i class="bi bi-inbox mb-2 block text-2xl"></i>Ma'lumot topilmadi
                         </td>
                     </tr>

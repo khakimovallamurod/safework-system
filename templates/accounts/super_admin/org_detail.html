@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ leader_profile.organization_name }} - Tashkilot tafsilotlari{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+        <a href="{% url 'org-stats' %}" class="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900">
+            <i class="bi bi-arrow-left text-lg"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">{{ leader_profile.organization_name|default:leader_profile.full_name }}</h1>
+            <p class="mt-1 text-sm text-slate-500">
+                Rahbar: <span class="font-semibold text-slate-700">{{ leader_profile.full_name }}</span> 
+                {% if leader_profile.user.is_active %}
+                    <span class="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><i class="bi bi-check-circle-fill text-[10px]"></i> Faol</span>
+                {% else %}
+                    <span class="ml-2 inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"><i class="bi bi-lock-fill text-[10px]"></i> Bloklangan</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <div class="flex items-center gap-3">
+        <form action="{% url 'toggle-block' leader_profile.user.id %}" method="post" onsubmit="return confirm('Ishonchingiz komilmi?');">
+            {% csrf_token %}
+            {% if leader_profile.user.is_active %}
+                <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700">
+                    <i class="bi bi-lock"></i> Bloklash
+                </button>
+            {% else %}
+                <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                    <i class="bi bi-unlock"></i> Faollashtirish
+                </button>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="mb-6 grid gap-4 sm:grid-cols-3">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="text-sm font-semibold text-slate-500 mb-1">Boshqarmalar</div>
+        <div class="text-3xl font-extrabold text-slate-900">{{ departments_count }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="text-sm font-semibold text-slate-500 mb-1">Bo'limlar</div>
+        <div class="text-3xl font-extrabold text-slate-900">{{ sections_count }}</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="text-sm font-semibold text-slate-500 mb-1">Jami xodimlar</div>
+        <div class="text-3xl font-extrabold text-slate-900">{{ workers_count }}</div>
+    </div>
+</div>
+
+<div class="mb-6 grid gap-6 lg:grid-cols-2">
+    <!-- Departments List -->
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col max-h-[400px]">
+        <div class="border-b border-slate-100 bg-slate-50 px-5 py-4 shrink-0">
+            <h2 class="font-bold text-slate-900"><i class="bi bi-building me-2 text-brand-500"></i> Boshqarmalar ro'yxati</h2>
+        </div>
+        <div class="overflow-y-auto p-0 flex-1">
+            <ul class="divide-y divide-slate-100">
+                {% for dept in departments %}
+                <li class="px-5 py-3 hover:bg-slate-50/50 transition">
+                    <div class="font-semibold text-slate-800">{{ dept.name }}</div>
+                    <div class="mt-0.5 text-xs text-slate-500">
+                        Nazoratchi: {% if dept.supervisor %}{{ dept.supervisor.profile.full_name }}{% else %}Biriktirilmagan{% endif %}
+                    </div>
+                </li>
+                {% empty %}
+                <li class="px-5 py-6 text-center text-sm text-slate-500">Boshqarmalar kiritilmagan</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Sections List -->
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col max-h-[400px]">
+        <div class="border-b border-slate-100 bg-slate-50 px-5 py-4 shrink-0">
+            <h2 class="font-bold text-slate-900"><i class="bi bi-diagram-2 me-2 text-brand-500"></i> Bo'limlar ro'yxati</h2>
+        </div>
+        <div class="overflow-y-auto p-0 flex-1">
+            <ul class="divide-y divide-slate-100">
+                {% for section in sections %}
+                <li class="px-5 py-3 hover:bg-slate-50/50 transition">
+                    <div class="font-semibold text-slate-800">{{ section.name }}</div>
+                    <div class="mt-0.5 text-xs text-slate-500">
+                        Boshqarma: {{ section.department.name }} <br/>
+                        Nazoratchi: {% if section.supervisor %}{{ section.supervisor.profile.full_name }}{% else %}Biriktirilmagan{% endif %}
+                    </div>
+                </li>
+                {% empty %}
+                <li class="px-5 py-6 text-center text-sm text-slate-500">Bo'limlar kiritilmagan</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Workers List -->
+<div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="border-b border-slate-100 bg-slate-50 px-5 py-4 flex items-center justify-between">
+        <h2 class="font-bold text-slate-900"><i class="bi bi-people me-2 text-brand-500"></i> Barcha xodimlar</h2>
+        <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{{ workers_count }} kishi</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-200">
+                <tr>
+                    <th class="px-5 py-3 font-semibold">F.I.SH</th>
+                    <th class="px-5 py-3 font-semibold">Boshqarma / Bo'lim</th>
+                    <th class="px-5 py-3 font-semibold">Lavozimi</th>
+                    <th class="px-5 py-3 font-semibold">Aloqa</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for worker in workers %}
+                <tr class="hover:bg-slate-50/50 transition">
+                    <td class="px-5 py-4">
+                        <div class="flex items-center gap-3">
+                            {% if worker.profile_photo %}
+                                <img src="{{ worker.profile_photo.url }}" class="h-10 w-10 rounded-full object-cover border border-slate-200" alt="photo">
+                            {% else %}
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                            {% endif %}
+                            <div>
+                                <div class="font-bold text-slate-900">{{ worker.full_name }}</div>
+                                <div class="text-[11px] text-slate-500">Login: {{ worker.user.username }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-600">
+                        {% if worker.department %}
+                            <div class="font-medium">{{ worker.department.name }}</div>
+                        {% else %}
+                            <div class="text-slate-400 italic">Boshqarma yo'q</div>
+                        {% endif %}
+                        
+                        {% if worker.section %}
+                            <div class="text-xs text-slate-500 mt-0.5">{{ worker.section.name }}</div>
+                        {% else %}
+                            <div class="text-xs text-slate-400 italic mt-0.5">Bo'lim yo'q</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-700">
+                        {{ worker.position|default:"<span class='text-slate-400 italic'>Ko'rsatilmagan</span>"|safe }}
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-600">
+                        <div>{{ worker.phone_number|default:"-" }}</div>
+                        {% if worker.user.email %}
+                            <div class="text-xs text-slate-400 mt-0.5">{{ worker.user.email }}</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-5 py-12 text-center text-slate-500">
+                        <i class="bi bi-people text-4xl text-slate-300 block mb-3"></i>
+                        Xodimlar topilmadi
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

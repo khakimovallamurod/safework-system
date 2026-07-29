@@ -720,6 +720,7 @@ def _build_worker_dashboard(user):
     assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user=user, finished_at__isnull=False)
     practice_assignments = SectionWorkPracticeAssignee.objects.filter(user=user)
     practice_attempts = WorkPracticeTestAttempt.objects.filter(user=user, finished_at__isnull=False)
+    medical_records = EmployeeMedicalRecord.objects.filter(user=user).order_by('-start_date', '-created_at')
     unread_section_messages = SectionMessageReceipt.objects.filter(user=user, is_read=False).count()
     unread_practice_messages = SectionWorkPracticeMessageReceipt.objects.filter(user=user, is_read=False).count()
 
@@ -1656,6 +1657,163 @@ class OrganizationEntryGuidelineOverviewView(OrgLeaderRequiredMixin, TemplateVie
                 'selected_department': department_id,
                 'page_title': 'Kirish yo‘riqnomalari nazorati',
                 'page_description': 'Boshqarmalar yaratgan kirish yo‘riqnomalari va xodimlar qabul holati.',
+            }
+        )
+        return context
+
+
+class OrganizationInternalGuidelineOverviewView(OrgLeaderRequiredMixin, TemplateView):
+    template_name = 'accounts/org_internal_guidelines.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        departments = _org_leader_departments(self.request.user)
+        department_id = self.request.GET.get('department', '').strip()
+        
+        from companies.models import SectionInternalGuideline
+        guidelines = (
+            SectionInternalGuideline.objects.filter(section__department__in=departments)
+            .select_related('section', 'section__department', 'created_by', 'created_by__profile')
+            .prefetch_related('dispatches__recipients')
+            .order_by('section__department__name', '-created_at')
+        )
+        if department_id.isdigit():
+            guidelines = guidelines.filter(section__department_id=int(department_id))
+
+        rows = []
+        for guideline in guidelines:
+            latest_dispatch = guideline.dispatches.order_by('-sent_at').first()
+            total = latest_dispatch.recipients.count() if latest_dispatch else 0
+            accepted = latest_dispatch.recipients.filter(is_acknowledged=True).count() if latest_dispatch else 0
+            rows.append(
+                {
+                    'guideline': guideline,
+                    'latest_dispatch': latest_dispatch,
+                    'total': total,
+                    'accepted': accepted,
+                    'pending': max(total - accepted, 0),
+                    'accepted_percent': _percent(accepted, total),
+                }
+            )
+
+        context.update(
+            self.get_role_context()
+            | {
+                'departments': departments,
+                'rows': rows,
+                'selected_department': department_id,
+                'page_title': 'Bo‘lim ichki yo‘riqnomalari nazorati',
+                'page_description': 'Bo‘limlar tomonidan yaratilgan ichki yo‘riqnomalar va ularning qabul qilinish holati.',
+            }
+        )
+        return context
+
+
+class OrganizationMandatoryGuidelineOverviewView(OrgLeaderRequiredMixin, TemplateView):
+    template_name = 'accounts/org_mandatory_guidelines.html'
+    type_titles = dict(MandatoryGuideline.TYPE_CHOICES)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        departments = _org_leader_departments(self.request.user)
+        department_id = self.request.GET.get('department', '').strip()
+        selected_type = self.request.GET.get('type', '').strip()
+        
+        guidelines = (
+            MandatoryGuideline.objects.filter(department__in=departments)
+            .select_related('department')
+            .prefetch_related('receipts')
+            .order_by('department__name', '-created_at')
+        )
+        if department_id.isdigit():
+            guidelines = guidelines.filter(department_id=int(department_id))
+        if selected_type in self.type_titles:
+            guidelines = guidelines.filter(guideline_type=selected_type)
+
+        rows = []
+        for guideline in guidelines:
+            # Barcha department xodimlari soni
+            total_workers = User.objects.filter(
+                profile__department=guideline.department,
+                profile__role=UserProfile.ROLE_WORKER
+            ).count()
+            
+            accepted = guideline.receipts.filter(is_acknowledged=True).count()
+            
+            rows.append(
+                {
+                    'guideline': guideline,
+                    'total': total_workers,
+                    'accepted': accepted,
+                    'pending': max(total_workers - accepted, 0),
+                    'accepted_percent': _percent(accepted, total_workers),
+                }
+            )
+
+        context.update(
+            self.get_role_context()
+            | {
+                'departments': departments,
+                'rows': rows,
+                'selected_department': department_id,
+                'selected_type': selected_type,
+                'type_titles': self.type_titles,
+                'page_title': 'Majburiy yo‘riqnomalar nazorati',
+                'page_description': 'Boshqarmalar tomonidan biriktirilgan majburiy yo‘riqnomalar va xodimlarning tasdiqlash holati.',
+            }
+        )
+        return context
+
+
+class OrganizationProfessionGuidelineOverviewView(OrgLeaderRequiredMixin, TemplateView):
+    template_name = 'accounts/org_profession_guidelines.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        departments = _org_leader_departments(self.request.user)
+        department_id = self.request.GET.get('department', '').strip()
+        
+        # We need to get professions that have a guideline (nizom_file)
+        from professions.models import Profession
+        professions = Profession.objects.filter(nizom_file__isnull=False).order_by('name')
+
+        rows = []
+        for profession in professions:
+            # Users assigned this profession in these departments
+            memberships = SectionMembership.objects.filter(
+                section__department__in=departments,
+                profession=profession
+            )
+            if department_id.isdigit():
+                memberships = memberships.filter(section__department_id=int(department_id))
+                
+            total_workers = memberships.count()
+            if total_workers == 0:
+                continue
+
+            accepted = ProfessionGuidelineReceipt.objects.filter(
+                membership__in=memberships,
+                is_acknowledged=True
+            ).count()
+            
+            rows.append(
+                {
+                    'profession': profession,
+                    'total': total_workers,
+                    'accepted': accepted,
+                    'pending': max(total_workers - accepted, 0),
+                    'accepted_percent': _percent(accepted, total_workers),
+                }
+            )
+
+        context.update(
+            self.get_role_context()
+            | {
+                'departments': departments,
+                'rows': rows,
+                'selected_department': department_id,
+                'page_title': 'Kasb yo‘riqnomalari nazorati',
+                'page_description': 'Kasbiy yo‘riqnomalar bilan tanishish holati bo‘yicha hisobot.',
             }
         )
         return context
@@ -3647,6 +3805,7 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from companies.models import WorkPracticeTest
         role = self.get_role_context()
         section = get_section_admin_section(self.request.user) if role.get('is_section_admin') else None
 
@@ -4033,6 +4192,33 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
         return context
 
 
+class OrganizationDetailSuperAdminView(SuperuserActionRequiredMixin, TemplateView):
+    template_name = 'accounts/super_admin/org_detail.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        leader_profile = get_object_or_404(UserProfile, pk=self.kwargs['pk'], role=UserProfile.ROLE_ORG_LEADER)
+        
+        departments = Department.objects.filter(leader=leader_profile).select_related('supervisor', 'supervisor__profile')
+        sections = Section.objects.filter(department__in=departments).select_related('department', 'supervisor', 'supervisor__profile')
+        
+        workers = UserProfile.objects.filter(
+            role=UserProfile.ROLE_WORKER,
+            organization_name=leader_profile.organization_name
+        ).select_related('user', 'department', 'section').order_by('full_name')
+
+        context.update({
+            'leader_profile': leader_profile,
+            'departments': departments,
+            'sections': sections,
+            'workers': workers,
+            'departments_count': departments.count(),
+            'sections_count': sections.count(),
+            'workers_count': workers.count(),
+        })
+        return context
+
+
 class SystemMetricsView(SuperuserActionRequiredMixin, TemplateView):
     template_name = 'accounts/super_admin/sys_metrics.html'
 
@@ -4192,6 +4378,13 @@ class GlobalWorkerDetailView(AuthenticatedRequiredMixin, TemplateView):
         context['work_practices'] = SectionWorkPracticeAssignee.objects.filter(
             user=user
         ).select_related('practice__section').order_by('-practice__created_at')
+        
+        # Medical records
+        try:
+            from companies.models import EmployeeMedicalRecord
+            context['medical_records'] = EmployeeMedicalRecord.objects.filter(user=user).order_by('-start_date', '-created_at')
+        except Exception:
+            context['medical_records'] = []
         
         return context
 

@@ -5,6 +5,8 @@ from django.views import View
 from accounts.mixins import SuperuserActionRequiredMixin
 from industries.forms import IndustryCreateForm
 from industries.models import Industry
+from django.db.models import Prefetch
+from accounts.models import UserProfile
 
 
 class IndustryListView(SuperuserActionRequiredMixin, View):
@@ -24,7 +26,9 @@ class IndustryListView(SuperuserActionRequiredMixin, View):
         if direction == 'desc':
             sort_field = f'-{sort_field}'
 
-        industries = Industry.objects.all()
+        industries = Industry.objects.prefetch_related(
+            Prefetch('user_profiles', queryset=UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER), to_attr='organizations')
+        ).all()
         if q:
             industries = industries.filter(name__icontains=q)
         industries = industries.order_by(sort_field)

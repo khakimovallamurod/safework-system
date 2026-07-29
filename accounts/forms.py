@@ -722,6 +722,11 @@ class ProfileEditForm(forms.Form):
     last_name = forms.CharField(label='Familya', max_length=150, widget=forms.TextInput(attrs=_field_attrs('Familya')))
     middle_name = forms.CharField(label='Sharifi', max_length=255, required=False, widget=forms.TextInput(attrs=_field_attrs('Sharifi')))
     phone = forms.CharField(label='Telefon raqam', widget=forms.TextInput(attrs=phone_widget_attrs()))
+    email = forms.EmailField(label='Elektron pochta', required=False, widget=forms.EmailInput(attrs=_field_attrs('Elektron pochta')))
+    position = forms.CharField(label='Lavozim', required=False, max_length=255, widget=forms.TextInput(attrs=_field_attrs('Lavozim')))
+    address = forms.CharField(label='Manzil', required=False, widget=forms.Textarea(attrs={**_field_attrs('Manzil'), 'rows': 2}))
+    organization_name = forms.CharField(label='Tashkilot nomi', required=False, max_length=255, widget=forms.TextInput(attrs=_field_attrs('Tashkilot nomi')))
+    industry = forms.ModelChoiceField(queryset=Industry.objects.all(), label='Soha', required=False, widget=forms.Select(attrs=_field_attrs('Soha')))
     profile_photo = forms.ImageField(
         label='Profil rasmi',
         required=False,
@@ -754,8 +759,18 @@ class ProfileEditForm(forms.Form):
         if profile:
             self.fields['first_name'].initial = user.first_name
             self.fields['last_name'].initial = user.last_name
+            self.fields['email'].initial = user.email
             self.fields['middle_name'].initial = profile.middle_name
             self.fields['phone'].initial = profile.phone_number or user.username
+            self.fields['position'].initial = profile.position
+            self.fields['address'].initial = profile.address
+            
+            if profile.role == UserProfile.ROLE_ORG_LEADER:
+                self.fields['organization_name'].initial = profile.organization_name
+                self.fields['industry'].initial = profile.industry
+            else:
+                del self.fields['organization_name']
+                del self.fields['industry']
         self.fields['password1'].help_text = "O'zgartirmasangiz bo'sh qoldiring."
         self.fields['password2'].help_text = ''
 
@@ -800,6 +815,7 @@ class ProfileEditForm(forms.Form):
         self.user.first_name = first_name
         self.user.last_name = last_name
         self.user.username = phone
+        self.user.email = self.cleaned_data.get('email', '')
         if self.cleaned_data.get('password1'):
             self.user.set_password(self.cleaned_data['password1'])
         self.user.save()
@@ -807,6 +823,12 @@ class ProfileEditForm(forms.Form):
         profile.middle_name = middle_name
         profile.full_name = build_full_name(first_name, last_name, middle_name)
         profile.phone_number = phone
+        profile.position = self.cleaned_data.get('position', '')
+        profile.address = self.cleaned_data.get('address', '')
+        
+        if profile.role == UserProfile.ROLE_ORG_LEADER:
+            profile.organization_name = self.cleaned_data.get('organization_name', '')
+            profile.industry = self.cleaned_data.get('industry')
         if self.cleaned_data.get('remove_photo') and profile.profile_photo:
             profile.profile_photo.delete(save=False)
             profile.profile_photo = None

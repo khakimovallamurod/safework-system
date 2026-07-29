@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="mx-auto max-w-3xl pb-10">
+<div class="mx-auto w-full pb-10">
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -112,7 +112,7 @@
                         <input type="text" name="last_name" value="{{ form.last_name.value|default:request.user.last_name }}" maxlength="150" required class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Familyangizni kiriting" />
                     </div>
                 </div>
-                <div class="sm:col-span-2">
+                <div>
                     <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Sharifi (Otasining ismi)</label>
                     <div class="relative">
                         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
@@ -121,7 +121,7 @@
                         <input type="text" name="middle_name" value="{{ form.middle_name.value|default:user_profile.middle_name }}" maxlength="255" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Sharifingizni kiriting" />
                     </div>
                 </div>
-                <div class="sm:col-span-2">
+                <div>
                     <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Telefon raqam</label>
                     <div class="relative">
                         <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
@@ -130,8 +130,58 @@
                         <input type="tel" name="phone" value="{{ form.phone.value|default:user_profile.phone_number|default:request.user.username }}" required class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" inputmode="tel" placeholder="+998901234567" />
                     </div>
                 </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Elektron pochta</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-envelope text-slate-400"></i>
+                        </div>
+                        <input type="email" name="email" value="{{ form.email.value|default:request.user.email }}" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Elektron pochtangizni kiriting" />
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Lavozim</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-briefcase text-slate-400"></i>
+                        </div>
+                        <input type="text" name="position" value="{{ form.position.value|default:user_profile.position }}" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Lavozimingizni kiriting" />
+                    </div>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Yashash manzili</label>
+                    <div class="relative">
+                        <textarea name="address" rows="2" class="form-control transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Manzilingizni kiriting">{{ form.address.value|default:user_profile.address }}</textarea>
+                    </div>
+                </div>
             </div>
         </div>
+
+        {% if is_org_leader %}
+        <!-- Organization Info -->
+        <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+            <div class="border-b border-slate-100 bg-slate-50/50 px-5 py-4 sm:px-6 sm:py-5">
+                <h2 class="text-base font-semibold text-slate-800"><i class="bi bi-building me-2 text-emerald-500"></i>Tashkilot ma'lumotlari</h2>
+            </div>
+            <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Tashkilot nomi</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+                            <i class="bi bi-building-fill text-slate-400"></i>
+                        </div>
+                        <input type="text" name="organization_name" value="{{ form.organization_name.value|default:user_profile.organization_name }}" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Tashkilot nomi" />
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Faoliyat sohasi</label>
+                    <div class="relative">
+                        {{ form.industry }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Security -->
         <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">

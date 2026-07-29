@@ -31,7 +31,7 @@
                 <i class="bi bi-briefcase mr-2 text-violet-600"></i>Ish amaliyotlari
             </h2>
             <p class="mt-1 text-sm text-slate-500">
-                {% if section %}Bo'lim: <strong>{{ section.name }}</strong> — ma'sul xodimlar faqat shu bo'lim xodimlari{% else %}Sizga biriktirilgan yoki siz yaratgan ish amaliyotlari ro'yxati{% endif %}
+                {% if section %}Bo'lim: <strong>{{ section.name }}</strong> — ma'sul xodimlar faqat shu bo'lim xodimlari{% elif can_monitor_work_practices %}Sizning bo'lim/boshqarmalaringizdagi barcha ish amaliyotlari ro'yxati{% else %}Sizga biriktirilgan yoki siz yaratgan ish amaliyotlari ro'yxati{% endif %}
             </p>
         </div>
         {% if can_manage_work_practices and section %}
@@ -72,7 +72,7 @@
     </div>
     {% endif %}
 
-    {% if section %}
+    {% if can_manage_work_practices or can_monitor_work_practices %}
     <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">

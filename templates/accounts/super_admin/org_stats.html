@@ -34,6 +34,7 @@
                     <th class="px-5 py-3 font-semibold text-center">Boshqarmalar</th>
                     <th class="px-5 py-3 font-semibold text-center">Bo'limlar</th>
                     <th class="px-5 py-3 font-semibold">Xodimlar taqsimoti</th>
+                    <th class="px-5 py-3 font-semibold text-right">Amallar</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -55,10 +56,29 @@
                             <div class="h-full rounded-full bg-brand-500" style="width: {{ stat.workers_percent }}%"></div>
                         </div>
                     </td>
+                    <td class="px-5 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="{% url 'org-detail' stat.leader.id %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200">
+                                <i class="bi bi-eye"></i> Batafsil
+                            </a>
+                            <form action="{% url 'toggle-block' stat.leader.user.id %}" method="post" class="inline-block" onsubmit="return confirm('Siz rostdan ham bu tashkilotni (rahbarini) {% if stat.leader.user.is_active %}bloklamoqchimisiz{% else %}banddan yechmoqchimisiz{% endif %}?');">
+                                {% csrf_token %}
+                                {% if stat.leader.user.is_active %}
+                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                        <i class="bi bi-lock"></i> Bloklash
+                                    </button>
+                                {% else %}
+                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-100">
+                                        <i class="bi bi-unlock"></i> Faollashtirish
+                                    </button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="px-5 py-8 text-center text-slate-500">Tashkilotlar mavjud emas</td>
+                    <td colspan="6" class="px-5 py-8 text-center text-slate-500">Tashkilotlar mavjud emas</td>
                 </tr>
                 {% endfor %}
             </tbody>
