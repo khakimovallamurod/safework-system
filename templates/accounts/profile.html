@@ -148,6 +148,12 @@
                         <input type="text" name="position" value="{{ form.position.value|default:user_profile.position }}" class="form-control pl-10 transition focus:ring-2 focus:ring-emerald-500/20" placeholder="Lavozimingizni kiriting" />
                     </div>
                 </div>
+                <div>
+                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Viloyat</label>
+                    <div class="relative">
+                        {{ form.region }}
+                    </div>
+                </div>
                 <div class="sm:col-span-2">
                     <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Yashash manzili</label>
                     <div class="relative">
