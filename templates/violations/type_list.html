@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="p-6 max-w-5xl mx-auto">
+    <div class="mb-6 flex justify-between items-end">
+        <div>
+            <div class="text-xs text-slate-500 mb-1 font-medium">Sopline / OSH tizimi / Qoidabuzarliklar / <span class="text-brand-600">Turlar</span></div>
+            <h1 class="text-2xl font-bold text-slate-900">Qoidabuzarlik Turlari</h1>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'violations:dashboard' %}" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
+                <i class="bi bi-arrow-left"></i> Orqaga
+            </a>
+            <button onclick="document.getElementById('createTypeModal').classList.add('show')" class="btn bg-brand-500 text-white hover:bg-brand-600 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
+                + Yangi tur qo'shish
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                    <th class="py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">#</th>
+                    <th class="py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Tur nomi</th>
+                    <th class="py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Amallar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for type in types %}
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-3 px-5 text-sm font-medium text-slate-500">{{ forloop.counter }}</td>
+                    <td class="py-3 px-5 text-sm font-bold text-slate-800">{{ type.name }}</td>
+                    <td class="py-3 px-5 text-right">
+                        <button onclick="editType({{ type.id }}, '{{ type.name|escapejs }}')" class="btn btn-sm text-brand-600 hover:bg-brand-50 p-2 rounded-lg transition" title="Tahrirlash">
+                            <i class="bi bi-pencil-square text-lg"></i>
+                        </button>
+                        <form method="post" action="{% url 'violations:delete_type' type.id %}" class="inline-block" onsubmit="return confirm('Haqiqatan ham ushbu turni o\'chirmoqchimisiz?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm text-red-500 hover:bg-red-50 p-2 rounded-lg transition" title="O'chirish">
+                                <i class="bi bi-trash text-lg"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="py-8 text-center text-slate-500">Hech qanday ma'lumot topilmadi</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Type Modal -->
+<div id="createTypeModal" class="modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-xl overflow-hidden rounded-2xl">
+            <div class="modal-header bg-slate-50 border-b border-slate-100">
+                <h5 class="modal-title font-bold text-slate-800">Yangi qoidabuzarlik turi</h5>
+                <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
+            </div>
+            <form method="post" action="{% url 'violations:create_type' %}">
+                {% csrf_token %}
+                <div class="modal-body space-y-4 p-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Tur nomi</label>
+                        <input type="text" name="name" class="form-control rounded-xl" required placeholder="Masalan: Mehnat intizomi...">
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 border-t border-slate-100 p-4">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-xl font-medium" onclick="this.closest('.modal').classList.remove('show')">Bekor qilish</button>
+                    <button type="submit" class="btn bg-brand-500 hover:bg-brand-600 text-white px-5 py-2 rounded-xl font-semibold shadow-sm">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Type Modal -->
+<div id="editTypeModal" class="modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-xl overflow-hidden rounded-2xl">
+            <div class="modal-header bg-slate-50 border-b border-slate-100">
+                <h5 class="modal-title font-bold text-slate-800">Qoidabuzarlik turini tahrirlash</h5>
+                <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
+            </div>
+            <form id="editTypeForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body space-y-4 p-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Tur nomi</label>
+                        <input type="text" name="name" id="editTypeName" class="form-control rounded-xl" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 border-t border-slate-100 p-4">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 px-4 py-2 rounded-xl font-medium" onclick="this.closest('.modal').classList.remove('show')">Bekor qilish</button>
+                    <button type="submit" class="btn bg-brand-500 hover:bg-brand-600 text-white px-5 py-2 rounded-xl font-semibold shadow-sm">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function editType(id, name) {
+        document.getElementById('editTypeName').value = name;
+        document.getElementById('editTypeForm').action = `/violations/types/edit/${id}/`;
+        document.getElementById('editTypeModal').classList.add('show');
+    }
+</script>
+{% endblock %}

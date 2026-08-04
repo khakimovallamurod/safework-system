@@ -1,0 +1,556 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Light Theme Styles for PPE Dashboard matching platform */
+    .ppe-dashboard {
+        padding: 1.5rem;
+    }
+    .stat-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .stat-label {
+        color: #64748b;
+        font-size: 0.9rem;
+        margin-top: 0.25rem;
+    }
+    /* Donut Chart Approximation */
+    .donut {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: conic-gradient(
+            #22c55e {{ provision_percentage }}%, 
+            #f59e0b 0 0%,
+            #ef4444 0 0%,
+            #e2e8f0 0
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .donut-inner {
+        width: 60px;
+        height: 60px;
+        background-color: #ffffff;
+        border-radius: 50%;
+    }
+    
+    .ppe-table-container {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow-x: auto;
+        margin-top: 1.5rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .ppe-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    .ppe-table th, .ppe-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .ppe-table th {
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: 0.05em;
+        background-color: #f8fafc;
+    }
+    .ppe-table tr:last-child td {
+        border-bottom: none;
+    }
+    .ppe-table tr:hover {
+        background-color: #f1f5f9;
+    }
+    .status-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+    }
+    .status-active {
+        background-color: rgba(34, 197, 94, 0.15);
+        color: #16a34a;
+    }
+    .status-expiring {
+        background-color: rgba(245, 158, 11, 0.15);
+        color: #d97706;
+    }
+    .status-expired {
+        background-color: rgba(239, 68, 68, 0.15);
+        color: #dc2626;
+    }
+    .status-pending {
+        background-color: rgba(59, 130, 246, 0.15);
+        color: #2563eb;
+    }
+    .status-missing {
+        background-color: rgba(148, 163, 184, 0.15);
+        color: #64748b;
+    }
+    
+    .select2-container--default .select2-selection--multiple {
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75rem;
+        min-height: 42px;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--multiple {
+        border-color: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color: #334155;
+        border-radius: 4px;
+        padding: 2px 6px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ppe-dashboard">
+    <div class="mb-5">
+        <div class="text-xs text-slate-500 mb-1 font-medium">Sopline / OSH tizimi / <span class="text-brand-600">IHV nazorati</span></div>
+        <h1 class="text-2xl font-bold text-slate-900">Individual Himoya Vositalari</h1>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="stat-card">
+            <div class="donut">
+                <div class="donut-inner"></div>
+            </div>
+            <div>
+                <div class="stat-number text-slate-800">{{ provision_percentage }}%</div>
+                <div class="stat-label">Umumiy ta'minlanganlik</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div>
+                <div class="stat-number text-amber-500">{{ expiring_soon_count }}</div>
+                <div class="stat-label">7 kun ichida muddati tugaydi</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div>
+                <div class="stat-number text-rose-500">{{ expired_issues_count }}</div>
+                <div class="stat-label">Muddati o'tgan</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    {% if pending_issues %}
+    <div class="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 shadow-sm">
+        <h3 class="text-amber-700 font-bold mb-3"><i class="bi bi-bell"></i> Sizga yangi IHV berildi. Iltimos qabul qiling:</h3>
+        <div class="space-y-2">
+            {% for issue in pending_issues %}
+            <div class="flex items-center justify-between bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
+                <div>
+                    <span class="text-slate-800 font-semibold">{{ issue.ppe_type.name }}</span>
+                    <span class="text-xs text-slate-500 ml-2">Berildi: {{ issue.issue_date|date:"d.m.Y" }}</span>
+                </div>
+                <button onclick="acknowledgePPE({{ issue.id }})" class="btn bg-brand-500 text-white text-xs px-4 py-1.5 rounded-lg hover:bg-brand-600 transition shadow-sm">
+                    Qabul qildim
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Controls -->
+    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+        <form method="get" class="flex gap-4 w-full md:w-auto" id="filterForm">
+            <select name="industry" onchange="document.getElementById('filterForm').submit()" class="form-select rounded-xl text-sm font-medium text-slate-700 bg-white border border-slate-300">
+                <option value="">Barcha sohalar</option>
+                {% for ind in industries %}
+                <option value="{{ ind.id }}" {% if selected_industry == ind.id|stringformat:"s" %}selected{% endif %}>{{ ind.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="accept_status" onchange="document.getElementById('filterForm').submit()" class="form-select rounded-xl text-sm font-medium text-slate-700 bg-white border border-slate-300">
+                <option value="">Barcha qabul holatlari</option>
+                <option value="accepted" {% if selected_accept_status == 'accepted' %}selected{% endif %}>Qabul qilganlar</option>
+                <option value="pending" {% if selected_accept_status == 'pending' %}selected{% endif %}>Qabul qilmaganlar (Kutilmoqda)</option>
+            </select>
+        </form>
+        
+        {% if can_manage %}
+        <div class="flex gap-2 w-full md:w-auto">
+            <a href="{% url 'ppe:type_list' %}" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm flex items-center justify-center">
+                <i class="bi bi-gear mr-1"></i> IHV Turlari
+            </a>
+            <button onclick="document.getElementById('issueModal').classList.add('show')" class="btn bg-brand-500 text-white hover:bg-brand-600 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
+                + IHV berish
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Legend and Search -->
+    <div class="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-4 mb-3">
+        <!-- Legend -->
+        <div class="flex flex-wrap gap-4 md:gap-6 text-xs text-slate-500 font-medium bg-white p-3 rounded-xl border border-slate-200 inline-flex shadow-sm">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-green-500/20 border border-green-500 text-transparent"></div> Qabul qilingan va Faol</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-amber-500/20 border border-amber-500 text-transparent"></div> 7 kun qoldi</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-rose-500/20 border border-rose-500 text-transparent"></div> Muddati o'tgan</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-blue-500/20 border border-blue-500 text-transparent"></div> Hali qabul qilinmagan (Kutilmoqda)</div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-slate-500/20 border border-slate-500 text-transparent"></div> Berilmagan</div>
+        </div>
+        
+        <!-- Search -->
+        <div class="w-full sm:w-auto min-w-[250px]">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="bi bi-search"></i>
+                </div>
+                <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Xodim ismini qidiring..." class="form-control rounded-xl text-sm font-medium pl-10 bg-white border border-slate-300 w-full shadow-sm">
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="ppe-table-container">
+        <table class="ppe-table">
+            <thead>
+                <tr>
+                    <th>Xodim</th>
+                    {% for ppe in ppe_types %}
+                    <th class="text-center">{{ ppe.name }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for dept_name, rows in grouped_matrix.items %}
+                <tr class="dept-header bg-slate-50">
+                    <td colspan="100" class="font-bold text-slate-800 text-sm py-2 px-4 border-b border-slate-200">
+                        <i class="bi bi-diagram-3 mr-2 text-brand-500"></i>{{ dept_name }}
+                    </td>
+                </tr>
+                {% for row in rows %}
+                <tr class="employee-row">
+                    <td>
+                        <div class="employee-name font-semibold text-slate-900">{{ row.employee.user.get_full_name|default:row.employee.user.username }}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">{{ row.employee.position|default:"Kasb kiritilmagan" }}</div>
+                    </td>
+                    {% for ppe in ppe_types %}
+                    <td class="text-center">
+                        {% with status=row.ppes|dictsort:"id" %}
+                            {% for key, val in row.ppes.items %}
+                                {% if key == ppe.id %}
+                                    {% if val %}
+                                        {% if val.status_class == 'active' %}
+                                        <div class="status-icon status-active relative group {% if can_manage %}cursor-pointer hover:ring-2 hover:ring-green-400{% endif %}" title="Amal qilish: {{ val.issue.expiration_date|date:'d.m.Y' }}{% if val.issue.updated_at %} (Tahrirlangan: {{ val.issue.updated_at|date:'d.m.Y H:i' }}){% endif %}" {% if can_manage %}onclick="openEditModal({{ val.issue.id }}, '{{ val.issue.issue_date|date:'Y-m-d' }}', '{{ val.issue.expiration_date|date:'Y-m-d' }}', '{{ val.issue.condition }}', '{{ val.issue.ppe_type.name }}', '{{ row.employee.user.get_full_name|default:row.employee.user.username }}')"{% endif %}>
+                                            <i class="bi bi-check2"></i>
+                                        </div>
+                                        {% elif val.status_class == 'pending' %}
+                                        <div class="status-icon status-pending relative group {% if can_manage %}cursor-pointer hover:ring-2 hover:ring-blue-400{% endif %}" title="Kutilmoqda (Amal qilish: {{ val.issue.expiration_date|date:'d.m.Y' }}){% if val.issue.updated_at %} (Tahrirlangan: {{ val.issue.updated_at|date:'d.m.Y H:i' }}){% endif %}" {% if can_manage %}onclick="openEditModal({{ val.issue.id }}, '{{ val.issue.issue_date|date:'Y-m-d' }}', '{{ val.issue.expiration_date|date:'Y-m-d' }}', '{{ val.issue.condition }}', '{{ val.issue.ppe_type.name }}', '{{ row.employee.user.get_full_name|default:row.employee.user.username }}')"{% endif %}>
+                                            <i class="bi bi-clock"></i>
+                                        </div>
+                                        {% elif val.status_class == 'expiring' %}
+                                        <div class="status-icon status-expiring relative group {% if can_manage %}cursor-pointer hover:ring-2 hover:ring-amber-400{% endif %}" title="Yaqinda tugaydi: {{ val.issue.expiration_date|date:'d.m.Y' }}{% if val.issue.updated_at %} (Tahrirlangan: {{ val.issue.updated_at|date:'d.m.Y H:i' }}){% endif %}" {% if can_manage %}onclick="openEditModal({{ val.issue.id }}, '{{ val.issue.issue_date|date:'Y-m-d' }}', '{{ val.issue.expiration_date|date:'Y-m-d' }}', '{{ val.issue.condition }}', '{{ val.issue.ppe_type.name }}', '{{ row.employee.user.get_full_name|default:row.employee.user.username }}')"{% endif %}>
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                        </div>
+                                        {% elif val.status_class == 'expired' %}
+                                        <div class="status-icon status-expired relative group {% if can_manage %}cursor-pointer hover:ring-2 hover:ring-red-400{% endif %}" title="Muddati o'tgan: {{ val.issue.expiration_date|date:'d.m.Y' }}{% if val.issue.updated_at %} (Tahrirlangan: {{ val.issue.updated_at|date:'d.m.Y H:i' }}){% endif %}" {% if can_manage %}onclick="openEditModal({{ val.issue.id }}, '{{ val.issue.issue_date|date:'Y-m-d' }}', '{{ val.issue.expiration_date|date:'Y-m-d' }}', '{{ val.issue.condition }}', '{{ val.issue.ppe_type.name }}', '{{ row.employee.user.get_full_name|default:row.employee.user.username }}')"{% endif %}>
+                                            <i class="bi bi-x"></i>
+                                        </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="status-icon status-missing" title="Berilmagan">
+                                            <i class="bi bi-dash"></i>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endwith %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                {% if not grouped_matrix %}
+                <tr id="noResultsRow">
+                    <td colspan="100" class="text-center text-slate-500 py-8">
+                        Hech qanday ma'lumot topilmadi
+                    </td>
+                </tr>
+                {% else %}
+                <tr id="noResultsRow" style="display: none;">
+                    <td colspan="100" class="text-center text-slate-500 py-8">
+                        Qidiruv bo'yicha ma'lumot topilmadi
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if can_manage %}
+<!-- Modals -->
+<div id="issueModal" class="modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title font-bold text-slate-900">Yangi IHV berish</h5>
+                <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
+            </div>
+            <form method="post" action="{% url 'ppe:issue' %}">
+                {% csrf_token %}
+                <div class="modal-body space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Xodim(lar)</label>
+                        <select name="employees" class="form-control select2-multiple" multiple required style="width: 100%">
+                            {% regroup employees by department as dept_list %}
+                            {% for dept in dept_list %}
+                            {% if dept.grouper %}
+                            <optgroup label="{{ dept.grouper.name }}">
+                            {% else %}
+                            <optgroup label="Bo'limsiz">
+                            {% endif %}
+                                {% for emp in dept.list %}
+                                <option value="{{ emp.user.id }}">
+                                    {{ emp.user.get_full_name|default:emp.user.username }} 
+                                    {% if emp.position %}({{ emp.position }}){% elif not emp.department %}(Boshqa xodim){% endif %}
+                                </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">IHV turi</label>
+                        <select name="ppe_type" class="form-select" required>
+                            {% for ppe in ppe_types %}
+                            <option value="{{ ppe.id }}">{{ ppe.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Berilgan sana</label>
+                            <input type="date" name="issue_date" class="form-control" required value="{{ now|date:'Y-m-d' }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Amal qilish muddati</label>
+                            <input type="date" name="expiration_date" class="form-control" required value="{{ now|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Holati</label>
+                        <select name="condition" class="form-select" required>
+                            <option value="alo">A'lo</option>
+                            <option value="yaxshi">Yaxshi</option>
+                            <option value="qoniqarli">Qoniqarli</option>
+                            <option value="yaroqsiz">Yaroqsiz</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 px-4 py-2.5 rounded-xl font-medium" onclick="this.closest('.modal').classList.remove('show')">Bekor qilish</button>
+                    <button type="submit" class="btn bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="editIssueModal" class="modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title font-bold text-slate-900">IHV ma'lumotlarini tahrirlash</h5>
+                <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
+            </div>
+            <form id="editIssueForm" method="post" action="">
+                {% csrf_token %}
+                <div class="modal-body space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Xodim va IHV</label>
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <div class="font-medium text-slate-900" id="editEmployeeName"></div>
+                            <div class="text-sm text-slate-500" id="editPPEType"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Berilgan sana</label>
+                            <input type="date" name="issue_date" id="editIssueDate" class="form-control" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Amal qilish muddati</label>
+                            <input type="date" name="expiration_date" id="editExpirationDate" class="form-control" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Holati</label>
+                        <select name="condition" id="editCondition" class="form-select" required>
+                            <option value="alo">A'lo</option>
+                            <option value="yaxshi">Yaxshi</option>
+                            <option value="qoniqarli">Qoniqarli</option>
+                            <option value="yaroqsiz">Yaroqsiz</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 flex justify-between">
+                    <button type="button" class="btn text-red-600 hover:bg-red-50 px-4 py-2.5 rounded-xl font-medium" onclick="deleteIssue()">O'chirish</button>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 px-4 py-2.5 rounded-xl font-medium" onclick="this.closest('.modal').classList.remove('show')">Bekor qilish</button>
+                        <button type="submit" class="btn bg-brand-500 hover:bg-brand-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm">Saqlash</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    $(document).ready(function() {
+        if ($('.select2-multiple').length) {
+            $('.select2-multiple').select2({
+                placeholder: "Xodimlarni tanlang",
+                allowClear: true,
+                dropdownParent: $('#issueModal')
+            });
+        }
+    });
+
+    let currentEditIssueId = null;
+
+    function openEditModal(issueId, issueDate, expirationDate, condition, ppeName, employeeName) {
+        currentEditIssueId = issueId;
+        $('#editIssueForm').attr('action', `/ppe/issue/edit/${issueId}/`);
+        $('#editIssueDate').val(issueDate);
+        $('#editExpirationDate').val(expirationDate);
+        $('#editCondition').val(condition);
+        $('#editEmployeeName').text(employeeName);
+        $('#editPPEType').text(ppeName);
+        document.getElementById('editIssueModal').classList.add('show');
+    }
+
+    function deleteIssue() {
+        if (!currentEditIssueId) return;
+        
+        Swal.fire({
+            title: 'Ishonchingiz komilmi?',
+            text: "Siz bu IHV ma'lumotini o'chirib tashlamoqchisiz. Bu amalni orqaga qaytarib bo'lmaydi!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Ha, o\'chirish',
+            cancelButtonText: 'Bekor qilish'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/ppe/issue/delete/${currentEditIssueId}/`;
+                
+                const csrfToken = document.createElement('input');
+                csrfToken.type = 'hidden';
+                csrfToken.name = 'csrfmiddlewaretoken';
+                csrfToken.value = '{{ csrf_token }}';
+                form.appendChild(csrfToken);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    }
+
+    function acknowledgePPE(issueId) {
+        Swal.fire({
+            title: 'Tasdiqlaysizmi?',
+            text: "Ushbu IHV ni qabul qilganingizni tasdiqlaysizmi?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#22c55e',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Ha, qabul qildim',
+            cancelButtonText: 'Bekor qilish'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.post(`/ppe/acknowledge/${issueId}/`, {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                }, function(response) {
+                    if (response.success) {
+                        Swal.fire(
+                            'Qabul qilindi!',
+                            'Sizning tasdiqingiz saqlandi.',
+                            'success'
+                        ).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Xatolik', 'Xatolik yuz berdi', 'error');
+                    }
+                });
+            }
+        });
+    }
+
+    function searchTable() {
+        let input = document.getElementById("searchInput").value.toLowerCase();
+        let tbody = document.querySelector(".ppe-table tbody");
+        if (!tbody) return;
+        
+        let deptHeaders = tbody.querySelectorAll(".dept-header");
+        let hasAnyVisibleRow = false;
+
+        deptHeaders.forEach(header => {
+            let nextElement = header.nextElementSibling;
+            let showDept = false;
+            
+            while (nextElement && nextElement.classList.contains("employee-row")) {
+                let name = nextElement.querySelector(".employee-name").textContent.toLowerCase();
+                if (name.includes(input)) {
+                    nextElement.style.display = "";
+                    showDept = true;
+                    hasAnyVisibleRow = true;
+                } else {
+                    nextElement.style.display = "none";
+                }
+                nextElement = nextElement.nextElementSibling;
+            }
+            
+            if (showDept) {
+                header.style.display = "";
+            } else {
+                header.style.display = "none";
+            }
+        });
+
+        let noResultsRow = document.getElementById("noResultsRow");
+        if (noResultsRow) {
+            noResultsRow.style.display = hasAnyVisibleRow ? "none" : "";
+        }
+    }
+</script>
+{% endblock %}

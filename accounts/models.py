@@ -89,6 +89,10 @@ class UserProfile(models.Model):
         null=True, blank=True, default=None,
         verbose_name="Bilim baholashdan o'tgan (None=sinalmagan, True=o'tdi, False=o'tmadi)"
     )
+    is_blocked_by_violations = models.BooleanField(
+        default=False, 
+        verbose_name="Qoidabuzarliklar sababli bloklangan"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

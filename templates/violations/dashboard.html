@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .v-dashboard { padding: 1.5rem; }
+    .v-table-container {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow-x: auto;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .v-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .v-table th, .v-table td { padding: 1rem; border-bottom: 1px solid #e2e8f0; }
+    .v-table th {
+        text-transform: uppercase; font-size: 0.75rem; font-weight: 700;
+        color: #64748b; letter-spacing: 0.05em; background-color: #f8fafc;
+    }
+    .v-table tr:hover { background-color: #f1f5f9; }
+    .blocked-row { background-color: #fef2f2 !important; }
+    
+    .select2-container--default .select2-selection--single {
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75rem;
+        height: 42px;
+        display: flex;
+        align-items: center;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="v-dashboard">
+    <div class="mb-5 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+            <div class="text-xs text-slate-500 mb-1 font-medium">Sopline / OSH tizimi / <span class="text-brand-600">Qoidabuzarliklar</span></div>
+            <h1 class="text-2xl font-bold text-slate-900">Xodimlar qoidabuzarliklari</h1>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'violations:my_violations' %}" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-1">
+                <i class="bi bi-person-lines-fill"></i> Mening qoidabuzarliklarim
+            </a>
+            <a href="{% url 'violations:type_list' %}" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-900 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-1">
+                <i class="bi bi-list-check"></i> Turlar
+            </a>
+            <button onclick="document.getElementById('createModal').classList.add('show')" class="btn bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-1">
+                <i class="bi bi-plus-lg"></i> Qoidabuzarlik yozish
+            </button>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex justify-between items-center mb-4">
+        <form method="get" class="flex gap-4" id="filterForm">
+            <select name="industry" onchange="document.getElementById('filterForm').submit()" class="form-select rounded-xl text-sm font-medium text-slate-700 bg-white border border-slate-300">
+                <option value="">Barcha sohalar</option>
+                {% for ind in industries %}
+                <option value="{{ ind.id }}" {% if selected_industry == ind.id|stringformat:"s" %}selected{% endif %}>{{ ind.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        
+        <div class="w-64">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <i class="bi bi-search"></i>
+                </div>
+                <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Xodim ismini qidiring..." class="form-control rounded-xl text-sm font-medium pl-10 bg-white border border-slate-300 w-full shadow-sm">
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="v-table-container">
+        <table class="v-table">
+            <thead>
+                <tr>
+                    <th>Xodim</th>
+                    <th class="text-center">Jami</th>
+                    <th class="text-center">So'nggi oyda</th>
+                    <th>Holati</th>
+                    <th>So'nggi qoidabuzarliklar</th>
+                    <th class="text-right">Amal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dept_name, rows in grouped_matrix.items %}
+                <tr class="dept-header bg-slate-50 border-y border-slate-200">
+                    <td colspan="100" class="font-bold text-slate-800 text-sm py-2 px-4">
+                        <i class="bi bi-diagram-3 mr-2 text-brand-500"></i>{{ dept_name }}
+                    </td>
+                </tr>
+                {% for row in rows %}
+                <tr class="employee-row {% if row.is_blocked %}blocked-row{% endif %}">
+                    <td>
+                        <div class="employee-name font-semibold text-slate-900">{{ row.employee.user.get_full_name|default:row.employee.user.username }}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">{{ row.employee.position|default:"Kasb kiritilmagan" }}</div>
+                    </td>
+                    <td class="text-center font-bold text-slate-700">{{ row.total_violations }}</td>
+                    <td class="text-center">
+                        {% if row.active_violations_last_30_days >= 2 %}
+                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded-md text-xs font-bold">{{ row.active_violations_last_30_days }}</span>
+                        {% else %}
+                            <span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-bold">{{ row.active_violations_last_30_days }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.is_blocked %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <i class="bi bi-lock-fill"></i> Bloklangan
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <i class="bi bi-unlock-fill"></i> Faol
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.violations %}
+                            <div class="space-y-1">
+                            {% for v in row.violations %}
+                                <div class="text-xs text-slate-600" title="{{ v.reason }}">
+                                    <span class="font-medium text-slate-800">{{ v.date|date:"d.m.Y" }}</span> - {{ v.violation_type.name }}
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            <span class="text-xs text-slate-400">Yo'q</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="{% url 'violations:employee_detail' row.employee.user.id %}" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-brand-600 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm inline-flex items-center gap-1">
+                                <i class="bi bi-eye"></i> Batafsil
+                            </a>
+                            {% if row.is_blocked %}
+                            <button onclick="openUnblockModal({{ row.employee.user.id }}, '{{ row.employee.user.get_full_name|default:row.employee.user.username|escapejs }}')" class="btn bg-green-500 text-white hover:bg-green-600 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm inline-flex items-center gap-1">
+                                <i class="bi bi-unlock"></i> Blokdan chiqarish
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                
+                {% if not grouped_matrix %}
+                <tr id="noResultsRow">
+                    <td colspan="100" class="text-center text-slate-500 py-8">Hech qanday ma'lumot topilmadi</td>
+                </tr>
+                {% else %}
+                <tr id="noResultsRow" style="display: none;">
+                    <td colspan="100" class="text-center text-slate-500 py-8">Qidiruv bo'yicha ma'lumot topilmadi</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Create Modal -->
+<div id="createModal" class="modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-xl overflow-hidden">
+            <div class="modal-header bg-red-50 border-b border-red-100">
+                <h5 class="modal-title font-bold text-red-900 flex items-center gap-2"><i class="bi bi-exclamation-octagon"></i> Yangi qoidabuzarlik yozish</h5>
+                <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
+            </div>
+            <form method="post" action="{% url 'violations:create' %}">
+                {% csrf_token %}
+                <div class="modal-body space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Xodimni tanlang</label>
+                        <select name="employee_id" class="form-control select2-single" required style="width: 100%">
+                            <option></option>
+                            {% regroup employees_queryset by department as dept_list %}
+                            {% for dept in dept_list %}
+                            {% if dept.grouper %}
+                            <optgroup label="{{ dept.grouper.name }}">
+                            {% else %}
+                            <optgroup label="Bo'limsiz">
+                            {% endif %}
+                                {% for emp in dept.list %}
+                                <option value="{{ emp.user.id }}">
+                                    {{ emp.user.get_full_name|default:emp.user.username }} 
+                                    {% if emp.position %}({{ emp.position }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </optgroup>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Qoidabuzarlik turi</label>
+                        <select name="violation_type" class="form-select rounded-xl" required>
+                            {% for v_type in violation_types %}
+                            <option value="{{ v_type.id }}">{{ v_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sana</label>
+                        <input type="date" name="date" class="form-control rounded-xl" required value="{% now 'Y-m-d' %}">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sabab / Izoh</label>
+                        <textarea name="reason" class="form-control rounded-xl" rows="3" required placeholder="Qoidabuzarlik haqida batafsil yozing..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 border-t border-slate-100">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 px-4 py-2.5 rounded-xl font-medium" onclick="this.closest('.modal').classList.remove('show')">Bekor qilish</button>
+                    <button type="submit" class="btn bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Unblock Modal -->
+<div id="unblockModal" class="modal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-xl overflow-hidden">
+            <div class="modal-header bg-green-50 border-b border-green-100">
+                <h5 class="modal-title font-bold text-green-900 flex items-center gap-2"><i class="bi bi-unlock"></i> Blokdan chiqarish</h5>
+                <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
+            </div>
+            <form id="unblockForm" method="post" action="" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body space-y-4">
+                    <p class="text-sm text-slate-600 mb-2">Siz <strong><span id="unblockEmpName"></span></strong> ni blokdan chiqarmoqchisiz. Buning uchun tushuntirish xatini yuklashingiz kerak.</p>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Izoh</label>
+                        <textarea name="explanation_text" class="form-control rounded-xl" rows="3" required placeholder="Tushuntirish xati mazmuni yoki sababi..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Tushuntirish xati nusxasi (Rasm/PDF)</label>
+                        <input type="file" name="file" class="form-control rounded-xl" required accept="image/*,.pdf">
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 border-t border-slate-100">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 px-4 py-2.5 rounded-xl font-medium" onclick="this.closest('.modal').classList.remove('show')">Bekor qilish</button>
+                    <button type="submit" class="btn bg-green-500 hover:bg-green-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm">Tasdiqlash va Chiqarish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.select2-single').select2({
+            placeholder: "Xodimni tanlang",
+            allowClear: true,
+            dropdownParent: $('#createModal')
+        });
+    });
+
+    function openUnblockModal(empId, empName) {
+        document.getElementById('unblockEmpName').textContent = empName;
+        document.getElementById('unblockForm').action = `/violations/unblock/${empId}/`;
+        document.getElementById('unblockModal').classList.add('show');
+    }
+
+    function searchTable() {
+        let input = document.getElementById("searchInput").value.toLowerCase();
+        let tbody = document.querySelector(".v-table tbody");
+        if (!tbody) return;
+        
+        let deptHeaders = tbody.querySelectorAll(".dept-header");
+        let hasAnyVisibleRow = false;
+
+        deptHeaders.forEach(header => {
+            let nextElement = header.nextElementSibling;
+            let showDept = false;
+            
+            while (nextElement && nextElement.classList.contains("employee-row")) {
+                let name = nextElement.querySelector(".employee-name").textContent.toLowerCase();
+                if (name.includes(input)) {
+                    nextElement.style.display = "";
+                    showDept = true;
+                    hasAnyVisibleRow = true;
+                } else {
+                    nextElement.style.display = "none";
+                }
+                nextElement = nextElement.nextElementSibling;
+            }
+            
+            if (showDept) {
+                header.style.display = "";
+            } else {
+                header.style.display = "none";
+            }
+        });
+
+        let noResultsRow = document.getElementById("noResultsRow");
+        if (noResultsRow) {
+            noResultsRow.style.display = hasAnyVisibleRow ? "none" : "";
+        }
+    }
+</script>
+{% endblock %}

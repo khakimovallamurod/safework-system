@@ -469,8 +469,14 @@
                     </div>
                 {% endif %}
             {% endif %}
-            <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.url_name == 'dashboard' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'dashboard' %}">
+            <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.path == '/dashboard/' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'dashboard' %}">
                 <i class="bi bi-grid-1x2 text-base"></i> Boshqaruv paneli
+            </a>
+            <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if '/ppe/' in request.path %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'ppe:dashboard' %}">
+                <i class="bi bi-shield-shaded text-base"></i> IHV nazorati
+            </a>
+            <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if '/violations/' in request.path %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'violations:dashboard' %}">
+                <i class="bi bi-exclamation-octagon text-base"></i> Qoidabuzarliklar
             </a>
             {% if is_super_admin %}
                 <div class="mb-1">
