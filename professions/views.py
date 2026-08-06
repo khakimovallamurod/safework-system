@@ -53,6 +53,9 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
             if section:
                 q_filter |= Q(department=section.department)
             
+            scoped_industry = (
+                department.leader.industry if department else section.department.leader.industry if section else getattr(role.get('user_profile'), 'industry', None)
+            )
             # Shuningdek o'ziga tegishli global soha kasblarini (eski bazadan qolgan) ham ko'rishi mumkin
             if scoped_industry:
                 q_filter |= Q(industry=scoped_industry, organization__isnull=True, department__isnull=True)
