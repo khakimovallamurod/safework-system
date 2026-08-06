@@ -6,15 +6,33 @@ from django.utils import timezone
 from .models import PPEType, PPEIssue
 from accounts.models import UserProfile, SystemNotification
 from industries.models import Industry
+from django.db.models import Q
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+def get_user_organization_id(profile):
+    if not profile:
+        return None
+    if profile.role == UserProfile.ROLE_ORG_LEADER:
+        return profile.id
+    return profile.organization_id
+
+def get_ppe_types_for_profile(profile):
+    if not profile:
+        return PPEType.objects.none()
+    if profile.role == UserProfile.ROLE_SUPER_ADMIN:
+        return PPEType.objects.all()
+    org_id = get_user_organization_id(profile)
+    if org_id:
+        return PPEType.objects.filter(Q(organization_id=org_id) | Q(organization__isnull=True))
+    return PPEType.objects.none()
 
 @login_required
 def ppe_dashboard(request):
     profile = getattr(request.user, 'profile', None)
     
-    ppe_types = PPEType.objects.all()
+    ppe_types = get_ppe_types_for_profile(profile)
     employees = UserProfile.objects.all().select_related('user', 'department', 'section', 'industry').order_by('department__name', 'user__first_name')
     industries = Industry.objects.all()
     
@@ -23,14 +41,16 @@ def ppe_dashboard(request):
     
     # Filter based on roles
     if profile:
-        if profile.role == UserProfile.ROLE_ORG_LEADER and profile.organization_id:
-            employees = employees.filter(organization_id=profile.organization_id)
+        if profile.role == UserProfile.ROLE_ORG_LEADER:
+            employees = employees.filter(organization_id=profile.id)
         elif profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN and profile.department_id:
             employees = employees.filter(department_id=profile.department_id)
         elif profile.role == UserProfile.ROLE_SECTION_ADMIN and profile.section_id:
             employees = employees.filter(section_id=profile.section_id)
         elif profile.role == UserProfile.ROLE_WORKER:
             employees = employees.filter(user=request.user)
+        elif profile.role != UserProfile.ROLE_SUPER_ADMIN:
+            employees = employees.none()
 
     # Calculate stats
     now = timezone.now().date()
@@ -137,7 +157,8 @@ def create_ppe_type(request):
     if request.method == 'POST':
         name = request.POST.get('name')
         if name:
-            PPEType.objects.create(name=name)
+            org_id = get_user_organization_id(profile)
+            PPEType.objects.create(name=name, organization_id=org_id)
             return redirect('ppe:dashboard')
     
     return redirect('ppe:dashboard')
@@ -158,7 +179,7 @@ def issue_ppe(request):
         
         try:
             for ppe_type_id in ppe_type_ids:
-                ppe_type = PPEType.objects.get(id=ppe_type_id)
+                ppe_type = get_object_or_404(get_ppe_types_for_profile(profile), id=ppe_type_id)
                 for emp_id in employee_ids:
                     user = User.objects.get(id=emp_id)
                     issue = PPEIssue.objects.create(
@@ -199,19 +220,19 @@ def acknowledge_ppe(request, pk):
 @login_required
 def ppe_type_list(request):
     profile = getattr(request.user, 'profile', None)
-    if not profile or profile.role not in [UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_ORG_LEADER]:
+    if not profile or profile.role not in [UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_ORG_LEADER, UserProfile.ROLE_SUPER_ADMIN]:
         return redirect('ppe:dashboard')
         
-    ppe_types = PPEType.objects.all()
+    ppe_types = get_ppe_types_for_profile(profile)
     return render(request, 'ppe/type_list.html', {'ppe_types': ppe_types})
 
 @login_required
 def edit_ppe_type(request, pk):
     profile = getattr(request.user, 'profile', None)
-    if not profile or profile.role not in [UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_ORG_LEADER]:
+    if not profile or profile.role not in [UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_ORG_LEADER, UserProfile.ROLE_SUPER_ADMIN]:
         return redirect('ppe:type_list')
         
-    ppe_type = get_object_or_404(PPEType, pk=pk)
+    ppe_type = get_object_or_404(get_ppe_types_for_profile(profile), pk=pk)
     if request.method == 'POST':
         name = request.POST.get('name')
         if name:
@@ -223,10 +244,10 @@ def edit_ppe_type(request, pk):
 @login_required
 def delete_ppe_type(request, pk):
     profile = getattr(request.user, 'profile', None)
-    if not profile or profile.role not in [UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_ORG_LEADER]:
+    if not profile or profile.role not in [UserProfile.ROLE_DEPARTMENT_ADMIN, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_ORG_LEADER, UserProfile.ROLE_SUPER_ADMIN]:
         return redirect('ppe:type_list')
         
-    ppe_type = get_object_or_404(PPEType, pk=pk)
+    ppe_type = get_object_or_404(get_ppe_types_for_profile(profile), pk=pk)
     if request.method == 'POST':
         ppe_type.delete()
     return redirect('ppe:type_list')

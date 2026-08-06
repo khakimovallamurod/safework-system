@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class PPEType(models.Model):
+    organization = models.ForeignKey('accounts.UserProfile', on_delete=models.CASCADE, null=True, blank=True, related_name='ppe_types', verbose_name="Tashkilot")
     name = models.CharField(max_length=255, verbose_name="IHV turi")
     created_at = models.DateTimeField(auto_now_add=True)
     
