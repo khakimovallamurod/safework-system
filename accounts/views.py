@@ -3190,6 +3190,7 @@ def _build_worker_guideline_inbox_items(request):
                 'start_time': dispatch.start_time,
                 'registration_end_time': dispatch.registration_end_time,
                 'active_until': dispatch.active_until,
+                'days_left': -1 if phase_key == 'expired' else 1,
                 'pdf_available': guideline.pdf_file_exists,
                 'pdf_url': (
                     reverse('internal-guideline-pdf', args=[guideline.pk])
@@ -3212,6 +3213,9 @@ def _build_worker_guideline_inbox_items(request):
                 'sent_at': receipt.dispatch.sent_at,
                 'is_acknowledged': receipt.is_acknowledged,
                 'source_label': 'Boshqarma',
+                'start_time': None,
+                'active_until': None,
+                'days_left': None,
                 'pdf_available': guideline.pdf_file_exists,
                 'pdf_url': (
                     reverse('guideline-pdf', args=[guideline.pk])

@@ -14,15 +14,47 @@
     <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr><th class="px-4 py-3">Turi</th><th class="px-4 py-3">Nomi</th><th class="px-4 py-3">Muddati</th><th class="px-4 py-3">PDF</th><th class="px-4 py-3 text-right">Amallar</th></tr>
+                <tr><th class="px-4 py-3">Turi</th><th class="px-4 py-3">Nomi</th><th class="px-4 py-3">Muddati</th><th class="px-4 py-3">Holat</th><th class="px-4 py-3">PDF</th><th class="px-4 py-3 text-right">Amallar</th></tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 {% for guideline in guidelines %}
                 <tr>
                     <td class="px-4 py-3 font-semibold text-slate-700">{{ guideline.get_guideline_type_display }}</td>
                     <td class="px-4 py-3">{{ guideline.name }}</td>
-                    <td class="px-4 py-3 text-xs text-slate-500">{{ guideline.start_time|date:'d.m.Y H:i' }} - {{ guideline.active_until|date:'d.m.Y H:i' }}</td>
-                    <td class="px-4 py-3"><a class="text-emerald-700 font-medium" href="{% url 'mandatory-guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}">Ko'rish</a></td>
+                    <td class="px-4 py-3">
+                        {% if guideline.active_until and guideline.start_time %}
+                            <div class="font-bold text-slate-800 text-sm whitespace-nowrap">{{ guideline.start_time|date:'d.m.Y' }} - {{ guideline.active_until|date:'d.m.Y' }}</div>
+                            {% if guideline.days_left > 0 %}
+                                <div class="text-xs font-semibold text-emerald-600 mt-1">{{ guideline.days_left }} kun qoldi</div>
+                            {% elif guideline.days_left == 0 %}
+                                <div class="text-xs font-semibold text-amber-600 mt-1">Bugun tugaydi</div>
+                            {% else %}
+                                <div class="text-xs font-semibold text-rose-600 mt-1">Muddati o'tgan</div>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-slate-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if guideline.is_currently_active %}
+                            <span class="inline-flex rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                                <i class="bi bi-check-circle-fill mr-1.5"></i>Faol
+                            </span>
+                        {% else %}
+                            <span class="inline-flex rounded-md bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                                <i class="bi bi-x-circle-fill mr-1.5"></i>Muddati tugagan
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if guideline.pdf_file_exists and guideline.days_left >= 0 %}
+                        <a class="text-emerald-700 font-medium hover:text-emerald-800" href="{% url 'mandatory-guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}">Ko'rish</a>
+                        {% elif guideline.pdf_file_exists %}
+                        <span class="text-rose-600 font-medium"><i class="bi bi-lock-fill"></i> Bloklangan</span>
+                        {% else %}
+                        <span class="text-rose-600 font-medium"><i class="bi bi-exclamation-circle"></i> Fayl yo'q</span>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3 text-right">
                         <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600" data-bs-toggle="modal" data-bs-target="#mandatoryEdit{{ guideline.id }}" type="button"><i class="bi bi-pencil-square"></i></button>
                         <form class="inline" method="post" action="{% url 'mandatory-guideline-delete' guideline.id %}">{% csrf_token %}<button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600" type="submit"><i class="bi bi-trash"></i></button></form>
@@ -73,8 +105,8 @@
                 </select>
                 <input type="text" name="name" value="{{ guideline.name }}" class="form-control" required>
                 <input type="file" name="pdf_file" class="form-control" accept=".pdf,.docx">
-                <input type="datetime-local" name="start_time" value="{{ guideline.start_time|date:'Y-m-d\\TH:i' }}" class="form-control" required>
-                <input type="datetime-local" name="active_until" value="{{ guideline.active_until|date:'Y-m-d\\TH:i' }}" class="form-control" required>
+                <input type="date" name="start_time" value="{{ guideline.start_time|date:'Y-m-d' }}" class="form-control" required>
+                <input type="date" name="active_until" value="{{ guideline.active_until|date:'Y-m-d' }}" class="form-control" required>
             </div>
             <div class="modal-footer"><button type="button" class="rounded-xl border px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button><button class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white">Yangilash</button></div>
         </form>

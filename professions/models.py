@@ -35,7 +35,26 @@ class Profession(models.Model):
         blank=True,
         null=True,
     )
+    start_time = models.DateTimeField(null=True, blank=True)
+    active_until = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_currently_active(self):
+        if not self.start_time or not self.active_until:
+            return True
+        from django.utils import timezone
+        now = timezone.now()
+        return self.start_time <= now <= self.active_until
+
+    @property
+    def days_left(self):
+        if not self.active_until:
+            return None
+        from django.utils import timezone
+        now = timezone.now()
+        delta = self.active_until - now
+        return delta.days if delta.days >= 0 else -1
 
     class Meta:
         ordering = ['-created_at']

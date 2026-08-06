@@ -367,6 +367,14 @@ class MandatoryGuideline(models.Model):
         now = timezone.now()
         return self.start_time <= now <= self.active_until
 
+    @property
+    def days_left(self):
+        if not self.active_until:
+            return None
+        now = timezone.now()
+        delta = self.active_until - now
+        return delta.days if delta.days >= 0 else -1
+
 
 class MandatoryGuidelineReceipt(models.Model):
     guideline = models.ForeignKey(
@@ -412,6 +420,12 @@ class ProfessionGuidelineReceipt(models.Model):
 
     class Meta:
         db_table = 'kasb_yoriqnoma_qabul'
+
+    @property
+    def can_open(self):
+        if not self.profession:
+            return False
+        return self.profession.is_currently_active
 
     def __str__(self):
         return f'{self.membership.user_id} ← {self.membership.profession_id}'

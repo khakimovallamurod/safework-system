@@ -321,32 +321,40 @@
             <form method="post" action="{% url 'ppe:issue' %}">
                 {% csrf_token %}
                 <div class="modal-body space-y-4">
+                    {% if request.user.profile.role != 'section_admin' %}
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1.5">Bo'lim(lar)ni tanlang</label>
                         <select id="modalDeptSelect" class="form-control select2-multiple" multiple data-placeholder="Bo'limni tanlang (ixtiyoriy)" style="width: 100%">
-                            {% regroup employees by department as dept_list %}
-                            {% for dept in dept_list %}
-                                {% if dept.grouper %}
-                                    <option value="{{ dept.grouper.id }}">{{ dept.grouper.name }}</option>
+                            {% regroup employees by section as section_list %}
+                            {% for sect in section_list %}
+                                {% if sect.grouper %}
+                                    <option value="{{ sect.grouper.id }}">{{ sect.grouper.name }}</option>
                                 {% endif %}
                             {% endfor %}
                         </select>
                         <div class="text-xs text-slate-500 mt-1">Bo'lim tanlansa, ushbu bo'limdagi barcha xodimlar avtomatik belgilanadi.</div>
                     </div>
+                    {% endif %}
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1.5">Xodim(lar)</label>
                         <select name="employees" id="modalEmpSelect" class="form-control select2-multiple" multiple required style="width: 100%">
-                            {% regroup employees by department as dept_list %}
-                            {% for dept in dept_list %}
-                            {% if dept.grouper %}
-                            <optgroup label="{{ dept.grouper.name }}">
+                            {% regroup employees by section as section_list %}
+                            {% for sect in section_list %}
+                            {% if sect.grouper %}
+                            <optgroup label="{{ sect.grouper.name }}">
                             {% else %}
                             <optgroup label="Bo'limsiz">
                             {% endif %}
-                                {% for emp in dept.list %}
-                                <option value="{{ emp.user.id }}" data-dept-id="{% if emp.department %}{{ emp.department.id }}{% else %}none{% endif %}">
+                                {% for emp in sect.list %}
+                                <option value="{{ emp.user.id }}" data-dept-id="{% if emp.section %}{{ emp.section.id }}{% else %}none{% endif %}">
                                     {{ emp.user.get_full_name|default:emp.user.username }} 
-                                    {% if emp.position %}({{ emp.position }}){% elif not emp.department %}(Boshqa xodim){% endif %}
+                                    {% if emp.role == 'section_admin' %}
+                                        (Bo'lim nazoratchisi)
+                                    {% elif emp.position %}
+                                        ({{ emp.position }})
+                                    {% elif not emp.section %}
+                                        (Boshqa xodim)
+                                    {% endif %}
                                 </option>
                                 {% endfor %}
                             </optgroup>
@@ -455,28 +463,71 @@
             });
         }
 
-        $('#modalDeptSelect').on('select2:select', function (e) {
-            var deptId = e.params.data.id;
+        var originalHtml = $('#modalEmpSelect').html();
+        
+        $('#modalDeptSelect').on('change', function (e) {
+            var selectedDepts = $(this).val() || [];
             var empSelect = $('#modalEmpSelect');
-            var selected = empSelect.val() || [];
-            empSelect.find('option[data-dept-id="' + deptId + '"]').each(function() {
-                if (!selected.includes($(this).val())) {
-                    selected.push($(this).val());
-                }
-            });
-            empSelect.val(selected).trigger('change');
-        });
-
-        $('#modalDeptSelect').on('select2:unselect', function (e) {
-            var deptId = e.params.data.id;
-            var empSelect = $('#modalEmpSelect');
-            var selected = empSelect.val() || [];
-            var toRemove = [];
-            empSelect.find('option[data-dept-id="' + deptId + '"]').each(function() {
-                toRemove.push($(this).val());
-            });
-            selected = selected.filter(item => !toRemove.includes(item));
-            empSelect.val(selected).trigger('change');
+            var currentSelections = empSelect.val() || [];
+            
+            if (selectedDepts.length === 0) {
+                empSelect.select2('destroy');
+                empSelect.html(originalHtml);
+                empSelect.select2({
+                    placeholder: empSelect.data('placeholder') || "Tanlang",
+                    allowClear: true,
+                    dropdownParent: $('#issueModal')
+                });
+                empSelect.val([]).trigger('change');
+            } else {
+                var tempSelect = $('<select>').html(originalHtml);
+                var newHtml = '';
+                var newSelections = [];
+                
+                tempSelect.children().each(function() {
+                    var optgroup = $(this);
+                    if (optgroup.is('optgroup')) {
+                        var groupLabel = optgroup.attr('label') || '';
+                        var optionsHtml = '';
+                        optgroup.children('option').each(function() {
+                            var deptId = String($(this).attr('data-dept-id') || '').trim();
+                            var shouldAdd = false;
+                            for (var i = 0; i < selectedDepts.length; i++) {
+                                if (String(selectedDepts[i]).trim() === deptId) {
+                                    shouldAdd = true;
+                                    break;
+                                }
+                            }
+                            if (shouldAdd) {
+                                optionsHtml += $(this)[0].outerHTML;
+                            }
+                        });
+                        if (optionsHtml !== '') {
+                            newHtml += '<optgroup label="' + groupLabel + '">' + optionsHtml + '</optgroup>';
+                        }
+                    } else {
+                        var deptId = String($(this).attr('data-dept-id') || '').trim();
+                        var shouldAdd = false;
+                        for (var i = 0; i < selectedDepts.length; i++) {
+                            if (String(selectedDepts[i]).trim() === deptId) {
+                                shouldAdd = true;
+                                break;
+                            }
+                        }
+                        if (shouldAdd) {
+                            newHtml += $(this)[0].outerHTML;
+                        }
+                    }
+                });
+                empSelect.select2('destroy');
+                empSelect.html(newHtml);
+                empSelect.select2({
+                    placeholder: empSelect.data('placeholder') || "Tanlang",
+                    allowClear: true,
+                    dropdownParent: $('#issueModal')
+                });
+                empSelect.val(currentSelections).trigger('change');
+            }
         });
     });
 

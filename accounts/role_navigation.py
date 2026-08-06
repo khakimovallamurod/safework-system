@@ -38,9 +38,9 @@ def get_pending_entry_guidelines_count(user):
     active_dispatch = GuidelineDispatch.objects.filter(
         guideline__department_id=profile.department_id,
         is_active=True
-    ).first()
+    ).select_related('guideline').first()
     
-    if not active_dispatch:
+    if not active_dispatch or not active_dispatch.guideline.is_currently_active:
         return 0
         
     receipt = GuidelineDispatchRecipient.objects.filter(
@@ -137,9 +137,10 @@ def get_guideline_gate_state(user):
                 receipt.acknowledged_at = None
                 receipt.save(update_fields=['profession', 'is_acknowledged', 'acknowledged_at'])
             if not receipt.is_acknowledged:
-                state['pending_profession_guidelines_count'] = 1
-                state['profession_guideline_locked'] = True
-                state['next_guideline_url_name'] = 'profession-guideline-inbox'
+                if membership.profession.is_currently_active:
+                    state['pending_profession_guidelines_count'] = 1
+                    state['profession_guideline_locked'] = True
+                    state['next_guideline_url_name'] = 'profession-guideline-inbox'
     return state
 
 

@@ -38,10 +38,7 @@
                     <td class="px-4 py-3 font-medium text-slate-900">{{ guideline.name }}</td>
                     <td class="px-4 py-3">
                         {% if guideline.pdf_file_exists %}
-                        <a
-                            href="{% url 'guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}"
-                            class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100"
-                        >
+                        <a href="{% url 'guideline-pdf' guideline.id %}?next={{ request.get_full_path|urlencode }}" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
                             <i class="bi bi-eye"></i> Ko'rish
                         </a>
                         {% else %}
@@ -104,7 +101,11 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
                     {{ form.name }}
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">PDF/DOCX fayl (max 20 MB)</label>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700 mt-3">Boshlanish vaqti</label>
+                    {{ form.start_time }}
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700 mt-3">Faollik tugashi</label>
+                    {{ form.active_until }}
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700 mt-3">PDF/DOCX fayl (max 20 MB)</label>
                     {{ form.pdf_file }}
                 </div>
                 <div class="modal-footer">
@@ -129,7 +130,11 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
                     <input type="text" name="name" value="{{ guideline.name }}" class="form-control" required />
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">PDF (yangilash ixtiyoriy)</label>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700 mt-3">Boshlanish sanasi</label>
+                    <input type="date" name="start_time" value="{{ guideline.start_time|date:'Y-m-d' }}" class="form-control" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700 mt-3">Faollik tugashi</label>
+                    <input type="date" name="active_until" value="{{ guideline.active_until|date:'Y-m-d' }}" class="form-control" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700 mt-3">PDF (yangilash ixtiyoriy)</label>
                     <input type="file" name="pdf_file" accept=".pdf,.docx" class="form-control" />
                     <p class="text-xs text-slate-500">
                         Joriy:

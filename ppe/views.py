@@ -33,7 +33,7 @@ def ppe_dashboard(request):
     profile = getattr(request.user, 'profile', None)
     
     ppe_types = get_ppe_types_for_profile(profile)
-    employees = UserProfile.objects.all().select_related('user', 'department', 'section', 'industry').order_by('department__name', 'user__first_name')
+    employees = UserProfile.objects.all().select_related('user', 'department', 'section', 'industry').order_by('section__name', 'user__first_name')
     industries = Industry.objects.all()
     
     selected_industry = request.GET.get('industry', '')

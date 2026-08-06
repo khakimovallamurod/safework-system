@@ -51,13 +51,14 @@
                 <tr>
                     <th class="px-4 py-3 w-16"><a class="table-head-link" href="?q={{ q }}{% if is_super_admin %}&company_id={{ selected_company_id }}{% endif %}&sort=id&dir={% if sort == 'id' and dir == 'asc' %}desc{% else %}asc{% endif %}">#</a></th>
                     <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}{% if is_super_admin %}&company_id={{ selected_company_id }}{% endif %}&sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Kasb turi</a></th>
+                    <th class="px-4 py-3">Muddat</th>
+                    <th class="px-4 py-3">Holat</th>
                     {% if is_super_admin %}
                         <th class="px-4 py-3">Soha</th>
                         <th class="px-4 py-3">Kompaniyalar</th>
                     {% endif %}
                     <th class="px-4 py-3">Nizom</th>
-                    <th class="px-4 py-3"><a class="table-head-link" href="?q={{ q }}{% if is_super_admin %}&company_id={{ selected_company_id }}{% endif %}&sort=created_at&dir={% if sort == 'created_at' and dir == 'asc' %}desc{% else %}asc{% endif %}">Yaratilgan</a></th>
-                    <th class="px-4 py-3 text-right w-32">{% if can_manage_professions %}Amallar{% else %}Holat{% endif %}</th>
+                    <th class="px-4 py-3 text-right w-32">{% if can_manage_professions %}Amallar{% else %}Fayl{% endif %}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white">
@@ -67,6 +68,31 @@
                             <span class="inline-flex rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span>
                         </td>
                         <td class="px-4 py-3 font-medium text-slate-900">{{ profession.name }}</td>
+                        <td class="px-4 py-3">
+                            {% if profession.active_until and profession.start_time %}
+                                <div class="font-bold text-slate-800 text-sm whitespace-nowrap">{{ profession.start_time|date:'d.m.Y' }} - {{ profession.active_until|date:'d.m.Y' }}</div>
+                                {% if profession.days_left > 0 %}
+                                    <div class="text-xs font-semibold text-emerald-600 mt-1">{{ profession.days_left }} kun qoldi</div>
+                                {% elif profession.days_left == 0 %}
+                                    <div class="text-xs font-semibold text-amber-600 mt-1">Bugun tugaydi</div>
+                                {% else %}
+                                    <div class="text-xs font-semibold text-rose-600 mt-1">Muddati o'tgan</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-slate-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-slate-600">
+                            {% if profession.is_currently_active %}
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                                    <i class="bi bi-check-circle-fill"></i> Faol
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                                    <i class="bi bi-x-circle-fill"></i> Muddati tugagan
+                                </span>
+                            {% endif %}
+                        </td>
                         {% if is_super_admin %}
                             <td class="px-4 py-3">
                                 <span class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">{{ profession.industry.name }}</span>
@@ -106,7 +132,7 @@
                                 <span class="text-xs text-slate-400">Yuklanmagan</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-3 text-slate-500">{{ profession.created_at|date:'Y-m-d H:i' }}</td>
+
                         <td class="px-4 py-3 text-right">
                             {% if can_manage_professions %}
                                 <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#professionEditModal{{ profession.id }}" type="button"><i class="bi bi-pencil-square"></i></button>
@@ -143,6 +169,10 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
                     {{ form.name }}
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish sanasi</label>
+                    {{ form.start_time }}
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Faollik tugashi</label>
+                    {{ form.active_until }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nizom (PDF/DOCX, max 20MB)</label>
                     {{ form.nizom_file }}
                 </div>
@@ -170,6 +200,10 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
                     <input type="text" name="name" value="{{ profession.name }}" class="form-control" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish sanasi</label>
+                    <input type="date" name="start_time" value="{{ profession.start_time|date:'Y-m-d' }}" class="form-control" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Faollik tugashi</label>
+                    <input type="date" name="active_until" value="{{ profession.active_until|date:'Y-m-d' }}" class="form-control" required />
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Nizomni almashtirish (PDF/DOCX, max 20MB)</label>
                     <input type="file" name="nizom_file" class="form-control" accept=".pdf,.docx" />
                     {% if profession.nizom_file %}

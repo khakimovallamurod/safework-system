@@ -262,8 +262,8 @@ class MandatoryGuidelineForm(forms.ModelForm):
             'guideline_type': forms.Select(attrs=_field_attrs('Yo‘riqnoma turi')),
             'name': forms.TextInput(attrs=_field_attrs('Yo‘riqnoma nomi')),
             'pdf_file': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.docx'}),
-            'start_time': forms.DateTimeInput(attrs={**_field_attrs('Boshlanish vaqti'), 'type': 'datetime-local'}),
-            'active_until': forms.DateTimeInput(attrs={**_field_attrs('Faollik tugashi'), 'type': 'datetime-local'}),
+            'start_time': forms.DateInput(attrs={**_field_attrs('Boshlanish sanasi'), 'type': 'date'}),
+            'active_until': forms.DateInput(attrs={**_field_attrs('Faollik tugashi'), 'type': 'date'}),
         }
 
     def clean(self):
@@ -882,10 +882,10 @@ def get_section_workers_for_internal_guidelines(section):
     )
 
 
-_DATETIME_LOCAL_WIDGET = forms.DateTimeInput(
-    format='%Y-%m-%dT%H:%M',
+_DATE_WIDGET = forms.DateInput(
+    format='%Y-%m-%d',
     attrs={
-        'type': 'datetime-local',
+        'type': 'date',
         'class': 'form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20',
     },
 )
@@ -903,16 +903,14 @@ class SectionInternalGuidelineForm(forms.ModelForm):
                     'accept': '.pdf,.docx',
                 }
             ),
-            'start_time': _DATETIME_LOCAL_WIDGET,
-            'registration_end_time': _DATETIME_LOCAL_WIDGET,
-            'active_until': _DATETIME_LOCAL_WIDGET,
+            'start_time': _DATE_WIDGET,
+            'registration_end_time': _DATE_WIDGET,
+            'active_until': _DATE_WIDGET,
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        dt_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M']
         for field_name in ('start_time', 'registration_end_time', 'active_until'):
-            self.fields[field_name].input_formats = dt_formats
             self.fields[field_name].required = True
 
     def clean_pdf_file(self):
@@ -954,6 +952,9 @@ class EntryGuidelineForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def clean_pdf_file(self):
         pdf = self.cleaned_data.get('pdf_file')
         if not pdf:
@@ -967,6 +968,10 @@ class EntryGuidelineForm(forms.ModelForm):
             raise ValidationError('Faqat PDF va DOCX formatlari qabul qilinadi.')
         return pdf
 
+    def clean(self):
+        cleaned = super().clean()
+        return cleaned
+
 
 class SectionWorkPracticeForm(forms.ModelForm):
     class Meta:
@@ -974,8 +979,8 @@ class SectionWorkPracticeForm(forms.ModelForm):
         fields = ('name', 'start_time', 'end_time', 'notes')
         widgets = {
             'name': forms.TextInput(attrs=_field_attrs('Ish amaliyoti nomi')),
-            'start_time': _DATETIME_LOCAL_WIDGET,
-            'end_time': _DATETIME_LOCAL_WIDGET,
+            'start_time': _DATE_WIDGET,
+            'end_time': _DATE_WIDGET,
             'notes': forms.Textarea(
                 attrs={
                     'class': 'form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20',
@@ -987,9 +992,6 @@ class SectionWorkPracticeForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        dt_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M']
-        self.fields['start_time'].input_formats = dt_formats
-        self.fields['end_time'].input_formats = dt_formats
 
     def clean(self):
         cleaned = super().clean()

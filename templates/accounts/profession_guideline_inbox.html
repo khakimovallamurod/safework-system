@@ -8,11 +8,44 @@
     {% if membership and receipt %}
     <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 text-left">Kasb</th><th class="px-4 py-3 text-left">PDF</th><th class="px-4 py-3 text-left">Holat</th></tr></thead>
+            <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 text-left">Kasb</th><th class="px-4 py-3 text-left">Muddat</th><th class="px-4 py-3 text-left">Holat</th><th class="px-4 py-3 text-left">PDF</th><th class="px-4 py-3 text-left">Qabul holati</th></tr></thead>
             <tbody>
                 <tr class="{% if receipt.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
                     <td class="px-4 py-3 font-medium text-slate-900">{{ membership.profession.name }}</td>
-                    <td class="px-4 py-3"><a href="{% url 'profession-guideline-pdf' %}?next={{ request.get_full_path|urlencode }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"><i class="bi bi-eye"></i> O'qish</a></td>
+                    <td class="px-4 py-3">
+                        {% if membership.profession.active_until and membership.profession.start_time %}
+                            <div class="font-bold text-slate-800 text-sm whitespace-nowrap">{{ membership.profession.start_time|date:'d.m.Y' }} - {{ membership.profession.active_until|date:'d.m.Y' }}</div>
+                            {% if membership.profession.days_left > 0 %}
+                                <div class="text-xs font-semibold text-emerald-600 mt-1">{{ membership.profession.days_left }} kun qoldi</div>
+                            {% elif membership.profession.days_left == 0 %}
+                                <div class="text-xs font-semibold text-amber-600 mt-1">Bugun tugaydi</div>
+                            {% else %}
+                                <div class="text-xs font-semibold text-rose-600 mt-1">Muddati o'tgan</div>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-slate-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="mb-2">
+                            {% if membership.profession.is_currently_active %}
+                                <span class="inline-flex rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                                    <i class="bi bi-check-circle-fill mr-1.5"></i>Faol
+                                </span>
+                            {% else %}
+                                <span class="inline-flex rounded-md bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                                    <i class="bi bi-x-circle-fill mr-1.5"></i>Muddati tugagan
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3">
+                        {% if receipt.can_open %}
+                            <a href="{% url 'profession-guideline-pdf' %}?next={{ request.get_full_path|urlencode }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"><i class="bi bi-eye"></i> O'qish</a>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-400"><i class="bi bi-lock"></i> Bloklangan</span>
+                        {% endif %}
+                    </td>
                     <td class="px-4 py-3">{% if receipt.is_acknowledged %}<span class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Qabul qilingan</span>{% else %}<span class="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">Qabul qilinmagan</span>{% endif %}</td>
                 </tr>
             </tbody>
