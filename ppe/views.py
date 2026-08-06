@@ -151,33 +151,34 @@ def issue_ppe(request):
 
     if request.method == 'POST':
         employee_ids = request.POST.getlist('employees')
-        ppe_type_id = request.POST.get('ppe_type')
+        ppe_type_ids = request.POST.getlist('ppe_types')
         issue_date = request.POST.get('issue_date')
         expiration_date = request.POST.get('expiration_date')
         condition = request.POST.get('condition')
         
         try:
-            ppe_type = PPEType.objects.get(id=ppe_type_id)
-            for emp_id in employee_ids:
-                user = User.objects.get(id=emp_id)
-                issue = PPEIssue.objects.create(
-                    employee=user,
-                    ppe_type=ppe_type,
-                    issued_by=request.user,
-                    issue_date=issue_date,
-                    expiration_date=expiration_date,
-                    condition=condition,
-                    status='pending'
-                )
-                
-                # Send notification
-                SystemNotification.objects.create(
-                    user=user,
-                    title="Yangi IHV berildi",
-                    message=f"Sizga yangi {ppe_type.name} berildi. Iltimos, tizimga kirib qabul qilganingizni tasdiqlang.",
-                    type='system',
-                    url=f"/ppe/"
-                )
+            for ppe_type_id in ppe_type_ids:
+                ppe_type = PPEType.objects.get(id=ppe_type_id)
+                for emp_id in employee_ids:
+                    user = User.objects.get(id=emp_id)
+                    issue = PPEIssue.objects.create(
+                        employee=user,
+                        ppe_type=ppe_type,
+                        issued_by=request.user,
+                        issue_date=issue_date,
+                        expiration_date=expiration_date,
+                        condition=condition,
+                        status='pending'
+                    )
+                    
+                    # Send notification
+                    SystemNotification.objects.create(
+                        user=user,
+                        title="Yangi IHV berildi",
+                        message=f"Sizga yangi {ppe_type.name} berildi. Iltimos, tizimga kirib qabul qilganingizni tasdiqlang.",
+                        type='system',
+                        url=f"/ppe/"
+                    )
             return redirect('ppe:dashboard')
         except Exception as e:
             pass

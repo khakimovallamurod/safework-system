@@ -2041,15 +2041,17 @@ class SectionDeleteView(DepartmentAdminRequiredMixin, View):
         return redirect('section-admins')
 
 
-def _sync_worker_section_profile(section, worker):
+def _sync_worker_section_profile(section, worker, profession=None):
     department = section.department
     profile = worker.profile
     profile.role = UserProfile.ROLE_WORKER
     profile.department = department
     profile.section = section
+    if profession:
+        profile.position = profession.name
     if not profile.organization_name and department.leader_id:
         profile.organization_name = department.leader.organization_name or ''
-    profile.save(update_fields=['role', 'department', 'section', 'organization_name'])
+    profile.save(update_fields=['role', 'department', 'section', 'organization_name', 'position'])
 
 
 def _worker_already_in_section(user, exclude_membership_id=None):
@@ -2077,7 +2079,7 @@ def _provision_active_entry_guideline(section, worker):
 def _assign_worker_to_section(section, worker, profession=None):
     if _worker_already_in_section(worker):
         raise ValueError("Xodim boshqa bo‘limda allaqachon biriktirilgan.")
-    _sync_worker_section_profile(section, worker)
+    _sync_worker_section_profile(section, worker, profession=profession)
     SectionMembership.objects.create(section=section, user=worker, profession=profession)
     _provision_active_entry_guideline(section, worker)
 
@@ -2185,13 +2187,17 @@ class SectionWorkerEditView(SectionAdminRequiredMixin, View):
             membership.save(update_fields=['user'])
             old_profile = old_user.profile
             old_profile.section = None
-            old_profile.save(update_fields=['section'])
-            _sync_worker_section_profile(section, new_worker)
+            old_profile.position = ''
+            old_profile.save(update_fields=['section', 'position'])
+            _sync_worker_section_profile(section, new_worker, profession=new_profession)
             _provision_active_entry_guideline(section, new_worker)
         if membership.profession_id != new_profession.pk:
             ProfessionGuidelineReceipt.objects.filter(membership=membership).delete()
             membership.profession = new_profession
             membership.save(update_fields=['profession'])
+            profile = membership.user.profile
+            profile.position = new_profession.name
+            profile.save(update_fields=['position'])
 
         messages.success(request, "Xodim yangilandi.")
         return redirect('section-workers')
@@ -2214,7 +2220,8 @@ class SectionWorkerDeleteView(SectionAdminRequiredMixin, View):
         profile = user.profile
         if profile.section_id == section.id:
             profile.section = None
-            profile.save(update_fields=['section'])
+            profile.position = ''
+            profile.save(update_fields=['section', 'position'])
 
         messages.success(request, "Xodim bo‘limdan olib tashlandi.")
         return redirect('section-workers')

@@ -700,9 +700,17 @@
 </div>
 
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
-    <div class="mb-2 flex items-center gap-2 text-slate-900">
-        <i class="bi bi-person-check text-lg text-emerald-600"></i>
-        <span class="text-base font-semibold">Xush kelibsiz, {{ request.user.username }}</span>
+    <div class="mb-2 flex flex-col sm:flex-row items-start sm:items-center gap-2 text-slate-900">
+        <div class="flex items-center gap-2">
+            <i class="bi bi-person-check text-lg text-emerald-600"></i>
+            <span class="text-base font-semibold">Xush kelibsiz, {{ request.user.profile.full_name|default:request.user.username }}</span>
+        </div>
+        {% if request.user.profile.position %}
+        <span class="hidden sm:inline-block text-slate-300">|</span>
+        <span class="inline-flex items-center rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+            Kasbingiz: {{ request.user.profile.position }}
+        </span>
+        {% endif %}
     </div>
     <p class="text-sm text-slate-600">
         {% if is_super_admin %}
