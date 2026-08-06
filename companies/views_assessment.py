@@ -961,7 +961,7 @@ class AssessmentTakeView(AuthenticatedRequiredMixin, View):
             profile.assessment_qualified = True
         else:
             profile.assessment_qualified = False
-        profile.save(update_fields=['assessment_qualified'])
+        profile.save(update_fields=['assessment_qualified_status', 'assessment_qualified_at'])
 
         # Cleanup session
         request.session.pop(f'dept_assessment_{attempt.id}', None)

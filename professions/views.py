@@ -8,6 +8,7 @@ from accounts.mixins import ProfessionAccessRequiredMixin, ProfessionManageRequi
 from accounts.forms import get_department_admin_department, get_section_admin_section
 from accounts.models import UserProfile
 from industries.models import Industry
+from django.db.models import Q
 from professions.forms import ProfessionForm
 from professions.models import Profession
 
@@ -34,17 +35,33 @@ class ProfessionListView(ProfessionAccessRequiredMixin, View):
 
         section = get_section_admin_section(request.user) if role.get('is_section_admin') else None
         department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
-        scoped_industry = (
-            department.leader.industry if department else section.department.leader.industry if section else getattr(role.get('user_profile'), 'industry', None)
-        )
+        org_profile = None
+        if role['is_org_leader']:
+            org_profile = role['user_profile']
+        elif department:
+            org_profile = department.leader
+        elif section:
+            org_profile = section.department.leader
 
-        professions = Profession.objects.select_related('industry').all()
-        if scoped_industry and not role['is_super_admin']:
-            professions = professions.filter(industry=scoped_industry)
+        professions = Profession.objects.select_related('industry', 'department', 'organization').all()
+        if not role['is_super_admin']:
+            q_filter = Q()
+            if org_profile:
+                q_filter |= Q(organization=org_profile)
+            if department:
+                q_filter |= Q(department=department)
+            if section:
+                q_filter |= Q(department=section.department)
+            
+            # Shuningdek o'ziga tegishli global soha kasblarini (eski bazadan qolgan) ham ko'rishi mumkin
+            if scoped_industry:
+                q_filter |= Q(industry=scoped_industry, organization__isnull=True, department__isnull=True)
+                
+            professions = professions.filter(q_filter)
         elif role['is_super_admin'] and company_id.isdigit():
             org = UserProfile.objects.filter(id=company_id, role=UserProfile.ROLE_ORG_LEADER).first()
             if org:
-                professions = professions.filter(industry=org.industry)
+                professions = professions.filter(Q(organization=org) | Q(department__leader=org) | Q(industry=org.industry, organization__isnull=True, department__isnull=True))
 
         if q:
             professions = professions.filter(name__icontains=q)
@@ -96,12 +113,14 @@ class ProfessionCreateView(ProfessionManageRequiredMixin, View):
 
         if form.is_valid():
             industry = self._resolve_industry(role, request)
-            if not industry:
-                messages.error(request, "Kasb turi yaratish uchun kamida bitta soha bo'lishi kerak.")
-                return redirect('professions:list')
-
             profession = form.save(commit=False)
             profession.industry = industry
+            
+            if role['is_org_leader']:
+                profession.organization = role['user_profile']
+            elif role.get('is_department_admin'):
+                profession.department = get_department_admin_department(request.user)
+                
             profession.save()
             messages.success(request, "Kasb turi muvaffaqiyatli qo'shildi.")
         else:
@@ -115,16 +134,19 @@ class ProfessionEditView(ProfessionManageRequiredMixin, View):
         profession = get_object_or_404(Profession, pk=pk)
 
         department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
-        scoped_industry_id = department.leader.industry_id if department else getattr(role.get('user_profile'), 'industry_id', None)
-        if (role['is_org_leader'] or role.get('is_department_admin')) and scoped_industry_id and profession.industry_id != scoped_industry_id:
-            messages.error(request, "Siz boshqa soha kasb turini tahrirlay olmaysiz.")
-            return redirect('professions:list')
+        
+        if not role['is_super_admin']:
+            if role['is_org_leader'] and profession.organization != role['user_profile'] and (not profession.department or profession.department.leader != role['user_profile']):
+                messages.error(request, "Siz boshqa tashkilot kasb turini tahrirlay olmaysiz.")
+                return redirect('professions:list')
+            elif role.get('is_department_admin') and profession.department != department:
+                messages.error(request, "Siz faqat o'z boshqarmangiz kasblarini tahrirlay olmasiz.")
+                return redirect('professions:list')
 
         form = ProfessionForm(request.POST, request.FILES, instance=profession)
         if form.is_valid():
             updated = form.save(commit=False)
-            if (role['is_org_leader'] or role.get('is_department_admin')) and scoped_industry_id:
-                updated.industry_id = scoped_industry_id
+            # Retain original ownership if edited by someone with rights
             updated.save()
             messages.success(request, "Kasb turi tahrirlandi.")
         else:
@@ -146,9 +168,22 @@ class ProfessionPdfView(ProfessionAccessRequiredMixin, View):
         role = self.get_role_context()
         section = get_section_admin_section(request.user) if role.get('is_section_admin') else None
         department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
-        scoped_industry_id = department.leader.industry_id if department else section.department.leader.industry_id if section else getattr(role.get('user_profile'), 'industry_id', None)
-        if scoped_industry_id and not role['is_super_admin']:
-            if profession.industry_id != scoped_industry_id:
+        
+        if not role['is_super_admin']:
+            org_profile = None
+            if role['is_org_leader']:
+                org_profile = role['user_profile']
+            elif department:
+                org_profile = department.leader
+            elif section:
+                org_profile = section.department.leader
+                
+            allowed = False
+            if profession.organization == org_profile: allowed = True
+            elif profession.department and profession.department.leader == org_profile: allowed = True
+            elif profession.organization is None and profession.department is None: allowed = True # Global fallback
+            
+            if not allowed:
                 messages.error(request, 'Ruxsat yo‘q.')
                 return redirect('professions:list')
 
@@ -178,10 +213,14 @@ class ProfessionDeleteView(ProfessionManageRequiredMixin, View):
         profession = get_object_or_404(Profession, pk=pk)
 
         department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
-        scoped_industry_id = department.leader.industry_id if department else getattr(role.get('user_profile'), 'industry_id', None)
-        if (role['is_org_leader'] or role.get('is_department_admin')) and scoped_industry_id and profession.industry_id != scoped_industry_id:
-            messages.error(request, "Siz boshqa soha kasb turini o'chira olmaysiz.")
-            return redirect('professions:list')
+        
+        if not role['is_super_admin']:
+            if role['is_org_leader'] and profession.organization != role['user_profile'] and (not profession.department or profession.department.leader != role['user_profile']):
+                messages.error(request, "Siz boshqa tashkilot kasb turini o'chira olmaysiz.")
+                return redirect('professions:list')
+            elif role.get('is_department_admin') and profession.department != department:
+                messages.error(request, "Siz faqat o'z boshqarmangiz kasblarini o'chira olmaysiz.")
+                return redirect('professions:list')
 
         profession.delete()
         messages.success(request, "Kasb turi o'chirildi.")

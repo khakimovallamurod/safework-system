@@ -343,7 +343,7 @@ class QuizTakeView(SectionMemberRequiredMixin, View):
             profile = request.user.profile
             if not profile.practice_qualified:
                 profile.practice_qualified = True
-                profile.save(update_fields=['practice_qualified'])
+                profile.save(update_fields=['practice_qualified_status', 'practice_qualified_at'])
 
         # Cleanup session
         if f'quiz_attempt_{attempt.id}' in request.session:

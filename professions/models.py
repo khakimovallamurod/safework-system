@@ -13,7 +13,22 @@ def validate_file_size_20mb(value):
 
 class Profession(models.Model):
     name = models.CharField(max_length=255)
-    industry = models.ForeignKey(Industry, on_delete=models.CASCADE, related_name='professions')
+    industry = models.ForeignKey(Industry, on_delete=models.CASCADE, related_name='professions', null=True, blank=True)
+    organization = models.ForeignKey(
+        'accounts.UserProfile',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='org_professions',
+        limit_choices_to={'role': 'organization_leader'}
+    )
+    department = models.ForeignKey(
+        'companies.Department',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='dept_professions'
+    )
     nizom_file = models.FileField(
         upload_to='nizom_files/',
         validators=[FileExtensionValidator(['pdf', 'docx']), validate_file_size_20mb],
@@ -24,7 +39,7 @@ class Profession(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ('name', 'industry')
 
     def __str__(self):
-        return f"{self.name} ({self.industry.name})"
+        industry_name = self.industry.name if self.industry else "Soha belgilanmagan"
+        return f"{self.name} ({industry_name})"

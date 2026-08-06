@@ -86,15 +86,8 @@ class UserActivityMiddleware:
         if created:
             return
 
-        active_delta = 0
-        if summary.last_seen_at:
-            gap = int((now - summary.last_seen_at).total_seconds())
-            if gap > 0:
-                active_delta = min(gap, self.MAX_ACTIVE_GAP_SECONDS)
-
         UserActivitySummary.objects.filter(pk=summary.pk).update(
             last_seen_at=now,
             last_path=path,
-            total_active_seconds=F('total_active_seconds') + active_delta,
             requests_count=F('requests_count') + 1,
         )

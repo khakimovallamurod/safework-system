@@ -18,6 +18,8 @@ class Company(models.Model):
     username = models.CharField(max_length=255, unique=True, blank=True)
     # This stores generated plain credentials for company onboarding view.
     password = models.CharField(max_length=255, blank=True)
+    is_password_viewed = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -62,10 +64,25 @@ class Company(models.Model):
             super().save(update_fields=['user'])
 
     def delete(self, *args, **kwargs):
-        linked_user = self.user
-        super().delete(*args, **kwargs)
-        if linked_user:
-            linked_user.delete()
+        self.is_active = False
+        self.save(update_fields=['is_active'])
+        if self.user:
+            self.user.is_active = False
+            self.user.save(update_fields=['is_active'])
+
+    def regenerate_password(self):
+        new_pass = self._generate_password()
+        self.password = new_pass
+        self.is_password_viewed = False
+        self.save(update_fields=['password', 'is_password_viewed'])
+        if self.user:
+            self.user.set_password(new_pass)
+            self.user.save(update_fields=['password'])
+            
+    def mark_password_viewed(self):
+        self.password = ''
+        self.is_password_viewed = True
+        self.save(update_fields=['password', 'is_password_viewed'])
 
 
 class Department(models.Model):
@@ -937,3 +954,20 @@ class DepartmentAssessmentAttemptAnswer(models.Model):
     class Meta:
         unique_together = ['attempt', 'question']
         db_table = 'boshqarma_baholash_javob'
+
+
+class WorkerTransferHistory(models.Model):
+    worker = models.ForeignKey('accounts.UserProfile', on_delete=models.CASCADE, related_name='transfer_history', limit_choices_to={'role': 'worker'})
+    from_section = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True, blank=True, related_name='transfers_out')
+    to_section = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True, blank=True, related_name='transfers_in')
+    transferred_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='performed_transfers')
+    transferred_at = models.DateTimeField(auto_now_add=True)
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-transferred_at']
+        db_table = 'worker_transfer_history'
+        verbose_name_plural = 'Worker transfer histories'
+
+    def __str__(self):
+        return f"{self.worker} transferred on {self.transferred_at}"

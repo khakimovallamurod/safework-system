@@ -81,14 +81,56 @@ class UserProfile(models.Model):
         related_name='team_members',
     )
     is_new_registration = models.BooleanField(default=False)
-    practice_qualified = models.BooleanField(
+    practice_qualified_status = models.BooleanField(
         default=False,
         verbose_name="Amaliyotdan o'tgan (ishlashga yaroqli)"
     )
-    assessment_qualified = models.BooleanField(
+    practice_qualified_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name="Amaliyotdan o'tgan sana"
+    )
+    assessment_qualified_status = models.BooleanField(
         null=True, blank=True, default=None,
         verbose_name="Bilim baholashdan o'tgan (None=sinalmagan, True=o'tdi, False=o'tmadi)"
     )
+    assessment_qualified_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name="Bilim baholashdan o'tgan sana"
+    )
+
+    @property
+    def practice_qualified(self):
+        from django.utils import timezone
+        if not self.practice_qualified_status:
+            return False
+        if not self.practice_qualified_at:
+            return True
+        return self.practice_qualified_at + timezone.timedelta(days=365) >= timezone.now()
+        
+    @practice_qualified.setter
+    def practice_qualified(self, value):
+        from django.utils import timezone
+        self.practice_qualified_status = value
+        if value:
+            self.practice_qualified_at = timezone.now()
+
+    @property
+    def assessment_qualified(self):
+        from django.utils import timezone
+        if self.assessment_qualified_status is not True:
+            return self.assessment_qualified_status
+        if not self.assessment_qualified_at:
+            return True
+        if self.assessment_qualified_at + timezone.timedelta(days=365) < timezone.now():
+            return False
+        return True
+        
+    @assessment_qualified.setter
+    def assessment_qualified(self, value):
+        from django.utils import timezone
+        self.assessment_qualified_status = value
+        if value is True:
+            self.assessment_qualified_at = timezone.now()
     is_blocked_by_violations = models.BooleanField(
         default=False, 
         verbose_name="Qoidabuzarliklar sababli bloklangan"

@@ -2076,11 +2076,21 @@ def _provision_active_entry_guideline(section, worker):
             )
 
 
-def _assign_worker_to_section(section, worker, profession=None):
+def _assign_worker_to_section(section, worker, profession=None, assigned_by=None):
     if _worker_already_in_section(worker):
         raise ValueError("Xodim boshqa bo‘limda allaqachon biriktirilgan.")
     _sync_worker_section_profile(section, worker, profession=profession)
     SectionMembership.objects.create(section=section, user=worker, profession=profession)
+    
+    from companies.models import WorkerTransferHistory
+    WorkerTransferHistory.objects.create(
+        worker=worker.profile,
+        from_section=None,
+        to_section=section,
+        transferred_by=assigned_by,
+        reason="Yangi bo'limga biriktirildi"
+    )
+    
     _provision_active_entry_guideline(section, worker)
 
 
@@ -2145,7 +2155,7 @@ class SectionWorkerManagementView(SectionAdminRequiredMixin, TemplateView):
         added_count = 0
         for worker in workers:
             try:
-                _assign_worker_to_section(section, worker, profession=profession)
+                _assign_worker_to_section(section, worker, profession=profession, assigned_by=request.user)
                 added_count += 1
             except ValueError as exc:
                 messages.warning(request, f"{worker.profile.full_name}: {exc}")
@@ -2216,6 +2226,16 @@ class SectionWorkerDeleteView(SectionAdminRequiredMixin, View):
             return redirect('section-workers')
 
         user = membership.user
+        
+        from companies.models import WorkerTransferHistory
+        WorkerTransferHistory.objects.create(
+            worker=user.profile,
+            from_section=section,
+            to_section=None,
+            transferred_by=request.user,
+            reason="Bo'limdan o'chirildi"
+        )
+        
         membership.delete()
         profile = user.profile
         if profile.section_id == section.id:
@@ -4073,7 +4093,7 @@ class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
         profile = getattr(assignment.user, 'profile', None)
         if profile and not profile.practice_qualified:
             profile.practice_qualified = True
-            profile.save(update_fields=['practice_qualified'])
+            profile.save(update_fields=['practice_qualified_status', 'practice_qualified_at'])
         messages.success(
             request,
             f"{assignment.user.profile.full_name or assignment.user.username} amaliyotchi sifatida qabul qilindi."
