@@ -144,6 +144,8 @@ class SectionMembership(models.Model):
         Section,
         on_delete=models.CASCADE,
         related_name='memberships',
+        null=True,
+        blank=True,
     )
     user = models.ForeignKey(
         User,

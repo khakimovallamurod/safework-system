@@ -1092,7 +1092,7 @@ class ToggleUserBlockView(SuperuserActionRequiredMixin, View):
         return redirect('users')
 
 
-def _assign_department_supervisor(department, supervisor):
+def _assign_department_supervisor(department, supervisor, profession=None):
     Department.objects.filter(
         leader=department.leader,
         supervisor=supervisor,
@@ -1112,9 +1112,25 @@ def _assign_department_supervisor(department, supervisor):
     profile.industry = department.leader.industry
     profile.department = department
     profile.section = None
-    profile.save(update_fields=['role', 'organization', 'organization_name', 'industry', 'department', 'section'])
+    if profession:
+        profile.position = profession.name
+    else:
+        profile.position = ''
+    profile.save(update_fields=['role', 'organization', 'organization_name', 'industry', 'department', 'section', 'position'])
     department.supervisor = supervisor
     department.save(update_fields=['supervisor'])
+
+    from companies.models import SectionMembership, ProfessionGuidelineReceipt
+    SectionMembership.objects.filter(user=supervisor).exclude(section__isnull=True).delete()
+    membership, created = SectionMembership.objects.get_or_create(
+        section=None,
+        user=supervisor,
+        defaults={'profession': profession}
+    )
+    if not created and membership.profession != profession:
+        membership.profession = profession
+        membership.save(update_fields=['profession'])
+        ProfessionGuidelineReceipt.objects.filter(membership=membership).delete()
 
 
 class DepartmentAdminManagementView(OrgLeaderRequiredMixin, TemplateView):
@@ -1162,7 +1178,7 @@ class DepartmentAdminManagementView(OrgLeaderRequiredMixin, TemplateView):
             return redirect('department-admins')
 
         department = Department.objects.create(leader=leader_profile, name=name)
-        _assign_department_supervisor(department, form.cleaned_data['supervisor'])
+        _assign_department_supervisor(department, form.cleaned_data['supervisor'], profession=form.cleaned_data.get('profession'))
         messages.success(request, "Boshqarma muvaffaqiyatli qo‘shildi.")
         return redirect('department-admins')
 
@@ -1195,7 +1211,7 @@ class DepartmentEditView(OrgLeaderRequiredMixin, View):
 
         department.name = new_name
         department.save(update_fields=['name'])
-        _assign_department_supervisor(department, form.cleaned_data['supervisor'])
+        _assign_department_supervisor(department, form.cleaned_data['supervisor'], profession=form.cleaned_data.get('profession'))
         messages.success(request, "Boshqarma yangilandi.")
         return redirect('department-admins')
 

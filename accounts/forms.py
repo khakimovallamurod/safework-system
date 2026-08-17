@@ -385,6 +385,12 @@ def _worker_select_widget(placeholder):
 
 class DepartmentCreateForm(forms.Form):
     name = forms.CharField(label="Boshqarma nomi", max_length=255, widget=forms.TextInput(attrs=_field_attrs('Boshqarma nomi')))
+    profession = forms.ModelChoiceField(
+        queryset=Profession.objects.none(),
+        label="Kasb",
+        required=False,
+        widget=forms.Select(attrs=_field_attrs('Kasbni tanlang (Majburiy emas)')),
+    )
     supervisor = forms.ModelChoiceField(
         queryset=User.objects.none(),
         label="Boshqarma nazoratchisi",
@@ -400,6 +406,10 @@ class DepartmentCreateForm(forms.Form):
             self.fields['supervisor'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
+            if self.org_leader.profile.industry:
+                self.fields['profession'].queryset = Profession.objects.filter(
+                    industry=self.org_leader.profile.industry
+                ).order_by('name')
 
     def clean_supervisor(self):
         supervisor = self.cleaned_data['supervisor']
@@ -414,6 +424,12 @@ class DepartmentCreateForm(forms.Form):
 
 class DepartmentEditForm(forms.Form):
     name = forms.CharField(label="Boshqarma nomi", max_length=255, widget=forms.TextInput(attrs=_field_attrs('Boshqarma nomi')))
+    profession = forms.ModelChoiceField(
+        queryset=Profession.objects.none(),
+        label="Kasb",
+        required=False,
+        widget=forms.Select(attrs=_field_attrs('Kasbni tanlang (Majburiy emas)')),
+    )
     supervisor = forms.ModelChoiceField(
         queryset=User.objects.none(),
         label="Boshqarma nazoratchisi",
@@ -429,6 +445,15 @@ class DepartmentEditForm(forms.Form):
             self.fields['supervisor'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
+            if self.org_leader.profile.industry:
+                self.fields['profession'].queryset = Profession.objects.filter(
+                    industry=self.org_leader.profile.industry
+                ).order_by('name')
+            if self.department and self.department.supervisor:
+                from companies.models import SectionMembership
+                membership = SectionMembership.objects.filter(section__isnull=True, user=self.department.supervisor).first()
+                if membership and membership.profession_id:
+                    self.fields['profession'].initial = membership.profession_id
 
     def clean_supervisor(self):
         supervisor = self.cleaned_data['supervisor']

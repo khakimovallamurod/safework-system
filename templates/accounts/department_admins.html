@@ -115,7 +115,9 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_name">{{ form.name.label }}</label>
                     {{ form.name }}
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_supervisor">{{ form.supervisor.label }}</label>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700" for="id_profession">{{ form.profession.label }}</label>
+                    {{ form.profession }}
+                    <label class="mb-1.5 mt-3 block text-sm font-medium text-slate-700" for="id_supervisor">{{ form.supervisor.label }}</label>
                     {{ form.supervisor }}
                     {% if workers_count == 0 %}
                         <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -148,7 +150,14 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshqarma nomi</label>
                     <input type="text" name="name" value="{{ department.name }}" class="form-control" required />
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshqarma nazoratchisi</label>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Kasb (Majburiy emas)</label>
+                    <select name="profession" class="form-control">
+                        <option value="">Kasbni tanlang (Majburiy emas)</option>
+                        {% for prof in form.fields.profession.queryset %}
+                            <option value="{{ prof.pk }}" {% if department.supervisor and department.supervisor.profile.position == prof.name %}selected{% endif %}>{{ prof.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <label class="mb-1.5 mt-3 block text-sm font-medium text-slate-700">Boshqarma nazoratchisi</label>
                     <select name="supervisor" class="worker-select2 form-control" required data-current-supervisor="{{ department.supervisor_id|default:'' }}">
                         {% for worker in department.supervisor_choices %}
                             <option value="{{ worker.pk }}" {% if department.supervisor_id == worker.pk %}selected{% endif %}>

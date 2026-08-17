@@ -85,7 +85,6 @@ def get_guideline_gate_state(user):
     if entry_pending:
         state['worker_entry_guideline_locked'] = True
         state['next_guideline_url_name'] = 'worker-entry-guidelines'
-        return state
 
     if profile.department_id:
         from companies.models import MandatoryGuideline, MandatoryGuidelineReceipt
@@ -110,10 +109,10 @@ def get_guideline_gate_state(user):
         state['pending_mandatory_guidelines_count'] = pending
         if pending:
             state['mandatory_guideline_locked'] = True
-            state['next_guideline_url_name'] = 'mandatory-guidelines-inbox'
-            return state
+            if not state['next_guideline_url_name']:
+                state['next_guideline_url_name'] = 'mandatory-guidelines-inbox'
 
-    if profile.role in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN}:
+    if profile.role in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_DEPARTMENT_ADMIN}:
         from companies.models import ProfessionGuidelineReceipt, SectionMembership
         memberships = (
             SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
@@ -123,6 +122,8 @@ def get_guideline_gate_state(user):
         membership = None
         if profile.section_id:
             membership = memberships.filter(section_id=profile.section_id).order_by('-assigned_at', '-pk').first()
+        if not membership and profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN:
+            membership = memberships.filter(section__isnull=True).order_by('-assigned_at', '-pk').first()
         if not membership:
             membership = memberships.order_by('-assigned_at', '-pk').first()
         if membership and membership.profession.nizom_file:
@@ -140,7 +141,8 @@ def get_guideline_gate_state(user):
                 if membership.profession.is_currently_active:
                     state['pending_profession_guidelines_count'] = 1
                     state['profession_guideline_locked'] = True
-                    state['next_guideline_url_name'] = 'profession-guideline-inbox'
+                    if not state['next_guideline_url_name']:
+                        state['next_guideline_url_name'] = 'profession-guideline-inbox'
     return state
 
 
