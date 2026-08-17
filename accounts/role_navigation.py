@@ -40,7 +40,7 @@ def get_pending_entry_guidelines_count(user):
         is_active=True
     ).select_related('guideline').first()
     
-    if not active_dispatch or not active_dispatch.guideline.is_currently_active:
+    if not active_dispatch:
         return 0
         
     receipt = GuidelineDispatchRecipient.objects.filter(
