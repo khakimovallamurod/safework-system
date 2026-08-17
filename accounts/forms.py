@@ -508,14 +508,14 @@ def count_department_team_members(department):
     return len(user_ids)
 
 
-def get_department_workers_queryset(dept_admin):
+def get_department_workers_queryset(dept_admin, department=None):
     """Boshqarma ichidagi xodimlar — faqat shu boshqarmaga tegishli bo'limlar."""
-    department = get_department_admin_department(dept_admin)
-    if not department:
+    dept = department or get_department_admin_department(dept_admin)
+    if not dept:
         return User.objects.none()
-    section_ids = Section.objects.filter(department=department).values_list('pk', flat=True)
+    section_ids = Section.objects.filter(department=dept).values_list('pk', flat=True)
     member_ids = SectionMembership.objects.filter(section_id__in=section_ids).values_list('user_id', flat=True)
-    supervisor_ids = Section.objects.filter(department=department, supervisor__isnull=False).values_list(
+    supervisor_ids = Section.objects.filter(department=dept, supervisor__isnull=False).values_list(
         'supervisor_id', flat=True
     )
     user_ids = set(member_ids) | set(supervisor_ids)
@@ -528,14 +528,14 @@ def get_department_workers_queryset(dept_admin):
     )
 
 
-def get_section_supervisor_choices(dept_admin, section=None):
+def get_section_supervisor_choices(dept_admin, section=None, department=None):
     include_id = section.supervisor_id if section and section.supervisor_id else None
-    department = get_department_admin_department(dept_admin)
-    exclude_ids = _assigned_section_supervisor_ids(department, exclude_section=section) if department else []
+    dept = department or get_department_admin_department(dept_admin)
+    exclude_ids = _assigned_section_supervisor_ids(dept, exclude_section=section) if dept else []
     return get_selectable_workers_queryset(
         include_user_id=include_id,
         exclude_user_ids=exclude_ids,
-        organization=department.leader if department else None,
+        organization=dept.leader if dept else None,
     )
 
 
@@ -554,23 +554,24 @@ class SectionCreateForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         self.dept_admin = kwargs.pop('dept_admin', None)
+        self.department = kwargs.pop('department', None)
         super().__init__(*args, **kwargs)
         if self.dept_admin:
-            self.fields['supervisor'].queryset = get_section_supervisor_choices(self.dept_admin)
+            dept = self.department or get_department_admin_department(self.dept_admin)
+            self.fields['supervisor'].queryset = get_section_supervisor_choices(self.dept_admin, department=dept)
             self.fields['supervisor'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
-            department = get_department_admin_department(self.dept_admin)
-            if department and department.leader.industry:
-                self.fields['profession'].queryset = Profession.objects.filter(industry=department.leader.industry).order_by('name')
+            if dept and dept.leader.industry:
+                self.fields['profession'].queryset = Profession.objects.filter(industry=dept.leader.industry).order_by('name')
 
     def clean_supervisor(self):
         supervisor = self.cleaned_data['supervisor']
         if supervisor.profile.role != UserProfile.ROLE_WORKER:
             raise ValidationError("Faqat xodimlarni bo‘lim nazoratchisi sifatida tanlashingiz mumkin.")
         if self.dept_admin:
-            department = get_department_admin_department(self.dept_admin)
-            if department and Section.objects.filter(department=department, supervisor=supervisor).exists():
+            dept = self.department or get_department_admin_department(self.dept_admin)
+            if dept and Section.objects.filter(department=dept, supervisor=supervisor).exists():
                 raise ValidationError("Bu xodim boshqa bo‘limda nazoratchi sifatida biriktirilgan.")
         return supervisor
 
@@ -591,15 +592,16 @@ class SectionEditForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.dept_admin = kwargs.pop('dept_admin', None)
         self.section = kwargs.pop('section', None)
+        self.department = kwargs.pop('department', None)
         super().__init__(*args, **kwargs)
         if self.dept_admin:
-            self.fields['supervisor'].queryset = get_section_supervisor_choices(self.dept_admin, self.section)
+            dept = self.department or get_department_admin_department(self.dept_admin)
+            self.fields['supervisor'].queryset = get_section_supervisor_choices(self.dept_admin, self.section, department=dept)
             self.fields['supervisor'].label_from_instance = lambda user: (
                 f"{getattr(user.profile, 'full_name', '') or user.username} ({user.username})"
             )
-            department = get_department_admin_department(self.dept_admin)
-            if department and department.leader.industry:
-                self.fields['profession'].queryset = Profession.objects.filter(industry=department.leader.industry).order_by('name')
+            if dept and dept.leader.industry:
+                self.fields['profession'].queryset = Profession.objects.filter(industry=dept.leader.industry).order_by('name')
             if self.section and self.section.supervisor:
                 membership = SectionMembership.objects.filter(section=self.section, user=self.section.supervisor).first()
                 if membership and membership.profession_id:
@@ -611,10 +613,10 @@ class SectionEditForm(forms.Form):
         if supervisor.profile.role not in allowed_roles:
             raise ValidationError("Faqat xodim yoki joriy nazoratchini tanlashingiz mumkin.")
         if self.dept_admin and self.section:
-            department = get_department_admin_department(self.dept_admin)
+            dept = self.department or get_department_admin_department(self.dept_admin)
             if (
-                department
-                and Section.objects.filter(department=department, supervisor=supervisor)
+                dept
+                and Section.objects.filter(department=dept, supervisor=supervisor)
                 .exclude(pk=self.section.pk)
                 .exists()
             ):

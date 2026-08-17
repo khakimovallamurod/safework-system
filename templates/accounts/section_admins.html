@@ -98,6 +98,13 @@
                             {% if section.supervisor %}
                                 <div class="font-medium text-slate-900">{{ section.supervisor.profile.full_name }}</div>
                                 <div class="text-xs text-slate-500">{{ section.supervisor.username }}</div>
+                                {% with membership=section.supervisor.section_memberships.first %}
+                                    {% if membership and membership.profession %}
+                                        <div class="mt-1"><span class="inline-flex rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">{{ membership.profession.name }}</span></div>
+                                    {% else %}
+                                        <div class="mt-1"><span class="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">Kasb kiritilmagan</span></div>
+                                    {% endif %}
+                                {% endwith %}
                             {% else %}
                                 <span class="text-xs text-slate-400">Belgilanmagan</span>
                             {% endif %}
@@ -137,7 +144,7 @@
                 </div>
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshqarma</label>
-                    {% if department %}
+                    {% if not is_org_leader %}
                         <select class="form-control bg-slate-100" disabled>
                             <option selected>{{ department.name }}</option>
                         </select>
@@ -145,7 +152,7 @@
                     {% else %}
                         <select name="department_id" class="form-control" required>
                             {% for dept in departments %}
-                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                <option value="{{ dept.id }}" {% if department and dept.id == department.id %}selected{% endif %}>{{ dept.name }}</option>
                             {% endfor %}
                         </select>
                     {% endif %}

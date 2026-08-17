@@ -77,7 +77,7 @@ def get_guideline_gate_state(user):
 
     profile = getattr(user, 'profile', None)
     from accounts.models import UserProfile
-    if not profile or profile.role not in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN}:
+    if not profile or profile.role not in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_DEPARTMENT_ADMIN}:
         return state
 
     entry_pending = get_pending_entry_guidelines_count(user)

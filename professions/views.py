@@ -139,12 +139,14 @@ class ProfessionEditView(ProfessionManageRequiredMixin, View):
         department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
         
         if not role['is_super_admin']:
-            if role['is_org_leader'] and profession.organization != role['user_profile'] and (not profession.department or profession.department.leader != role['user_profile']):
-                messages.error(request, "Siz boshqa tashkilot kasb turini tahrirlay olmaysiz.")
-                return redirect('professions:list')
-            elif role.get('is_department_admin') and profession.department != department:
-                messages.error(request, "Siz faqat o'z boshqarmangiz kasblarini tahrirlay olmasiz.")
-                return redirect('professions:list')
+            is_global = profession.organization is None and profession.department is None
+            if not is_global:
+                if role['is_org_leader'] and profession.organization != role['user_profile'] and (not profession.department or profession.department.leader != role['user_profile']):
+                    messages.error(request, "Siz boshqa tashkilot kasb turini tahrirlay olmaysiz.")
+                    return redirect('professions:list')
+                elif role.get('is_department_admin') and profession.department != department:
+                    messages.error(request, "Siz faqat o'z boshqarmangiz kasblarini tahrirlay olmaysiz.")
+                    return redirect('professions:list')
 
         form = ProfessionForm(request.POST, request.FILES, instance=profession)
         if form.is_valid():
@@ -218,12 +220,14 @@ class ProfessionDeleteView(ProfessionManageRequiredMixin, View):
         department = get_department_admin_department(request.user) if role.get('is_department_admin') else None
         
         if not role['is_super_admin']:
-            if role['is_org_leader'] and profession.organization != role['user_profile'] and (not profession.department or profession.department.leader != role['user_profile']):
-                messages.error(request, "Siz boshqa tashkilot kasb turini o'chira olmaysiz.")
-                return redirect('professions:list')
-            elif role.get('is_department_admin') and profession.department != department:
-                messages.error(request, "Siz faqat o'z boshqarmangiz kasblarini o'chira olmaysiz.")
-                return redirect('professions:list')
+            is_global = profession.organization is None and profession.department is None
+            if not is_global:
+                if role['is_org_leader'] and profession.organization != role['user_profile'] and (not profession.department or profession.department.leader != role['user_profile']):
+                    messages.error(request, "Siz boshqa tashkilot kasb turini o'chira olmaysiz.")
+                    return redirect('professions:list')
+                elif role.get('is_department_admin') and profession.department != department:
+                    messages.error(request, "Siz faqat o'z boshqarmangiz kasblarini o'chira olmaysiz.")
+                    return redirect('professions:list')
 
         profession.delete()
         messages.success(request, "Kasb turi o'chirildi.")

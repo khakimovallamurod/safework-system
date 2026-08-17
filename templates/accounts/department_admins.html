@@ -77,6 +77,13 @@
                             {% if department.supervisor %}
                                 <div class="font-medium text-slate-900">{{ department.supervisor.profile.full_name }}</div>
                                 <div class="text-xs text-slate-500">{{ department.supervisor.username }}</div>
+                                {% with membership=department.supervisor.section_memberships.first %}
+                                    {% if membership and membership.profession %}
+                                        <div class="mt-1"><span class="inline-flex rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{{ membership.profession.name }}</span></div>
+                                    {% else %}
+                                        <div class="mt-1"><span class="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">Kasb kiritilmagan</span></div>
+                                    {% endif %}
+                                {% endwith %}
                             {% else %}
                                 <span class="text-xs text-slate-400">Belgilanmagan</span>
                             {% endif %}

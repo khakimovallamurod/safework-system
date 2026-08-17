@@ -1231,7 +1231,7 @@ def _org_leader_worker_profiles(user):
     sections = _org_leader_sections(user)
     return (
         UserProfile.objects.filter(
-            Q(role=UserProfile.ROLE_WORKER)
+            Q(role__in=[UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_DEPARTMENT_ADMIN])
             & (
                 Q(organization=profile)
                 | Q(organization_name=profile.organization_name)
@@ -1320,7 +1320,7 @@ class OrganizationWorkerRegistryView(OrgLeaderRequiredMixin, TemplateView):
             practice_attempts = WorkPracticeTestAttempt.objects.filter(user=profile.user)
             assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user=profile.user)
             summary = getattr(profile.user, 'activity_summary', None)
-            is_assigned = bool(section)
+            is_assigned = bool(section) or profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN
             row = {
                 'profile': profile,
                 'user': profile.user,
@@ -1364,10 +1364,22 @@ class OrganizationWorkerRegistryView(OrgLeaderRequiredMixin, TemplateView):
                 if sec.department_id == dep.id:
                     dept_map[dep.id]['sections'][sec.id] = {'section': sec, 'workers': []}
 
+        class DummySection:
+            def __init__(self):
+                self.name = "Boshqarma ma'muriyati (Bo'limsiz xodimlar)"
+                self.id = 0
+
         for row in rows:
             dep = row['department']
             sec = row['section']
-            if not row['is_assigned'] or not dep or not sec:
+            if dep and not sec:
+                if dep.id in dept_map:
+                    if None not in dept_map[dep.id]['sections']:
+                        dept_map[dep.id]['sections'][None] = {'section': DummySection(), 'workers': []}
+                    dept_map[dep.id]['sections'][None]['workers'].append(row)
+                else:
+                    unassigned_workers.append(row)
+            elif not row['is_assigned'] or not dep or not sec:
                 unassigned_workers.append(row)
             else:
                 if dep.id in dept_map:
@@ -1961,14 +1973,14 @@ class SectionAdminManagementView(DepartmentAdminRequiredMixin, TemplateView):
             section.membership_list = list(get_section_team_memberships(section))
             section.worker_count = len(section.membership_list)
 
-        workers_qs = get_department_workers_queryset(self.request.user) if department else User.objects.none()
+        workers_qs = get_department_workers_queryset(self.request.user, department=department) if department else User.objects.none()
         context.update(
             self.get_role_context()
             | {
                 'department': department,
                 'departments': departments,
                 'sections': sections,
-                'form': SectionCreateForm(dept_admin=self.request.user),
+                'form': SectionCreateForm(dept_admin=self.request.user, department=department),
                 'workers_count': workers_qs.count(),
                 'sections_count': len(sections),
                 'total_workers': sum(section.worker_count for section in sections),
@@ -1995,7 +2007,7 @@ class SectionAdminManagementView(DepartmentAdminRequiredMixin, TemplateView):
                 messages.error(request, "Sizga biriktirilgan boshqarma topilmadi.")
                 return redirect('section-admins')
 
-        form = SectionCreateForm(request.POST, dept_admin=request.user)
+        form = SectionCreateForm(request.POST, dept_admin=request.user, department=department)
         if not form.is_valid():
             messages.error(request, "Bo‘lim qo‘shishda xatolik bor. Ma’lumotlarni tekshiring.")
             return redirect('section-admins')
@@ -2019,7 +2031,7 @@ class SectionEditView(DepartmentAdminRequiredMixin, View):
             messages.error(request, "Bo‘lim topilmadi.")
             return redirect('section-admins')
 
-        form = SectionEditForm(request.POST, dept_admin=request.user, section=section)
+        form = SectionEditForm(request.POST, dept_admin=request.user, section=section, department=section.department)
         if not form.is_valid():
             messages.error(request, "Bo‘lim tahririda xatolik bor.")
             return redirect('section-admins')

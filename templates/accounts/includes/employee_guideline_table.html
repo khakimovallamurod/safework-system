@@ -15,7 +15,10 @@
             <tr class="align-top hover:bg-slate-50">
                 <td class="px-4 py-3">
                     <div class="font-semibold text-slate-900">{{ row.profile.full_name|default:row.user.username }}</div>
-                    <div class="text-xs text-slate-500">{{ row.profile.position|default:'Lavozim kiritilmagan' }}</div>
+                    <div class="mt-1 flex items-center gap-2">
+                        <span class="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">{{ row.profile.get_role_display }}</span>
+                        <span class="text-xs text-slate-500">{{ row.profile.position|default:'Lavozim kiritilmagan' }}</span>
+                    </div>
                 </td>
                 <td class="px-4 py-3 text-xs text-slate-600">
                     <div><span class="font-semibold text-slate-900">Login:</span> {{ row.user.username }}</div>

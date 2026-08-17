@@ -171,7 +171,8 @@ class SectionMembership(models.Model):
         ]
 
     def __str__(self):
-        return f'{self.user_id} → {self.section.name}'
+        section_name = self.section.name if self.section else 'Bo‘limsiz'
+        return f'{self.user_id} → {section_name}'
 
 
 class SectionMessage(models.Model):
