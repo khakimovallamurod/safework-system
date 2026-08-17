@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<style>
+    .my-cert-card {
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #fff;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <div class="text-xs text-slate-500 mb-1 font-medium">Sopline / <span class="text-brand-600">Sertifikatlar</span></div>
+        <h1 class="text-2xl font-bold text-slate-900">Sertifikatlar</h1>
+    </div>
+    
+    <!-- Sertifikat yuklash tugmasi hamma uchun bor -->
+    <button class="btn bg-brand-500 text-white hover:bg-brand-600 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+        <i class="bi bi-upload mr-1"></i> Sertifikat yuklash
+    </button>
+</div>
+
+<!-- Xodimlar sertifikatlari (Faqat rahbarlar uchun ko'rinadi) -->
+{% if request.user.profile.role != 'worker' %}
+<div class="mb-8">
+    <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Xodimlar sertifikatlari</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for item in types_with_counts %}
+        {% cycle 'indigo' 'rose' 'emerald' 'amber' 'sky' 'fuchsia' as color silent %}
+        {% cycle 'border-indigo-500' 'border-rose-500' 'border-emerald-500' 'border-amber-500' 'border-sky-500' 'border-fuchsia-500' as border_color silent %}
+        {% cycle 'text-indigo-500' 'text-rose-500' 'text-emerald-500' 'text-amber-500' 'text-sky-500' 'text-fuchsia-500' as text_color silent %}
+        {% cycle 'bg-indigo-50' 'bg-rose-50' 'bg-emerald-50' 'bg-amber-50' 'bg-sky-50' 'bg-fuchsia-50' as bg_color silent %}
+        <a href="{% url 'certificate-hierarchy' type_id=item.type.id %}" class="bg-white border-l-4 {{ border_color }} rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 flex items-center justify-between block no-underline">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl {{ bg_color }} flex items-center justify-center {{ text_color }} text-2xl">
+                    <i class="bi bi-award"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base leading-tight">{{ item.type.name }}</h3>
+                    <div class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        Ko'rish uchun bosing <i class="bi bi-arrow-right text-[10px]"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="text-2xl font-black text-slate-700 pl-4">
+                {{ item.count }}
+            </div>
+        </a>
+        {% empty %}
+        <div class="col-span-full p-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+            <h3 class="text-slate-600 font-medium text-sm">Hozircha xodimlar tomonidan sertifikatlar yuklanmagan</h3>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-2xl">
+            <div class="modal-header border-b border-slate-100 p-4">
+                <h5 class="modal-title font-bold text-slate-900">Sertifikat yuklash</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'employee-certificate-add' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold text-slate-700">Sertifikat turi</label>
+                        <select name="certificate_type" class="form-select rounded-xl text-sm" required>
+                            <option value="">Tanlang...</option>
+                            {% for ctype in certificate_types %}
+                            <option value="{{ ctype.id }}">{{ ctype.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Faqat nazoratchilar o'z xodimlariga yuklay olishi -->
+                    {% if request.user.profile.role == 'section_admin' or request.user.profile.role == 'department_admin' or request.user.profile.role == 'organization_leader' %}
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold text-slate-700">Kim uchun yuklanyapti?</label>
+                        <select name="user" class="form-select rounded-xl text-sm select2" style="width: 100%;">
+                            <option value="{{ request.user.id }}">O'zim uchun</option>
+                            {% for member in team_members %}
+                            {% if member.user.id != request.user.id %}
+                            <option value="{{ member.user.id }}">{{ member.full_name }} - {{ member.get_role_display }}{% if member.position %} ({{ member.position }}){% endif %}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-xs text-slate-500">Agar xodim tanlanmasa, o'zingizga yuklanadi.</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold text-slate-700">Sertifikat fayli (PDF)</label>
+                        <input type="file" name="file" accept=".pdf" class="form-control rounded-xl text-sm" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-100 p-4 bg-slate-50 rounded-b-2xl">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl px-5 py-2.5 text-base font-semibold" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="btn bg-brand-500 text-white hover:bg-brand-600 rounded-xl px-5 py-2.5 text-base font-semibold">Yuklash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        if (typeof jQuery !== 'undefined' && $.fn.select2) {
+            $('.select2').select2({
+                dropdownParent: $('#uploadModal'),
+                width: '100%'
+            });
+        }
+    });
+</script>
+
+{% endblock %}

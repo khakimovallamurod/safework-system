@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="mb-5 flex justify-between items-center">
+    <div>
+        <a href="{% url 'certificate-dashboard' %}" class="text-sm text-brand-600 hover:underline mb-2 inline-block">
+            <i class="bi bi-arrow-left"></i> Sertifikatlarga qaytish
+        </a>
+        <h1 class="text-2xl font-bold text-slate-900">{{ certificate.certificate_type.name }}</h1>
+        <p class="text-slate-500 text-sm mt-1">{{ certificate.user.profile.full_name }} ning sertifikati</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" style="height: 75vh;">
+    <iframe src="{{ certificate.file.url }}#toolbar=0&navpanes=0&view=FitH" class="w-full h-full border-0"></iframe>
+</div>
+{% endblock %}

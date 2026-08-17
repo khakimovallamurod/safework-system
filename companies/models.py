@@ -985,3 +985,46 @@ class WorkerTransferHistory(models.Model):
 
     def __str__(self):
         return f"{self.worker} transferred on {self.transferred_at}"
+
+
+class CertificateType(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Sertifikat turi nomi")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_certificate_types',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        db_table = 'sertifikat_turi'
+        verbose_name_plural = 'Certificate Types'
+
+    def __str__(self):
+        return self.name
+
+
+class EmployeeCertificate(models.Model):
+    certificate_type = models.ForeignKey(
+        CertificateType,
+        on_delete=models.CASCADE,
+        related_name='employee_certificates',
+        verbose_name="Sertifikat turi"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='certificates',
+        verbose_name="Xodim"
+    )
+    file = models.FileField(upload_to='certificates/', verbose_name="Sertifikat (PDF)")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yuklangan sana")
+
+    class Meta:
+        ordering = ['-created_at']
+        db_table = 'xodim_sertifikati'
+        verbose_name_plural = 'Employee Certificates'
+
+    def __str__(self):
+        return f"{self.user} - {self.certificate_type.name}"

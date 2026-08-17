@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<style>
+    .my-cert-card {
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #fff;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-5 flex justify-between items-center flex-wrap gap-4">
+    <div>
+        <div class="text-xs text-slate-500 mb-1 font-medium">Sopline / <span class="text-brand-600">Mening sertifikatlarim</span></div>
+        <h1 class="text-2xl font-bold text-slate-900">Mening sertifikatlarim</h1>
+    </div>
+    
+    <button class="btn bg-brand-500 text-white hover:bg-brand-600 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+        <i class="bi bi-upload mr-1"></i> Sertifikat yuklash
+    </button>
+</div>
+
+<div class="mb-4">
+    {% if not my_certs_by_type %}
+    <div class="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm">
+        Sizda hali sertifikatlar mavjud emas
+    </div>
+    {% else %}
+    <div class="space-y-4">
+        {% for ctype, certs in my_certs_by_type.items %}
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h4 class="font-bold text-slate-800 mb-3">{{ ctype.name }}</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for cert in certs %}
+                <div class="my-cert-card">
+                    <div class="text-brand-500 text-3xl">
+                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <div class="text-sm font-semibold text-slate-800">Sertifikat {{ forloop.counter }}</div>
+                        <div class="text-xs text-slate-500">Yuklandi: {{ cert.created_at|date:"d.m.Y" }}</div>
+                    </div>
+                    <div>
+                        <a href="{% url 'certificate-pdf' cert.id %}" class="btn btn-sm btn-light text-brand-600">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-2xl">
+            <div class="modal-header border-b border-slate-100 p-4">
+                <h5 class="modal-title font-bold text-slate-900">Sertifikat yuklash</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'employee-certificate-add' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold text-slate-700">Sertifikat turi</label>
+                        <select name="certificate_type" class="form-select rounded-xl text-sm" required>
+                            <option value="">Tanlang...</option>
+                            {% for ctype in certificate_types %}
+                            <option value="{{ ctype.id }}">{{ ctype.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    {% if request.user.profile.role == 'section_admin' or request.user.profile.role == 'department_admin' or request.user.profile.role == 'organization_leader' %}
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold text-slate-700">Kim uchun yuklanyapti?</label>
+                        <select name="user" class="form-select rounded-xl text-sm select2" style="width: 100%;">
+                            <option value="{{ request.user.id }}">O'zim uchun</option>
+                            {% for member in team_members %}
+                            {% if member.user.id != request.user.id %}
+                            <option value="{{ member.user.id }}">{{ member.full_name }} - {{ member.get_role_display }}{% if member.position %} ({{ member.position }}){% endif %}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-xs text-slate-500">Agar xodim tanlanmasa, o'zingizga yuklanadi.</div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold text-slate-700">Sertifikat fayli (PDF)</label>
+                        <input type="file" name="file" accept=".pdf" class="form-control rounded-xl text-sm" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-100 p-4 bg-slate-50 rounded-b-2xl">
+                    <button type="button" class="btn bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl px-5 py-2.5 text-base font-semibold" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="btn bg-brand-500 text-white hover:bg-brand-600 rounded-xl px-5 py-2.5 text-base font-semibold">Yuklash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        if (typeof jQuery !== 'undefined' && $.fn.select2) {
+            $('.select2').select2({
+                dropdownParent: $('#uploadModal'),
+                width: '100%'
+            });
+        }
+    });
+</script>
+
+{% endblock %}

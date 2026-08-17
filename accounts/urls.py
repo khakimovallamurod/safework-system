@@ -22,6 +22,17 @@ from companies.views_assessment import (
     AssessmentTakeView,
     AssessmentResultView,
 )
+from companies.views_certificates import (
+    CertificateTypeListView,
+    CertificateTypeCreateView,
+    CertificateTypeEditView,
+    CertificateTypeDeleteView,
+    CertificateDashboardView,
+    EmployeeCertificateCreateView,
+    CertificateHierarchyView,
+    CertificatePdfView,
+    MyCertificatesView,
+)
 from accounts.views import (
     AiAssistantView,
     AdminLoginView,
@@ -201,4 +212,14 @@ urlpatterns = [
     path('yoriknomalar-qabul/<int:pk>/', GuidelineAcknowledgeView.as_view(), name='guideline-acknowledge'),
     path('hierarchy/', WorkerHierarchyView.as_view(), name='worker-hierarchy'),
     path('hierarchy/', WorkerHierarchyView.as_view(), name='hierarchy'),
+    # Certificates
+    path('sertifikat-turlari/', CertificateTypeListView.as_view(), name='certificate-types'),
+    path('sertifikat-turlari/qoshish/', CertificateTypeCreateView.as_view(), name='certificate-type-add'),
+    path('sertifikat-turlari/<int:pk>/tahrirlash/', CertificateTypeEditView.as_view(), name='certificate-type-edit'),
+    path('sertifikat-turlari/<int:pk>/ochirish/', CertificateTypeDeleteView.as_view(), name='certificate-type-delete'),
+    path('xodimlar-sertifikatlari/', CertificateDashboardView.as_view(), name='certificate-dashboard'),
+    path('mening-sertifikatlarim/', MyCertificatesView.as_view(), name='my-certificates'),
+    path('sertifikat-yuklash/', EmployeeCertificateCreateView.as_view(), name='employee-certificate-add'),
+    path('sertifikat-turi/<int:type_id>/xodimlar/', CertificateHierarchyView.as_view(), name='certificate-hierarchy'),
+    path('sertifikat/<int:pk>/pdf/', CertificatePdfView.as_view(), name='certificate-pdf'),
 ]
