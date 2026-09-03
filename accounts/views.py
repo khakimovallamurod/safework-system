@@ -299,9 +299,19 @@ class OrganizationLeaderRegisterView(FormView):
     success_url = reverse_lazy('login')
 
     def form_valid(self, form):
-        form.save()
-        messages.success(self.request, "Rahbar akkaunti yaratildi. Endi tizimga kirishingiz mumkin.")
-        return super().form_valid(form)
+        user = form.save()
+        user.is_active = False
+        user.save()
+        
+        import uuid
+        token = str(uuid.uuid4())
+        profile = user.profile
+        profile.telegram_token = token
+        profile.save(update_fields=['telegram_token'])
+        
+        self.request.session['temp_user_id'] = user.id
+        self.request.session['auth_flow'] = 'register'
+        return redirect('telegram-connect')
 
 
 class WorkerRegisterView(FormView):
@@ -310,9 +320,19 @@ class WorkerRegisterView(FormView):
     success_url = reverse_lazy('login')
 
     def form_valid(self, form):
-        form.save()
-        messages.success(self.request, "Xodim akkaunti yaratildi. Endi tizimga kirishingiz mumkin.")
-        return super().form_valid(form)
+        user = form.save()
+        user.is_active = False
+        user.save()
+        
+        import uuid
+        token = str(uuid.uuid4())
+        profile = user.profile
+        profile.telegram_token = token
+        profile.save(update_fields=['telegram_token'])
+        
+        self.request.session['temp_user_id'] = user.id
+        self.request.session['auth_flow'] = 'register'
+        return redirect('telegram-connect')
 
 
 class ProfilePageView(AuthenticatedRequiredMixin, View):
@@ -4528,3 +4548,225 @@ class NotificationMarkReadView(AuthenticatedRequiredMixin, View):
             SectionWorkPracticeMessageReceipt.objects.filter(user=request.user, is_read=False).update(is_read=True)
             
         return JsonResponse({'success': True})
+
+
+class ForgotPasswordView(View):
+    def get(self, request):
+        return render(request, 'accounts/forgot_password.html')
+
+    def post(self, request):
+        from accounts.forms import normalize_uz_phone
+        phone = request.POST.get('phone', '').strip()
+        try:
+            phone = normalize_uz_phone(phone)
+        except Exception:
+            messages.error(request, "Noto'g'ri telefon raqam formati.")
+            return redirect('forgot-password')
+
+        user = User.objects.filter(username=phone).first()
+        if not user:
+            messages.error(request, "Ushbu raqam tizimda ro'yxatdan o'tmagan.")
+            return redirect('forgot-password')
+            
+        profile = getattr(user, 'profile', None)
+        if not profile:
+            messages.error(request, "Profil topilmadi.")
+            return redirect('forgot-password')
+            
+        request.session['temp_user_id'] = user.id
+        request.session['auth_flow'] = 'forgot_password'
+            
+        if not profile.telegram_chat_id:
+            import uuid
+            token = str(uuid.uuid4())
+            profile.telegram_token = token
+            profile.save(update_fields=['telegram_token'])
+            return redirect('telegram-connect')
+        else:
+            # Generate OTP and send directly
+            import random
+            import string
+            from core.telegram import send_telegram_message
+            otp = ''.join(random.choices(string.digits, k=6))
+            profile.otp_code = otp
+            profile.otp_created_at = timezone.now()
+            profile.save(update_fields=['otp_code', 'otp_created_at'])
+            
+            msg_text = f"Sizning tasdiqlash kodingiz: <b>{otp}</b>\n\nIltimos, ushbu kodni platformaga kiriting."
+            send_telegram_message(profile.telegram_chat_id, msg_text)
+            
+            return redirect('verify-otp')
+
+
+class TelegramConnectView(View):
+    def get(self, request):
+        user_id = request.session.get('temp_user_id')
+        if not user_id:
+            return redirect('login')
+            
+        user = User.objects.filter(id=user_id).first()
+        if not user or not hasattr(user, 'profile'):
+            return redirect('login')
+            
+        return render(request, 'accounts/telegram_connect.html', {
+            'telegram_token': user.profile.telegram_token,
+            'bot_username': 'soplineuzbot'
+        })
+        
+
+class TelegramCheckAPIView(View):
+    def get(self, request):
+        user_id = request.session.get('temp_user_id')
+        if not user_id:
+            return JsonResponse({'status': 'error', 'message': 'Auth fail'})
+            
+        user = User.objects.filter(id=user_id).first()
+        if not user or not hasattr(user, 'profile'):
+            return JsonResponse({'status': 'error', 'message': 'Auth fail'})
+            
+        profile = user.profile
+        if not profile.telegram_token:
+            return JsonResponse({'status': 'success'})
+            
+        from django.conf import settings
+        import urllib.request
+        import json
+        import random
+        import string
+        from core.telegram import send_telegram_message
+        
+        token = getattr(settings, 'TELEGRAM_BOT_TOKEN', None)
+        if not token:
+            return JsonResponse({'status': 'pending'})
+            
+        try:
+            url = f"https://api.telegram.org/bot{token}/getUpdates"
+            found_chat_id = None
+            offset = None
+            
+            for _ in range(10): # Max 10 sahifa (1000 xabar)
+                req_url = url
+                if offset:
+                    req_url += f"?offset={offset}"
+                req = urllib.request.Request(req_url, method="GET")
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                    
+                if not data.get("ok") or not data.get("result"):
+                    break
+                    
+                for update in data.get("result", []):
+                    offset = update["update_id"] + 1
+                    message = update.get("message")
+                    if message and message.get("text"):
+                        text = message.get("text", "")
+                        if profile.telegram_token in text:
+                            found_chat_id = message.get("chat", {}).get("id")
+                            
+                if found_chat_id or len(data.get("result", [])) < 100:
+                    break
+                    
+            if found_chat_id:
+                profile.telegram_chat_id = str(found_chat_id)
+                profile.telegram_token = None
+                otp = ''.join(random.choices(string.digits, k=6))
+                profile.otp_code = otp
+                profile.otp_created_at = timezone.now()
+                profile.save(update_fields=['telegram_chat_id', 'telegram_token', 'otp_code', 'otp_created_at'])
+                
+                msg_text = f"Sizning tasdiqlash kodingiz: <b>{otp}</b>\n\nIltimos, ushbu kodni platformaga kiriting."
+                send_telegram_message(found_chat_id, msg_text)
+                
+                return JsonResponse({'status': 'success'})
+                
+        except Exception as e:
+            pass
+            
+        return JsonResponse({'status': 'pending'})
+
+
+class VerifyOTPView(View):
+    def get(self, request):
+        user_id = request.session.get('temp_user_id')
+        if not user_id:
+            return redirect('login')
+        return render(request, 'accounts/verify_otp.html')
+
+    def post(self, request):
+        user_id = request.session.get('temp_user_id')
+        auth_flow = request.session.get('auth_flow')
+        
+        if not user_id:
+            return redirect('login')
+            
+        otp = request.POST.get('otp', '').strip()
+        user = User.objects.filter(id=user_id).first()
+        
+        if not user or not hasattr(user, 'profile'):
+            return redirect('login')
+            
+        profile = user.profile
+        
+        if not profile.otp_code or profile.otp_code != otp:
+            messages.error(request, "Tasdiqlash kodi noto'g'ri.")
+            return redirect('verify-otp')
+            
+        # Check expiry (e.g. 10 minutes)
+        if profile.otp_created_at and (timezone.now() - profile.otp_created_at).total_seconds() > 600:
+            messages.error(request, "Kod muddati tugagan.")
+            return redirect('verify-otp')
+            
+        # Code is valid
+        profile.otp_code = None
+        profile.save(update_fields=['otp_code'])
+        
+        if auth_flow == 'register':
+            user.is_active = True
+            user.save()
+            messages.success(request, "Akkauntingiz muvaffaqiyatli tasdiqlandi. Endi tizimga kirishingiz mumkin.")
+            request.session.pop('temp_user_id', None)
+            request.session.pop('auth_flow', None)
+            return redirect('login')
+        elif auth_flow == 'forgot_password':
+            request.session['otp_verified'] = True
+            return redirect('reset-password')
+        
+        return redirect('login')
+
+
+class ResetPasswordView(View):
+    def get(self, request):
+        if not request.session.get('otp_verified'):
+            return redirect('login')
+        return render(request, 'accounts/reset_password.html')
+        
+    def post(self, request):
+        if not request.session.get('otp_verified'):
+            return redirect('login')
+            
+        user_id = request.session.get('temp_user_id')
+        user = User.objects.filter(id=user_id).first()
+        
+        if not user:
+            return redirect('login')
+            
+        pw1 = request.POST.get('password')
+        pw2 = request.POST.get('password_confirm')
+        
+        if not pw1 or len(pw1) < 6:
+            messages.error(request, "Parol kamida 6 ta belgidan iborat bo'lishi kerak.")
+            return redirect('reset-password')
+            
+        if pw1 != pw2:
+            messages.error(request, "Parollar mos kelmadi.")
+            return redirect('reset-password')
+            
+        user.set_password(pw1)
+        user.save()
+        
+        messages.success(request, "Parolingiz muvaffaqiyatli o'zgartirildi.")
+        request.session.pop('temp_user_id', None)
+        request.session.pop('auth_flow', None)
+        request.session.pop('otp_verified', None)
+        
+        return redirect('login')

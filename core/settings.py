@@ -151,3 +151,4 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'unsafe-none'
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+TELEGRAM_BOT_TOKEN = os.getenv('TOKEN', os.getenv('TELEGRAM_BOT_TOKEN', '')).strip()

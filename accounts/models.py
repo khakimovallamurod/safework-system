@@ -39,6 +39,10 @@ class UserProfile(models.Model):
     middle_name = models.CharField(max_length=255, blank=True)
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
     phone_number = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    telegram_chat_id = models.CharField(max_length=64, null=True, blank=True)
+    telegram_token = models.CharField(max_length=64, null=True, blank=True)
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
     organization = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,

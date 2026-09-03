@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sopline | Telegram tasdiqlash</title>
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" sizes="any" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.5); }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-hidden bg-slate-900 text-slate-800 antialiased selection:bg-emerald-500 selection:text-white">
+    <div class="absolute inset-0 z-0">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[30rem] h-[30rem] rounded-full bg-sky-500/20 blur-3xl"></div>
+        <img src="{% static 'images/qurilish.jpeg' %}" class="w-full h-full object-cover opacity-10" alt="Background" />
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/80 to-transparent"></div>
+    </div>
+
+    <div class="relative z-10 mx-auto flex min-h-screen w-full items-center justify-center px-4 py-8 lg:px-8">
+        <div class="w-full max-w-md overflow-hidden rounded-3xl glass-panel shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] transition-all hover:shadow-[0_30px_60px_-15px_rgba(16,185,129,0.2)]">
+            <div class="px-8 py-10 text-center">
+                <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-sky-100 text-sky-500 shadow-inner">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="currentColor" class="bi bi-telegram" viewBox="0 0 16 16">
+                      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.287 5.906c-.778.324-2.334.994-4.666 2.01-.378.15-.577.298-.595.442-.03.243.275.339.69.47l.175.055c.408.133.958.288 1.243.292.26.004.545-.106.855-.332 2.07-1.41 3.108-2.136 3.114-2.185.003-.022-.049-.048-.109-.005-.07.05-1.258.835-2.522 1.694-.31.21-.584.395-.607.418-.03.03-.06.061-.09.091-.205.204-.387.387-.045.61.274.179.605.395.934.61 1.328.868 1.76 1.15 2.18 1.144.383-.005.737-.322.869-1.244.137-.96.65-4.113.84-5.836.015-.136.015-.224-.007-.264-.021-.04-.082-.057-.184-.02z"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight mb-2">Telegram orqali tasdiqlash</h2>
+                <p class="text-sm text-slate-500 font-medium mb-8">
+                    Xavfsizlik maqsadida akkauntingizni Telegram orqali tasdiqlashingiz kerak. Quyidagi tugmani bosib botga kiring va <b>Start</b> tugmasini bosing.
+                </p>
+                
+                <a href="https://t.me/{{ bot_username }}?start={{ telegram_token }}" target="_blank" class="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/30 transition-all hover:scale-[1.02] hover:shadow-sky-500/40 active:scale-[0.98] mb-4">
+                    <span class="absolute right-0 -mt-12 h-32 w-8 translate-x-12 rotate-12 bg-white opacity-10 transition-all duration-1000 ease-out group-hover:-translate-x-40"></span>
+                    <i class="bi bi-send text-lg"></i> Botga o'tish
+                </a>
+                
+                <div id="loading-state" class="mt-4 flex flex-col items-center justify-center space-y-2">
+                    <div class="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-emerald-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status"></div>
+                    <span class="text-xs font-semibold text-slate-500">Botdagi tasdiqlash kutilmoqda...</span>
+                </div>
+            </div>
+            
+            <div class="bg-slate-50/50 px-4 py-4 text-center text-xs font-medium text-slate-500 border-t border-slate-200/60 mt-4">
+                Tugmani bosib botga start bosing. Tizim avtomatik tasdiqlaydi.
+            </div>
+        </div>
+    </div>
+
+<script>
+    let checkInterval = setInterval(() => {
+        fetch("{% url 'telegram-check' %}")
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    clearInterval(checkInterval);
+                    window.location.href = "{% url 'verify-otp' %}";
+                }
+            })
+            .catch(err => console.log(err));
+    }, 3000);
+</script>
+</body>
+</html>

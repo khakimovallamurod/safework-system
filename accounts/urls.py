@@ -109,11 +109,21 @@ from accounts.views import (
     WorkerRegisterView,
     NotificationListView,
     NotificationMarkReadView,
+    ForgotPasswordView,
+    TelegramConnectView,
+    TelegramCheckAPIView,
+    VerifyOTPView,
+    ResetPasswordView,
 )
 
 urlpatterns = [
     path('', LandingPageView.as_view(), name='home'),
     path('login/', AdminLoginView.as_view(), name='login'),
+    path('login/forgot/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('telegram-connect/', TelegramConnectView.as_view(), name='telegram-connect'),
+    path('telegram-check/', TelegramCheckAPIView.as_view(), name='telegram-check'),
+    path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
+    path('login/reset/', ResetPasswordView.as_view(), name='reset-password'),
     path('logout/', AdminLogoutView.as_view(), name='logout'),
     path('register/', RegisterChoiceView.as_view(), name='register-choice'),
     path('register/leader/', OrganizationLeaderRegisterView.as_view(), name='register-leader'),
