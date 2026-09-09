@@ -662,11 +662,18 @@ def get_section_member_worker_choices(section_admin, membership=None):
 
 
 def get_section_member_for_user(user):
-    return (
-        SectionMembership.objects.filter(user=user)
+    sm = (
+        SectionMembership.objects.filter(user=user, section__isnull=False)
         .select_related('section', 'section__department', 'section__supervisor', 'section__supervisor__profile')
         .first()
     )
+    if sm:
+        return sm
+    profile = getattr(user, 'profile', None)
+    if profile and profile.section_id:
+        sm, _ = SectionMembership.objects.get_or_create(user=user, section_id=profile.section_id)
+        return sm
+    return None
 
 
 class SectionMessageForm(forms.Form):

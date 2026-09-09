@@ -1,0 +1,563 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Chat butun content maydonini 100% to'liq qoplaydi (Telegram Web/Desktop stili) -->
+<div class="w-full flex-1 min-h-0 flex flex-col bg-white overflow-hidden">
+
+  <!-- 1. CHAT HEADER -->
+  <div class="flex items-center justify-between border-b border-slate-200/90 bg-white px-3 sm:px-6 py-2.5 sm:py-3 shrink-0 z-10 shadow-xs">
+    <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+      <!-- Bo'lim avatari -->
+      <div class="relative flex h-9 w-9 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white shadow-md shadow-emerald-500/20 font-bold text-sm sm:text-lg">
+        <i class="bi bi-chat-dots-fill"></i>
+        <span class="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-white">
+          <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        </span>
+      </div>
+
+      <div class="min-w-0">
+        <h2 class="text-xs sm:text-base font-bold text-slate-900 truncate flex items-center gap-1.5 sm:gap-2">
+          <span>{{ section.name }}</span>
+          <span class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] sm:text-[11px] font-semibold text-emerald-700 border border-emerald-200/60">Guruh</span>
+        </h2>
+        <p class="text-[11px] sm:text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+          <span><i class="bi bi-people-fill text-slate-400 mr-0.5"></i>{{ members_count }} ta xodim</span>
+          {% if supervisor %}
+            <span class="hidden sm:inline text-slate-300">&bull;</span>
+            <span class="hidden sm:inline text-slate-600 font-medium truncate"><i class="bi bi-person-badge text-indigo-500 mr-1"></i>Nazoratchi: {{ supervisor_profile.full_name|default:supervisor.get_full_name|default:supervisor.username }}</span>
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <!-- O'ngdagi amallar -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <!-- A'zolar ro'yxati tugmasi -->
+      <button type="button" data-bs-toggle="modal" data-bs-target="#membersListModal"
+              class="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:border-slate-300 transition shadow-xs">
+        <i class="bi bi-people text-slate-500"></i>
+        <span>A'zolar</span> ({{ members_count }})
+      </button>
+
+      {% if is_section_admin %}
+      <!-- Nazoratchi uchun o'qilganlik hisoboti -->
+      <button type="button" data-bs-toggle="modal" data-bs-target="#readAuditModal"
+              class="inline-flex items-center gap-1 rounded-xl border border-indigo-200 bg-indigo-50/70 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-xs">
+        <i class="bi bi-clipboard-check-fill text-indigo-600"></i>
+        <span class="hidden sm:inline">O'qilganlik:</span> {{ overall_read_rate }}%
+      </button>
+      {% endif %}
+
+      <!-- Yangilash tugmasi -->
+      <a href="{% url 'section-member-messages' %}" title="Yangilash"
+         class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition">
+        <i class="bi bi-arrow-clockwise"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- 2. CHAT STREAM / FEED (TO'LIQ ENI VA BALANDLIGI BO'YICHA) -->
+  <div id="chatMessagesContainer"
+       class="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 lg:px-12 py-3 sm:py-5 space-y-3 sm:space-y-4"
+       style="background-color: #f0f2f5; background-image: radial-gradient(rgba(148, 163, 184, 0.15) 1px, transparent 1px); background-size: 20px 20px;">
+
+    {% if not chat_messages %}
+    <div id="chatEmptyPlaceholder" class="h-full flex flex-col items-center justify-center text-center p-6">
+      <div class="h-16 w-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 text-3xl shadow-sm mb-3">
+        <i class="bi bi-chat-heart"></i>
+      </div>
+      <h3 class="text-base font-bold text-slate-700">Bo'lim guruhida hali xabarlar yo'q</h3>
+      <p class="text-xs text-slate-500 max-w-sm mt-1">
+        Ushbu guruh bo'lim xodimlari va nazoratchi o'rtasidagi rasmiy va tezkor muloqot uchun. Birinchi xabarni yozing!
+      </p>
+    </div>
+    {% endif %}
+
+    {% for msg in chat_messages %}
+
+      <!-- Sana ajratgichi (Telegram uslubi) -->
+      {% if msg.show_date_divider %}
+      <div class="flex justify-center my-3">
+        <span class="rounded-full bg-slate-300/80 backdrop-blur-sm px-3.5 py-1 text-[11px] font-semibold text-slate-700 shadow-xs">
+          {{ msg.date_display }}
+        </span>
+      </div>
+      {% endif %}
+
+      {% if msg.is_me %}
+      <!-- MENING XABARIM (O'NG TOMONDA, YASHIL/EMERALD) -->
+      <div class="flex justify-end group chat-bubble-item" data-msg-id="{{ msg.id }}">
+        <div class="max-w-[85%] sm:max-w-[70%] md:max-w-[55%] lg:max-w-[48%] rounded-2xl rounded-tr-xs bg-emerald-600 text-white px-4 py-2.5 shadow-sm relative transition hover:shadow-md">
+          
+          <!-- Xabar matni -->
+          <div class="text-sm font-normal leading-relaxed break-words whitespace-pre-line select-text">
+            {{ msg.body }}
+          </div>
+
+          <!-- Vaqt va o'qilganlik belgisi -->
+          <div class="flex items-center justify-end gap-1.5 mt-1 select-none">
+            <span class="text-[10px] text-emerald-100 font-medium">{{ msg.time_str }}</span>
+            {% if msg.total_receipts > 0 %}
+              {% if msg.all_read %}
+                <span title="Barcha a'zolar o'qidi ({{ msg.read_count }}/{{ msg.total_receipts }})" class="text-emerald-200">
+                  <i class="bi bi-check2-all text-xs font-bold"></i>
+                </span>
+              {% elif msg.has_read %}
+                <span title="O'qildi: {{ msg.read_count }}/{{ msg.total_receipts }}" class="text-emerald-200">
+                  <i class="bi bi-check2-all text-xs"></i>
+                </span>
+              {% else %}
+                <span title="Yuborildi, hali o'qilmadi" class="text-emerald-200/70">
+                  <i class="bi bi-check2 text-xs"></i>
+                </span>
+              {% endif %}
+            {% else %}
+              <span title="Yuborildi" class="text-emerald-200/70">
+                <i class="bi bi-check2 text-xs"></i>
+              </span>
+            {% endif %}
+          </div>
+
+          <!-- O'qiganlar ko'rsatkichi (kichik badge) -->
+          {% if msg.total_receipts > 0 %}
+          <div class="hidden group-hover:block absolute -top-2.5 right-2 bg-slate-900/90 text-slate-200 rounded-md px-1.5 py-0.5 text-[9px] font-medium shadow pointer-events-none whitespace-nowrap">
+            O'qiganlar: {{ msg.read_count }}/{{ msg.total_receipts }} ({{ msg.percent }}%)
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+      {% else %}
+      <!-- BOSHQA A'ZO XABARI (CHAP TOMONDA, OQ FON) -->
+      <div class="flex justify-start group items-end gap-2.5 chat-bubble-item" data-msg-id="{{ msg.id }}">
+        
+        <!-- Yuboruvchi avatari -->
+        <div class="h-8 w-8 shrink-0 rounded-full {% if msg.is_sender_admin %}bg-indigo-600 text-indigo-100{% else %}bg-slate-300 text-slate-700{% endif %} flex items-center justify-center text-xs font-bold shadow-xs select-none">
+          {{ msg.sender_name|slice:":1"|upper }}
+        </div>
+
+        <div class="max-w-[85%] sm:max-w-[70%] md:max-w-[55%] lg:max-w-[48%] rounded-2xl rounded-tl-xs bg-white border border-slate-200/80 text-slate-800 px-4 py-2.5 shadow-sm relative transition hover:shadow-md">
+          
+          <!-- Yuboruvchining ismi va lavozimi -->
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-bold {% if msg.is_sender_admin %}text-indigo-700{% else %}text-emerald-700{% endif %} truncate">
+              {{ msg.sender_name }}
+            </span>
+            <span class="text-[10px] font-medium px-1.5 py-0.2 rounded {% if msg.is_sender_admin %}bg-indigo-100 text-indigo-800{% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ msg.sender_role_label }}
+            </span>
+          </div>
+
+          <!-- Xabar matni -->
+          <div class="text-sm font-normal text-slate-800 leading-relaxed break-words whitespace-pre-line select-text">
+            {{ msg.body }}
+          </div>
+
+          <!-- Vaqt -->
+          <div class="flex items-center justify-end gap-1 mt-1 select-none">
+            <span class="text-[10px] text-slate-400 font-medium">{{ msg.time_str }}</span>
+          </div>
+
+        </div>
+      </div>
+      {% endif %}
+
+    {% endfor %}
+
+    <div id="scrollAnchor"></div>
+  </div>
+
+  <!-- 3. CHAT INPUT BAR (TELEGRAM WEB USLUBI, EKRAN PASTIGA TAQALGAN) -->
+  <div class="border-t border-slate-200/90 bg-white px-3 sm:px-8 lg:px-12 py-2 sm:py-3 shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+    <form id="chatSendForm" method="post" action="{% url 'section-member-messages' %}" class="flex items-end gap-2.5 sm:gap-3 m-0 max-w-5xl mx-auto">
+      {% csrf_token %}
+      
+      <div class="relative flex-1 rounded-2xl border border-slate-300 bg-slate-50 focus-within:border-emerald-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500/20 transition">
+        <textarea
+          id="chatInput"
+          name="body"
+          rows="1"
+          required
+          placeholder="Xabaringizni yozing..."
+          class="w-full resize-none border-0 bg-transparent px-3.5 sm:px-4 py-2.5 sm:py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 max-h-32 min-h-[44px]"
+          style="overflow-y: hidden;"
+        ></textarea>
+      </div>
+
+      <!-- Yuborish tugmasi (Telegram samolyotcha: qulay 44px aylana va katta ikonka) -->
+      <button
+        type="submit"
+        id="sendBtn"
+        class="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-700 active:scale-95 transition"
+        title="Yuborish"
+      >
+        <i class="bi bi-send-fill text-lg sm:text-xl -mr-0.5"></i>
+      </button>
+    </form>
+    <div class="hidden sm:flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1 max-w-5xl mx-auto">
+      <span><i class="bi bi-shield-check text-emerald-600 mr-1"></i>Bo'lim xodimlari o'rtasidagi yopiq muloqot guruhi</span>
+      <span>Enter — yuborish</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: BO'LIM A'ZOLARI RO'YXATI -->
+<div class="modal fade" id="membersListModal" tabindex="-1" aria-labelledby="membersListModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content rounded-2xl border-0 shadow-2xl overflow-hidden">
+      <div class="modal-header border-b border-slate-100 bg-slate-50 px-5 py-4">
+        <div>
+          <h5 class="modal-title font-bold text-slate-800 text-sm flex items-center gap-2" id="membersListModalLabel">
+            <i class="bi bi-people-fill text-emerald-600"></i> Bo'lim a'zolari
+          </h5>
+          <p class="text-xs text-slate-500 mt-0.5">{{ section.name }} &middot; Jami: {{ members_count }} kishi</p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+      </div>
+      <div class="modal-body p-4 divide-y divide-slate-100 max-h-96">
+        
+        <!-- Nazoratchi -->
+        {% if supervisor %}
+        <div class="flex items-center gap-3 py-2.5">
+          <div class="h-10 w-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm">
+            <i class="bi bi-award-fill text-base"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-slate-900 truncate">
+              {{ supervisor_profile.full_name|default:supervisor.get_full_name|default:supervisor.username }}
+            </div>
+            <div class="text-[11px] text-indigo-600 font-medium">Bo'lim nazoratchisi (Supervisor)</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Xodimlar -->
+        {% for m in members %}
+        <div class="flex items-center gap-3 py-2.5">
+          <div class="h-9 w-9 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs">
+            {{ m.user.first_name|slice:":1"|default:m.user.username|slice:":1"|upper }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-semibold text-slate-800 truncate">
+              {{ m.user.profile.full_name|default:m.user.get_full_name|default:m.user.username }}
+              {% if m.user == request.user %}<span class="text-[10px] text-emerald-600 font-bold">(Siz)</span>{% endif %}
+            </div>
+            <div class="text-[11px] text-slate-500 truncate">
+              {{ m.profession.name|default:m.user.profile.position|default:"Bo'lim xodimi" }}
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center py-6 text-slate-400 text-xs">
+          Bo'limda boshqa a'zolar mavjud emas.
+        </div>
+        {% endfor %}
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if is_section_admin %}
+<!-- MODAL: NAZORATCHI UCHUN O'QILGANLIK AUDITI -->
+<div class="modal fade" id="readAuditModal" tabindex="-1" aria-labelledby="readAuditModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content rounded-2xl border-0 shadow-2xl overflow-hidden">
+      <div class="modal-header border-b border-slate-100 bg-slate-50 px-5 py-4">
+        <div>
+          <h5 class="modal-title font-bold text-slate-800 text-sm flex items-center gap-2" id="readAuditModalLabel">
+            <i class="bi bi-clipboard-data-fill text-indigo-600"></i> Xabarlarning xodimlar tomonidan o'qilish statistikasi
+          </h5>
+          <p class="text-xs text-slate-500 mt-0.5">Umumiy ko'rsatkich: <strong class="text-indigo-600 font-bold">{{ overall_read_rate }}%</strong></p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Yopish"></button>
+      </div>
+      <div class="modal-body p-5 space-y-4">
+        {% for m in chat_messages %}
+          {% if m.total_receipts > 0 %}
+          <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs font-bold text-slate-900">{{ m.sender_name }}:</div>
+                <div class="text-xs text-slate-600 line-clamp-2 mt-0.5 font-normal">{{ m.body }}</div>
+                <div class="text-[10px] text-slate-400 mt-1">{{ m.created_at|date:"d.m.Y H:i" }}</div>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="inline-flex items-center gap-1 rounded-full {% if m.read_count == m.total_receipts %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %} px-2.5 py-1 text-xs font-bold">
+                  {{ m.read_count }} / {{ m.total_receipts }} ({{ m.percent }}%)
+                </span>
+              </div>
+            </div>
+
+            <!-- Kimlar o'qigan -->
+            <div class="border-t border-slate-200/80 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {% for r in m.receipts %}
+              <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded-lg border border-slate-100">
+                <div class="truncate mr-2">
+                  <span class="font-medium text-slate-800">{{ r.user_name }}</span>
+                  {% if r.position %}<span class="text-[10px] text-slate-400 block">{{ r.position }}</span>{% endif %}
+                </div>
+                {% if r.is_read %}
+                  <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 shrink-0">
+                    <i class="bi bi-check2-circle"></i> {{ r.read_at }}
+                  </span>
+                {% else %}
+                  <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-500 shrink-0">
+                    <i class="bi bi-dash-circle"></i> O'qimagan
+                  </span>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        {% empty %}
+          <div class="text-center py-8 text-slate-400 text-xs">
+            Hozircha xabarlar yo'q.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const container = document.getElementById('chatMessagesContainer');
+  const chatInput = document.getElementById('chatInput');
+  const chatForm = document.getElementById('chatSendForm');
+  const sendBtn = document.getElementById('sendBtn');
+  const scrollAnchor = document.getElementById('scrollAnchor');
+
+  // XSS himoyasi uchun escape funksiyasi
+  function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+  }
+
+  // 1. Sahifadagi oxirgi xabar ID sini aniqlash
+  let lastMessageId = 0;
+  function updateLastMessageId() {
+    const items = document.querySelectorAll('.chat-bubble-item');
+    items.forEach(el => {
+      const mid = parseInt(el.getAttribute('data-msg-id'), 10);
+      if (mid && mid > lastMessageId) {
+        lastMessageId = mid;
+      }
+    });
+  }
+  updateLastMessageId();
+
+  // 2. Pastga silliq scroll qilish
+  function scrollToBottom(smooth = false) {
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+  }
+  scrollToBottom(false);
+
+  // 3. Textarea auto-resize
+  if (chatInput) {
+    chatInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      const newHeight = Math.min(this.scrollHeight, 130);
+      this.style.height = newHeight + 'px';
+      this.style.overflowY = (this.scrollHeight > 130) ? 'auto' : 'hidden';
+    });
+
+    // Enter tugmasi bilan yuborish (Shift+Enter yangi qator)
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (chatInput.value.trim().length > 0) {
+          submitMessageAjax();
+        }
+      }
+    });
+  }
+
+  // 4. Bo'sh xabar placeholderini yashirish
+  function hideEmptyPlaceholder() {
+    const emptyEl = document.getElementById('chatEmptyPlaceholder');
+    if (emptyEl) {
+      emptyEl.style.display = 'none';
+    }
+  }
+
+  // 5. Mening yuborgan xabarimni chatga qo'shish (O'ng tomonda, yashil)
+  function appendMyMessage(msg) {
+    hideEmptyPlaceholder();
+    const bubble = document.createElement('div');
+    bubble.className = 'flex justify-end group chat-bubble-item';
+    bubble.setAttribute('data-msg-id', msg.id);
+
+    const formattedBody = escapeHtml(msg.body).replace(/\n/g, '<br>');
+
+    bubble.innerHTML = `
+      <div class="max-w-[85%] sm:max-w-[70%] md:max-w-[55%] lg:max-w-[48%] rounded-2xl rounded-tr-xs bg-emerald-600 text-white px-4 py-2.5 shadow-sm relative transition hover:shadow-md">
+        <div class="text-sm font-normal leading-relaxed break-words whitespace-pre-line select-text">${formattedBody}</div>
+        <div class="flex items-center justify-end gap-1.5 mt-1 select-none">
+          <span class="text-[10px] text-emerald-100 font-medium">${msg.time_str || ''}</span>
+          <span title="Yuborildi" class="text-emerald-200/70">
+            <i class="bi bi-check2 text-xs"></i>
+          </span>
+        </div>
+      </div>
+    `;
+
+    if (scrollAnchor) {
+      container.insertBefore(bubble, scrollAnchor);
+    } else {
+      container.appendChild(bubble);
+    }
+
+    if (msg.id > lastMessageId) {
+      lastMessageId = msg.id;
+    }
+    scrollToBottom(true);
+  }
+
+  // 6. Boshqalarning xabarini chatga qo'shish (Chap tomonda, oq fon)
+  function appendIncomingMessage(msg) {
+    hideEmptyPlaceholder();
+    const bubble = document.createElement('div');
+    bubble.className = 'flex justify-start group items-end gap-2.5 chat-bubble-item';
+    bubble.setAttribute('data-msg-id', msg.id);
+
+    const formattedBody = escapeHtml(msg.body).replace(/\n/g, '<br>');
+    const avatarBg = msg.is_sender_admin ? 'bg-indigo-600 text-indigo-100' : 'bg-slate-300 text-slate-700';
+    const nameColor = msg.is_sender_admin ? 'text-indigo-700' : 'text-emerald-700';
+    const roleBadgeClass = msg.is_sender_admin ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-600';
+    const firstLetter = (msg.sender_name ? msg.sender_name.charAt(0) : 'U').toUpperCase();
+
+    bubble.innerHTML = `
+      <div class="h-8 w-8 shrink-0 rounded-full ${avatarBg} flex items-center justify-center text-xs font-bold shadow-xs select-none">
+        ${escapeHtml(firstLetter)}
+      </div>
+      <div class="max-w-[85%] sm:max-w-[70%] md:max-w-[55%] lg:max-w-[48%] rounded-2xl rounded-tl-xs bg-white border border-slate-200/80 text-slate-800 px-4 py-2.5 shadow-sm relative transition hover:shadow-md">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-xs font-bold ${nameColor} truncate">${escapeHtml(msg.sender_name)}</span>
+          <span class="text-[10px] font-medium px-1.5 py-0.2 rounded ${roleBadgeClass}">${escapeHtml(msg.sender_role_label || 'Xodim')}</span>
+        </div>
+        <div class="text-sm font-normal text-slate-800 leading-relaxed break-words whitespace-pre-line select-text">${formattedBody}</div>
+        <div class="flex items-center justify-end gap-1 mt-1 select-none">
+          <span class="text-[10px] text-slate-400 font-medium">${msg.time_str || ''}</span>
+        </div>
+      </div>
+    `;
+
+    if (scrollAnchor) {
+      container.insertBefore(bubble, scrollAnchor);
+    } else {
+      container.appendChild(bubble);
+    }
+
+    if (msg.id > lastMessageId) {
+      lastMessageId = msg.id;
+    }
+    scrollToBottom(true);
+  }
+
+  // 7. AJAX orqali xabar yuborish (Sahifa yangilanmaydi!)
+  async function submitMessageAjax() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    // Tugmani vaqtinchalik disable qilish
+    sendBtn.disabled = true;
+    sendBtn.classList.add('opacity-50');
+
+    const formData = new FormData(chatForm);
+    formData.set('ajax', '1');
+
+    // Inputni darhol tozalash va balandligini tiklash
+    chatInput.value = '';
+    chatInput.style.height = '44px';
+    chatInput.focus();
+
+    try {
+      const response = await fetch(chatForm.action || window.location.href, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'ok') {
+          appendMyMessage(data);
+        } else {
+          // Xatolik bo'lsa
+          chatInput.value = text;
+        }
+      } else {
+        // Tarmoq xatoligi bo'lsa an'anaviy yuborish
+        chatForm.submit();
+      }
+    } catch (err) {
+      console.error('Xabar yuborishda xatolik:', err);
+      // Fallback
+      chatForm.submit();
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.classList.remove('opacity-50');
+    }
+  }
+
+  // Form submit hodisasi
+  if (chatForm) {
+    chatForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      submitMessageAjax();
+    });
+  }
+
+  // 8. Jonli yangilanish (Live Polling har 3 soniyada yangi kelgan xabarlarni tekshiradi)
+  async function pollNewMessages() {
+    try {
+      const url = `${window.location.pathname}?ajax=1&last_id=${lastMessageId}`;
+      const response = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'ok' && Array.isArray(data.messages)) {
+          data.messages.forEach(msg => {
+            // Agar allaqachon mavjud bo'lmasa
+            const existing = document.querySelector(`[data-msg-id="${msg.id}"]`);
+            if (!existing) {
+              if (msg.is_me) {
+                appendMyMessage(msg);
+              } else {
+                appendIncomingMessage(msg);
+              }
+            }
+          });
+        }
+      }
+    } catch (err) {
+      // Tarmoqda xatolik bo'lsa jimgina e'tiborsiz qoldirish
+    }
+  }
+
+  // Har 3.5 soniyada yangi xabarlarni tekshirish
+  setInterval(pollNewMessages, 3500);
+});
+</script>
+{% endblock %}
+

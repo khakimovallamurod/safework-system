@@ -9,6 +9,16 @@
             <p class="text-xs text-slate-500">Yuborilgan: {{ selected_dispatch.sent_at|date:'d.m.Y H:i' }}</p>
         </div>
 
+        {% if selected_dispatch.is_stopped %}
+        <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 flex items-center gap-2">
+            <i class="bi bi-stop-circle text-rose-600 text-base flex-shrink-0"></i>
+            <div>
+                <strong>Ushbu yo'riqnoma muddatidan oldin to'xtatilgan!</strong>
+                To'xtatilgan vaqti: {{ selected_dispatch.stopped_at|date:'d.m.Y H:i' }} | Sabab: <strong>{{ selected_dispatch.stop_reason }}</strong>
+            </div>
+        </div>
+        {% endif %}
+
         {% if filter_type == 'report' and report_data %}
         <div class="mb-4 flex flex-col items-center justify-between gap-4 rounded-xl border border-blue-100 bg-blue-50/50 p-5 sm:flex-row">
             <div>

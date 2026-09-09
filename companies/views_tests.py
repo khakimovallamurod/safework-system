@@ -88,15 +88,28 @@ class TestCreateView(SectionAdminRequiredMixin, View):
             test = form.save(commit=False)
             section = request.user.profile.section
             test.section = section
+
+            if test.start_time and test.end_time and test.start_time >= test.end_time:
+                messages.error(request, "Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak.")
+                context = self.get_role_context()
+                context.update({'form': form, 'title': 'Yangi test yaratish'})
+                return render(request, self.template_name, context)
             
-            # Check if there are enough questions in the test base
+            # Check if there are enough unique questions in the test base
             department = section.department
-            test_base_questions = list(DepartmentTestBaseQuestion.objects.filter(department=department))
+            raw_base_questions = list(DepartmentTestBaseQuestion.objects.filter(department=department))
+            seen_texts = set()
+            test_base_questions = []
+            for q in raw_base_questions:
+                t = q.text.strip().lower()
+                if t not in seen_texts:
+                    seen_texts.add(t)
+                    test_base_questions.append(q)
             
             if len(test_base_questions) < test.questions_count:
                 messages.error(
                     request, 
-                    f"Boshqarma test bazasida yetarli savol yo'q. Bazada {len(test_base_questions)} ta savol mavjud, lekin siz {test.questions_count} ta kiritdingiz."
+                    f"Boshqarma test bazasida yetarli noyob savol yo'q. Bazada {len(test_base_questions)} ta turli savol mavjud, lekin siz {test.questions_count} ta kiritdingiz."
                 )
                 context = self.get_role_context()
                 context.update({'form': form, 'title': 'Yangi test yaratish'})
@@ -104,7 +117,7 @@ class TestCreateView(SectionAdminRequiredMixin, View):
 
             test.save()
             
-            # Auto-populate questions
+            # Auto-populate questions without duplicates
             random.shuffle(test_base_questions)
             selected_questions = test_base_questions[:test.questions_count]
             questions_to_create = [
@@ -145,7 +158,13 @@ class TestEditView(SectionAdminRequiredMixin, View):
         test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
         form = WorkPracticeTestForm(request.POST, instance=test)
         if form.is_valid():
-            form.save()
+            test_obj = form.save(commit=False)
+            if test_obj.start_time and test_obj.end_time and test_obj.start_time >= test_obj.end_time:
+                messages.error(request, "Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak.")
+                context = self.get_role_context()
+                context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash'})
+                return render(request, self.template_name, context)
+            test_obj.save()
             messages.success(request, "Test tahrirlandi.")
             return redirect('companies:test_list')
         
@@ -153,6 +172,28 @@ class TestEditView(SectionAdminRequiredMixin, View):
         context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash'})
         messages.error(request, "Tahrirlashda xatolik bor.")
         return render(request, self.template_name, context)
+
+
+class TestStopView(SectionAdminRequiredMixin, View):
+    """Bo'lim testini muddatidan oldin to'xtatish."""
+
+    def post(self, request, pk, *args, **kwargs):
+        section = request.user.profile.section
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        stop_reason = (request.POST.get('stop_reason') or '').strip()
+        if not stop_reason:
+            messages.error(request, "Testni to‘xtatish uchun izoh (sabab) kiritish shart!")
+            return redirect('companies:test_detail', pk=pk)
+
+        test.is_active = False
+        test.is_stopped = True
+        test.stopped_at = timezone.now()
+        test.stop_reason = stop_reason
+        test.stopped_by = request.user
+        test.save(update_fields=['is_active', 'is_stopped', 'stopped_at', 'stop_reason', 'stopped_by'])
+
+        messages.success(request, f"Test to‘xtatildi. Sabab: {stop_reason}")
+        return redirect('companies:test_detail', pk=pk)
 
 
 class TestDeleteView(SectionAdminRequiredMixin, View):
@@ -234,6 +275,11 @@ class QuizStartView(SectionMemberRequiredMixin, View):
             messages.error(request, "Test faqat amaliyotning oxirgi kuni yoki undan keyin topshirilishi mumkin.")
             return redirect('work-practices')
 
+        is_valid, msg = test.is_in_time_window
+        if not is_valid:
+            messages.warning(request, msg)
+            return redirect('work-practices')
+
         # Check attempts
         attempts_count = WorkPracticeTestAttempt.objects.filter(practice=practice, user=request.user, test=test).count()
         if attempts_count >= test.attempts_allowed:
@@ -252,6 +298,11 @@ class QuizStartView(SectionMemberRequiredMixin, View):
     def post(self, request, practice_pk, test_pk, *args, **kwargs):
         practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
         test = get_object_or_404(WorkPracticeTest, pk=test_pk, section=practice.section, is_active=True)
+
+        is_valid, msg = test.is_in_time_window
+        if not is_valid:
+            messages.warning(request, msg)
+            return redirect('work-practices')
         
         attempts_count = WorkPracticeTestAttempt.objects.filter(practice=practice, user=request.user, test=test).count()
         if attempts_count >= test.attempts_allowed:
@@ -283,15 +334,30 @@ class QuizTakeView(SectionMemberRequiredMixin, View):
         attempt = get_object_or_404(WorkPracticeTestAttempt, pk=attempt_pk, user=request.user)
         if attempt.finished_at:
             return redirect('companies:quiz_result', attempt_pk=attempt.id)
+
+        is_valid, msg = attempt.test.is_in_time_window
+        if not is_valid:
+            messages.warning(request, msg)
+            return redirect('work-practices')
             
         question_ids = request.session.get(f'quiz_attempt_{attempt.id}', [])
         if not question_ids:
             messages.error(request, "Savollar topilmadi yoki sessiya tugagan.")
             return redirect('dashboard')
             
-        questions = WorkPracticeTestQuestion.objects.filter(id__in=question_ids)
+        questions = list(WorkPracticeTestQuestion.objects.filter(id__in=question_ids))
         # Order them dynamically as per the session list
         questions = sorted(questions, key=lambda q: question_ids.index(q.id))
+
+        # Shuffle options for each question
+        for q in questions:
+            opts = [
+                (1, q.option_1),
+                (2, q.option_2),
+                (3, q.option_3),
+            ]
+            random.shuffle(opts)
+            q.shuffled_options = opts
 
         context = self.get_role_context()
         context.update({

@@ -15,6 +15,14 @@
         <div class="text-sm font-semibold text-slate-500 mb-1">Jami tashkilotlar</div>
         <div class="text-3xl font-extrabold text-slate-900">{{ total_organizations }}</div>
     </div>
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-sm">
+        <div class="text-sm font-semibold text-emerald-700 mb-1">Faol tashkilotlar</div>
+        <div class="text-3xl font-extrabold text-emerald-700">{{ active_organizations }}</div>
+    </div>
+    <div class="rounded-xl border border-rose-200 bg-rose-50/50 p-5 shadow-sm">
+        <div class="text-sm font-semibold text-rose-700 mb-1">Bloklangan tashkilotlar</div>
+        <div class="text-3xl font-extrabold text-rose-700">{{ blocked_organizations }}</div>
+    </div>
     <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="text-sm font-semibold text-slate-500 mb-1">Jami xodimlar</div>
         <div class="text-3xl font-extrabold text-slate-900">{{ total_workers }}</div>
@@ -23,7 +31,10 @@
 
 <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
     <div class="border-b border-slate-100 bg-slate-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 class="font-bold text-slate-900">Tashkilotlar ro'yxati va ko'rsatkichlari</h2>
+        <div>
+            <h2 class="font-bold text-slate-900">Tashkilotlar ro'yxati va holati</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Tashkilot bloklanganda uning barcha xodimlari ham avtomatik tarzda bloklanadi</p>
+        </div>
         <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <select id="filterIndustry" class="rounded-lg border-slate-300 py-1.5 pl-3 pr-8 text-sm focus:border-emerald-500 focus:ring-emerald-500 outline-none border bg-white w-full sm:w-auto">
                 <option value="">Barcha sohalar</option>
@@ -44,6 +55,7 @@
             <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                     <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="name">Tashkilot / Rahbar <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
+                    <th class="px-5 py-3 font-semibold text-center select-none">Holati</th>
                     <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="industry">Soha <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
                     <th class="px-5 py-3 font-semibold cursor-pointer select-none hover:text-emerald-600 transition" data-sort="region">Viloyat <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
                     <th class="px-5 py-3 font-semibold text-center cursor-pointer select-none hover:text-emerald-600 transition" data-sort="depts">Boshqarmalar <i class="bi bi-arrow-down-up text-[10px] ml-1 opacity-50"></i></th>
@@ -54,10 +66,21 @@
             </thead>
             <tbody id="orgTableBody" class="divide-y divide-slate-100">
                 {% for stat in org_stats %}
-                <tr class="hover:bg-slate-50/50 org-row" data-industry="{{ stat.industry }}" data-region="{{ stat.region }}">
+                <tr class="hover:bg-slate-50/50 org-row {% if not stat.is_active %}bg-rose-50/30{% endif %}" data-industry="{{ stat.industry }}" data-region="{{ stat.region }}">
                     <td class="px-5 py-4" data-value="{{ stat.org_name }}">
                         <div class="font-bold text-slate-900">{{ stat.org_name }}</div>
                         <div class="text-xs text-slate-500">{{ stat.leader.full_name }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-center">
+                        {% if stat.is_active %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Faol
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 border border-rose-200">
+                                <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Bloklangan
+                            </span>
+                        {% endif %}
                     </td>
                     <td class="px-5 py-4 text-slate-600" data-value="{{ stat.industry }}">{{ stat.industry }}</td>
                     <td class="px-5 py-4 text-slate-600" data-value="{{ stat.region }}">{{ stat.region }}</td>
@@ -69,7 +92,7 @@
                             <span class="text-slate-500">{{ stat.workers_percent }}%</span>
                         </div>
                         <div class="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                            <div class="h-full rounded-full bg-brand-500" style="width: {{ stat.workers_percent }}%"></div>
+                            <div class="h-full rounded-full {% if stat.is_active %}bg-brand-500{% else %}bg-slate-400{% endif %}" style="width: {{ stat.workers_percent }}%"></div>
                         </div>
                     </td>
                     <td class="px-5 py-4 text-right">
@@ -77,14 +100,15 @@
                             <a href="{% url 'org-detail' stat.leader.id %}" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-200">
                                 <i class="bi bi-eye"></i> Batafsil
                             </a>
-                            <form action="{% url 'toggle-block' stat.leader.user.id %}" method="post" class="inline-block" onsubmit="return confirm('Siz rostdan ham bu tashkilotni (rahbarini) {% if stat.leader.user.is_active %}bloklamoqchimisiz{% else %}banddan yechmoqchimisiz{% endif %}?');">
+                            <form action="{% url 'toggle-block' stat.leader.user.id %}" method="post" class="inline-block" onsubmit="return confirm('Siz rostdan ham «{{ stat.org_name }}» tashkiloti va uning barcha xodimlarini ({% if stat.is_active %}bloklamoqchimisiz{% else %}qayta faollashtirmoqchimisiz{% endif %})?');">
                                 {% csrf_token %}
-                                {% if stat.leader.user.is_active %}
-                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                {% if stat.is_active %}
+                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 border border-rose-200" title="Tashkilot va uning barcha xodimlarini bloklash">
                                         <i class="bi bi-lock"></i> Bloklash
                                     </button>
                                 {% else %}
-                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-100">
+                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-100 border border-emerald-200" title="Tashkilot va uning barcha xodimlarini qayta ochish">
                                         <i class="bi bi-unlock"></i> Faollashtirish
                                     </button>
                                 {% endif %}

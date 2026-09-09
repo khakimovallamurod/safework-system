@@ -6,7 +6,9 @@ from django.contrib.auth import get_user_model
 from django.db import models as db_models
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views import View
 
 from accounts.forms import get_department_admin_department, get_section_admin_section
@@ -33,6 +35,18 @@ User = get_user_model()
 
 def _dept_for_admin(user):
     return get_department_admin_department(user)
+
+
+def _parse_form_dt(val_str):
+    if not val_str:
+        return None
+    try:
+        dt = parse_datetime(val_str)
+        if dt and timezone.is_naive(dt):
+            dt = timezone.make_aware(dt)
+        return dt
+    except Exception:
+        return None
 
 
 def _departments_for_assessment_user(user, role):
@@ -382,6 +396,14 @@ class AssessmentCreateView(DepartmentAdminRequiredMixin, View):
             messages.error(request, "Raqamli maydonlar to'g'ri to'ldirilmagan.")
             return redirect('assessment-create')
         notes = request.POST.get('notes', '').strip()
+        start_time = _parse_form_dt(request.POST.get('start_time'))
+        end_time = _parse_form_dt(request.POST.get('end_time'))
+
+        if start_time and end_time and start_time >= end_time:
+            messages.error(request, "Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak.")
+            ctx = self.get_role_context()
+            ctx.update({'title': "Yangi test yaratish"})
+            return render(request, self.template_name, ctx)
 
         if not name or duration < 1 or questions_count < 1 or attempts_allowed < 1:
             messages.error(request, "Barcha maydonlar to'ldirilishi shart.")
@@ -389,12 +411,20 @@ class AssessmentCreateView(DepartmentAdminRequiredMixin, View):
             ctx.update({'title': "Yangi test yaratish"})
             return render(request, self.template_name, ctx)
 
-        # Check if enough questions exist in the test base
-        test_base_questions = list(DepartmentTestBaseQuestion.objects.filter(department=dept))
+        # Check if enough distinct questions exist in the test base
+        raw_base_questions = list(DepartmentTestBaseQuestion.objects.filter(department=dept))
+        seen_texts = set()
+        test_base_questions = []
+        for q in raw_base_questions:
+            t = q.text.strip().lower()
+            if t not in seen_texts:
+                seen_texts.add(t)
+                test_base_questions.append(q)
+
         if len(test_base_questions) < questions_count:
             messages.error(
                 request,
-                f"Test bazasida yetarli savol yo'q. Bazada {len(test_base_questions)} ta savol mavjud, lekin siz {questions_count} ta kiritdingiz."
+                f"Test bazasida yetarli noyob savol yo'q. Bazada {len(test_base_questions)} ta turli savol mavjud, lekin siz {questions_count} ta kiritdingiz."
             )
             ctx = self.get_role_context()
             ctx.update({'title': "Yangi test yaratish"})
@@ -404,9 +434,10 @@ class AssessmentCreateView(DepartmentAdminRequiredMixin, View):
             department=dept, name=name, duration=duration,
             questions_count=questions_count, attempts_allowed=attempts_allowed,
             notes=notes, created_by=request.user,
+            start_time=start_time, end_time=end_time,
         )
 
-        # Auto-populate questions
+        # Auto-populate questions without duplicates
         random.shuffle(test_base_questions)
         selected_questions = test_base_questions[:questions_count]
         questions_to_create = [
@@ -448,6 +479,30 @@ class AssessmentToggleActiveView(DepartmentAdminRequiredMixin, View):
         return JsonResponse({'is_active': assessment.is_active})
 
 
+class AssessmentStopView(DepartmentAdminRequiredMixin, View):
+    """Testni muddatidan oldin to'xtatish (izoh bilan)."""
+
+    def post(self, request, pk):
+        role = self.get_role_context()
+        dept, departments = _assessment_scope_department(request, role)
+        assessment = get_object_or_404(DepartmentAssessment, pk=pk, department__in=departments)
+        stop_reason = (request.POST.get('stop_reason') or '').strip()
+        if not stop_reason:
+            messages.error(request, "Testni to‘xtatish uchun izoh (sabab) kiritish shart!")
+            return redirect('assessment-detail', pk=pk)
+
+        assessment.is_active = False
+        assessment.is_stopped = True
+        assessment.stopped_at = timezone.now()
+        assessment.stop_reason = stop_reason
+        assessment.stopped_by = request.user
+        assessment.save(update_fields=['is_active', 'is_stopped', 'stopped_at', 'stop_reason', 'stopped_by'])
+
+        messages.success(request, f"Test muddatidan oldin to‘xtatildi. Sabab: {stop_reason}")
+        next_url = request.POST.get('next') or reverse('assessment-detail', kwargs={'pk': pk})
+        return redirect(next_url)
+
+
 class AssessmentPublishView(DepartmentAdminRequiredMixin, View):
     def post(self, request, pk):
         dept = _dept_for_admin(request.user)
@@ -481,10 +536,13 @@ class AssessmentPublishView(DepartmentAdminRequiredMixin, View):
         
         # Check if 'all' is selected
         if 'all' in section_ids:
+            all_sections = dept.sections.all()
+            assessment.target_sections.set(all_sections)
             user_ids = set(_all_dept_users(dept))
         else:
             # Gather users for selected sections
             selected_sections = Section.objects.filter(id__in=section_ids, department=dept)
+            assessment.target_sections.set(selected_sections)
             for section in selected_sections:
                 if section.supervisor_id:
                     user_ids.add(section.supervisor_id)
@@ -530,19 +588,56 @@ class AssessmentOverviewView(DepartmentAdminRequiredMixin, View):
         if not dept:
             return redirect('dashboard')
         status = request.GET.get('status', 'all')
-        published = DepartmentAssessment.objects.filter(
-            department=dept, is_published=True
-        ).annotate(
-            attempt_count=db_models.Count('attempts', filter=db_models.Q(attempts__finished_at__isnull=False)),
-            passed_count=db_models.Count('attempts', filter=db_models.Q(
-                attempts__finished_at__isnull=False, attempts__score__gte=60
-            )),
-            notif_count=db_models.Count('notifications'),
-            confirmed_count=db_models.Count('notifications', filter=db_models.Q(notifications__is_confirmed=True)),
-        ).order_by('-published_at')
+        if role.get('is_section_admin'):
+            sec = get_section_admin_section(request.user)
+            if not sec:
+                messages.error(request, "Sizga biriktirilgan bo‘lim topilmadi.")
+                return redirect('dashboard')
+            dept = sec.department
+            departments = Department.objects.filter(pk=dept.pk)
+            # Faqat shu bo'limga joriy qilingan testlar
+            sec_user_ids = list(sec.memberships.values_list('user_id', flat=True))
+            if sec.supervisor_id:
+                sec_user_ids.append(sec.supervisor_id)
+            published = DepartmentAssessment.objects.filter(
+                is_published=True,
+                department=dept
+            ).filter(
+                db_models.Q(target_sections=sec) |
+                db_models.Q(notifications__user_id__in=sec_user_ids)
+            ).distinct().annotate(
+                attempt_count=db_models.Count('attempts', filter=db_models.Q(
+                    attempts__finished_at__isnull=False,
+                    attempts__user_id__in=sec_user_ids
+                )),
+                passed_count=db_models.Count('attempts', filter=db_models.Q(
+                    attempts__finished_at__isnull=False,
+                    attempts__score__gte=60,
+                    attempts__user_id__in=sec_user_ids
+                )),
+                notif_count=db_models.Count('notifications', filter=db_models.Q(
+                    notifications__user_id__in=sec_user_ids
+                )),
+                confirmed_count=db_models.Count('notifications', filter=db_models.Q(
+                    notifications__is_confirmed=True,
+                    notifications__user_id__in=sec_user_ids
+                )),
+            ).order_by('-published_at')
+            sections = [sec]
+        else:
+            published = DepartmentAssessment.objects.filter(
+                department=dept, is_published=True
+            ).annotate(
+                attempt_count=db_models.Count('attempts', filter=db_models.Q(attempts__finished_at__isnull=False)),
+                passed_count=db_models.Count('attempts', filter=db_models.Q(
+                    attempts__finished_at__isnull=False, attempts__score__gte=60
+                )),
+                notif_count=db_models.Count('notifications'),
+                confirmed_count=db_models.Count('notifications', filter=db_models.Q(notifications__is_confirmed=True)),
+            ).order_by('-published_at')
+            sections = _sections_for_assessment_scope(dept, request.user, role).prefetch_related('memberships__user__profile')
 
         # Sections with failed workers
-        sections = _sections_for_assessment_scope(dept, request.user, role).prefetch_related('memberships__user__profile')
         failed_workers = []
         passed_workers = []
         pending_workers = []
@@ -639,6 +734,15 @@ class AssessmentEditView(DepartmentAdminRequiredMixin, View):
             messages.error(request, "Raqamli maydonlar to'g'ri to'ldirilmagan.")
             return redirect('assessment-edit', pk=pk)
         notes = request.POST.get('notes', '').strip()
+        start_time = _parse_form_dt(request.POST.get('start_time'))
+        end_time = _parse_form_dt(request.POST.get('end_time'))
+
+        if start_time and end_time and start_time >= end_time:
+            messages.error(request, "Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak.")
+            ctx = self.get_role_context()
+            ctx.update({'title': "Testni tahrirlash", 'assessment': assessment})
+            return render(request, self.template_name, ctx)
+
         if not name or duration < 1 or questions_count < 1 or attempts_allowed < 1:
             messages.error(request, "Barcha maydonlar to'ldirilishi shart.")
             ctx = self.get_role_context()
@@ -649,6 +753,8 @@ class AssessmentEditView(DepartmentAdminRequiredMixin, View):
         assessment.questions_count = questions_count
         assessment.attempts_allowed = attempts_allowed
         assessment.notes = notes
+        assessment.start_time = start_time
+        assessment.end_time = end_time
         assessment.save()
         messages.success(request, "Test yangilandi.")
         return redirect('assessment-detail', pk=pk)
@@ -739,24 +845,33 @@ class AssessmentReportView(DepartmentAdminRequiredMixin, View):
 
     def get(self, request, pk):
         role = self.get_role_context()
-        dept = _dept_for_admin(request.user)
-        assessment = get_object_or_404(DepartmentAssessment, pk=pk, department=dept)
+        assessment = get_object_or_404(DepartmentAssessment, pk=pk)
+        target_sections = list(assessment.get_target_sections())
         status = request.GET.get('status', 'all')
 
-        # All sections in dept
-        sections = _sections_for_assessment_scope(dept, request.user, role).prefetch_related('memberships__user__profile')
+        if role.get('is_section_admin'):
+            sec = get_section_admin_section(request.user)
+            if not sec or sec not in target_sections:
+                messages.error(request, "Ushbu test sizning bo‘limingizga joriy qilinmagan.")
+                return redirect('dashboard')
+            sections = [sec]
+        elif role.get('is_department_admin'):
+            dept = _dept_for_admin(request.user)
+            if not dept or assessment.department_id != dept.id:
+                messages.error(request, "Ruxsat etilmagan.")
+                return redirect('dashboard')
+            sections = target_sections
+        else:
+            sections = target_sections
 
         section_data = []
+        all_worker_ids = set()
         for section in sections:
             members = list(section.memberships.select_related('user__profile').all())
-            if section.supervisor:
-                supervisor_ids = [section.supervisor_id]
-            else:
-                supervisor_ids = []
-
             worker_rows = []
             for m in members:
                 u = m.user
+                all_worker_ids.add(u.id)
                 notif = DepartmentAssessmentNotification.objects.filter(
                     assessment=assessment, user=u
                 ).first()
@@ -796,13 +911,15 @@ class AssessmentReportView(DepartmentAdminRequiredMixin, View):
                 'has_failed': failed_count > 0,
             })
 
-        # Global stats
-        total_notifs = DepartmentAssessmentNotification.objects.filter(assessment=assessment).count()
+        # Global stats - faqat ko'rsatilgan bo'limlar xodimlari bo'yicha
+        total_notifs = DepartmentAssessmentNotification.objects.filter(
+            assessment=assessment, user_id__in=all_worker_ids
+        ).count()
         confirmed = DepartmentAssessmentNotification.objects.filter(
-            assessment=assessment, is_confirmed=True
+            assessment=assessment, user_id__in=all_worker_ids, is_confirmed=True
         ).count()
         all_attempts = DepartmentAssessmentAttempt.objects.filter(
-            assessment=assessment, finished_at__isnull=False
+            assessment=assessment, user_id__in=all_worker_ids, finished_at__isnull=False
         )
         passed_all = all_attempts.filter(score__gte=60).count()
         failed_all = all_attempts.filter(score__lt=60).count()
@@ -838,6 +955,7 @@ class AssessmentInboxView(AuthenticatedRequiredMixin, View):
         ).select_related('assessment').order_by('-created_at')
 
         inbox_items = []
+        now = timezone.now()
         for notif in notifs:
             a = notif.assessment
             attempts = DepartmentAssessmentAttempt.objects.filter(
@@ -845,6 +963,14 @@ class AssessmentInboxView(AuthenticatedRequiredMixin, View):
             ).order_by('-started_at')
             best = attempts.filter(finished_at__isnull=False).order_by('-score').first()
             attempts_used = attempts.count()
+            is_time_valid = a.is_in_time_window
+            can_take = (attempts_used < a.attempts_allowed) and is_time_valid
+            time_status = 'active'
+            if a.start_time and now < a.start_time:
+                time_status = 'upcoming'
+            elif a.end_time and now > a.end_time:
+                time_status = 'expired'
+
             inbox_items.append({
                 'notif': notif,
                 'assessment': a,
@@ -852,7 +978,9 @@ class AssessmentInboxView(AuthenticatedRequiredMixin, View):
                 'best_attempt_id': best.id if best else None,
                 'attempts_used': attempts_used,
                 'attempts_left': max(0, a.attempts_allowed - attempts_used),
-                'can_take': attempts_used < a.attempts_allowed,
+                'can_take': can_take,
+                'is_time_valid': is_time_valid,
+                'time_status': time_status,
             })
 
         ctx = self.get_role_context()
@@ -881,14 +1009,45 @@ class AssessmentTakeView(AuthenticatedRequiredMixin, View):
     template_name = 'companies/assessment/take.html'
 
     def get(self, request, pk):
-        assessment = get_object_or_404(
-            DepartmentAssessment, pk=pk, is_published=True, is_active=True
-        )
+        assessment = DepartmentAssessment.objects.filter(pk=pk).first()
+        if not assessment:
+            messages.error(request, "Test topilmadi.")
+            return redirect('assessment-inbox')
+
+        if assessment.is_stopped:
+            messages.warning(
+                request,
+                f"Ushbu test nazoratchi tomonidan oldindan to‘xtatilgan. Sabab: {assessment.stop_reason or 'Izoh kiritilmagan'}"
+            )
+            return redirect('assessment-inbox')
+
+        if not (assessment.is_published and assessment.is_active):
+            messages.error(request, "Bu test hozirda faol emas.")
+            return redirect('assessment-inbox')
+
+        now = timezone.now()
+        if assessment.start_time and now < assessment.start_time:
+            messages.warning(
+                request,
+                f"Ushbu test hali boshlanmagan. Test boshlanish vaqti: {timezone.localtime(assessment.start_time).strftime('%d.%m.%Y %H:%M')}"
+            )
+            return redirect('assessment-inbox')
+
+        if assessment.end_time and now > assessment.end_time:
+            messages.warning(
+                request,
+                f"Ushbu test muddati tugagan ({timezone.localtime(assessment.end_time).strftime('%d.%m.%Y %H:%M')})."
+            )
+            return redirect('assessment-inbox')
+
         notif = DepartmentAssessmentNotification.objects.filter(
             assessment=assessment, user=request.user
         ).first()
-        if not notif:
-            messages.error(request, "Sizga bu test uchun ruxsat berilmagan.")
+        profile = getattr(request.user, 'profile', None)
+        user_section = getattr(profile, 'section', None)
+        target_sections = assessment.get_target_sections()
+        if (user_section and user_section not in target_sections) or not notif:
+            messages.error(request, "Ushbu test sizning bo‘limingizga joriy qilinmagan.")
             return redirect('assessment-inbox')
 
         attempts_used = DepartmentAssessmentAttempt.objects.filter(
@@ -907,6 +1066,15 @@ class AssessmentTakeView(AuthenticatedRequiredMixin, View):
         random.shuffle(all_q)
         selected = all_q[:assessment.questions_count]
         request.session[f'dept_assessment_{attempt.id}'] = [q.id for q in selected]
+
+        for q in selected:
+            opts = [
+                (1, q.option_1),
+                (2, q.option_2),
+                (3, q.option_3),
+            ]
+            random.shuffle(opts)
+            q.shuffled_options = opts
 
         questions = selected
         ctx = self.get_role_context()

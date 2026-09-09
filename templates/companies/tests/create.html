@@ -54,6 +54,25 @@
                         <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.questions_count.errors.0 }}</p>
                     {% endif %}
                 </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700" for="{{ form.start_time.id_for_label }}">
+                        Boshlanish vaqti <span class="text-xs text-slate-400 font-normal">(ixtiyoriy)</span>
+                    </label>
+                    {{ form.start_time }}
+                    {% if form.start_time.errors %}
+                        <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.start_time.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700" for="{{ form.end_time.id_for_label }}">
+                        Tugash vaqti <span class="text-xs text-slate-400 font-normal">(ixtiyoriy)</span>
+                    </label>
+                    {{ form.end_time }}
+                    {% if form.end_time.errors %}
+                        <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.end_time.errors.0 }}</p>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="pt-2">

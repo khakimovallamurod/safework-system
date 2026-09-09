@@ -21,12 +21,14 @@ class CompanyCreateForm(forms.ModelForm):
 class WorkPracticeTestForm(forms.ModelForm):
     class Meta:
         model = WorkPracticeTest
-        fields = ['name', 'duration', 'attempts_allowed', 'questions_count', 'is_active']
+        fields = ['name', 'duration', 'attempts_allowed', 'questions_count', 'start_time', 'end_time', 'is_active']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm', 'placeholder': 'Masalan: Mehnat muhofazasi asoslari'}),
             'duration': forms.NumberInput(attrs={'class': 'w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm', 'min': 1}),
             'attempts_allowed': forms.NumberInput(attrs={'class': 'w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm', 'min': 1}),
             'questions_count': forms.NumberInput(attrs={'class': 'w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm', 'min': 1}),
+            'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm'}, format='%Y-%m-%dT%H:%M'),
+            'end_time': forms.DateTimeInput(attrs={'type': 'datetime-local', 'class': 'w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm'}, format='%Y-%m-%dT%H:%M'),
             'is_active': forms.CheckboxInput(attrs={'class': 'peer sr-only'}),
         }
 

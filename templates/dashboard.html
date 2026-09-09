@@ -193,6 +193,413 @@
     </div>
     {% endif %}
 </div>
+{% elif org_leader_dashboard %}
+<div class="mb-6 space-y-6">
+    <!-- 1. Tashkilot Rahbari Boshqaruv Banneri -->
+    <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-5 text-white shadow-xl sm:p-7">
+        <div class="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-brand-500/10 blur-2xl pointer-events-none"></div>
+        <div class="absolute -bottom-10 right-32 h-40 w-40 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
+        <div class="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-400 backdrop-blur-md">
+                    <i class="bi bi-shield-check"></i> Tashkilot Boshqaruv Markazi (Direktor)
+                </div>
+                <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                    {{ org_leader_dashboard.org_name }}
+                </h1>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300 sm:text-sm">
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-briefcase text-sky-400"></i> Soha: <strong>{{ org_leader_dashboard.industry_name }}</strong></span>
+                    <span class="text-slate-500">·</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-person-badge text-emerald-400"></i> Rahbar: <strong>{{ org_leader_dashboard.leader_name|default:request.user.username }}</strong></span>
+                    <span class="text-slate-500">·</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-calendar-event text-amber-400"></i> Bugun: {% now "d.m.Y" %}</span>
+                </div>
+            </div>
+
+            <!-- Xavfsizlik Indeksi Vidjeti -->
+            <div class="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+                <div class="relative flex h-16 w-16 items-center justify-center rounded-2xl {% if org_leader_dashboard.index_score >= 80 %}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{% elif org_leader_dashboard.index_score >= 55 %}bg-sky-500/20 text-sky-400 border border-sky-500/30{% else %}bg-rose-500/20 text-rose-400 border border-rose-500/30{% endif %}">
+                    <span class="text-2xl font-black">{{ org_leader_dashboard.index_score }}%</span>
+                </div>
+                <div>
+                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Mehnat Muhofazasi Indeksi</div>
+                    <div class="text-base font-extrabold text-white">
+                        {% if org_leader_dashboard.index_score >= 80 %}
+                        <span class="text-emerald-400"><i class="bi bi-check-circle-fill mr-1"></i> Yuqori xavfsizlik</span>
+                        {% elif org_leader_dashboard.index_score >= 55 %}
+                        <span class="text-sky-400"><i class="bi bi-info-circle-fill mr-1"></i> Barqaror holat</span>
+                        {% else %}
+                        <span class="text-rose-400"><i class="bi bi-exclamation-triangle-fill mr-1"></i> Nazorat zarur</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-slate-400 mt-0.5">Tashkilot umumiy xavfsizlik reytingi</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Asosiy KPI Kartalari (4 ta ustun) -->
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <!-- 1. Tuzilma va Shtat -->
+        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:shadow-md">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Tuzilma va Ishchilar</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">{{ org_leader_dashboard.total_workers }}</div>
+                    <div class="mt-1 text-xs text-slate-500">jami {{ org_leader_dashboard.total_staff }} nafar xodim</div>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-xl text-sky-600 transition group-hover:scale-110">
+                    <i class="bi bi-buildings"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600">
+                <span><strong>{{ org_leader_dashboard.total_departments }}</strong> boshqarma</span>
+                <span>·</span>
+                <span><strong>{{ org_leader_dashboard.total_sections }}</strong> bo‘lim</span>
+                <a href="{% url 'org-workers' %}" class="font-bold text-sky-600 hover:text-sky-700">Ko‘rish <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <!-- 2. Mehnatga Ruxsat (Kvalifikatsiya) -->
+        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:shadow-md">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Mehnatga ruxsat</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">{{ org_leader_dashboard.qualified_workers_count }}</div>
+                    <div class="mt-1 text-xs text-slate-500">ishchilarning <strong>{{ org_leader_dashboard.qualified_rate }}%</strong> qismi</div>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-xl text-emerald-600 transition group-hover:scale-110">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+            </div>
+            <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-emerald-500" style="width: {{ org_leader_dashboard.qualified_rate }}%"></div>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs">
+                <span class="text-slate-500">{{ org_leader_dashboard.unqualified_workers_count }} ta ruxsatsiz</span>
+                <a href="{% url 'org-workers-status' 'not-qualified' %}" class="font-bold text-emerald-600 hover:text-emerald-700">Nazorat <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <!-- 3. Yo‘riqnomalar Ijrosi -->
+        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:shadow-md">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Kirish Yo‘riqnomasi</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">{{ org_leader_dashboard.entry_rate }}%</div>
+                    <div class="mt-1 text-xs text-slate-500">{{ org_leader_dashboard.entry_accepted }}/{{ org_leader_dashboard.entry_total }} ta qabul qilindi</div>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-xl text-indigo-600 transition group-hover:scale-110">
+                    <i class="bi bi-file-earmark-check"></i>
+                </div>
+            </div>
+            <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-indigo-500" style="width: {{ org_leader_dashboard.entry_rate }}%"></div>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs">
+                <span class="text-slate-500">Ichki yo‘riqnoma: <strong>{{ org_leader_dashboard.internal_rate }}%</strong></span>
+                <a href="{% url 'org-entry-guidelines' %}" class="font-bold text-indigo-600 hover:text-indigo-700">Reestr <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+
+        <!-- 4. Qoidabuzarliklar va Nazorat -->
+        <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:shadow-md">
+            <div class="flex items-start justify-between">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Qoidabuzarliklar</div>
+                    <div class="mt-2 text-3xl font-black {% if org_leader_dashboard.active_violations_count > 0 %}text-rose-600{% else %}text-slate-900{% endif %}">
+                        {{ org_leader_dashboard.active_violations_count }}
+                    </div>
+                    <div class="mt-1 text-xs text-slate-500">faol qoidabuzarlik holati</div>
+                </div>
+                <div class="flex h-12 w-12 items-center justify-center rounded-2xl {% if org_leader_dashboard.active_violations_count > 0 %}bg-rose-50 text-rose-600{% else %}bg-slate-100 text-slate-500{% endif %} text-xl transition group-hover:scale-110">
+                    <i class="bi bi-exclamation-octagon"></i>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                {% if org_leader_dashboard.blocked_workers_count %}
+                <span class="font-bold text-rose-600"><i class="bi bi-person-x-fill mr-1"></i>{{ org_leader_dashboard.blocked_workers_count }} ta bloklangan</span>
+                {% else %}
+                <span class="text-emerald-600"><i class="bi bi-shield-fill-check mr-1"></i>Bloklanganlar yo‘q</span>
+                {% endif %}
+                <a href="{% url 'violations:dashboard' %}" class="font-bold text-rose-600 hover:text-rose-700">Tahlil <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Ikkinchi darajali operativ ko'rsatkichlar (IHV, Tibbiy ko'rik, Bilim baholash) -->
+    <div class="grid gap-4 md:grid-cols-3">
+        <!-- IHV ta'minoti -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-600"><i class="bi bi-shield-shaded"></i></span>
+                    IHV ta'minoti
+                </div>
+                <span class="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-bold text-teal-700">{{ org_leader_dashboard.ppe_rate }}%</span>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between text-slate-600">
+                    <span>Berilgan IHV:</span>
+                    <strong class="text-slate-900">{{ org_leader_dashboard.ppe_accepted }}/{{ org_leader_dashboard.ppe_total }} ta</strong>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>Qabul kutilmoqda:</span>
+                    <strong class="text-amber-600">{{ org_leader_dashboard.ppe_pending }} ta</strong>
+                </div>
+            </div>
+            <a href="{% url 'ppe:dashboard' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50/50 py-2 text-xs font-bold text-teal-700 hover:bg-teal-100 transition">
+                IHV paneliga o‘tish <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+
+        <!-- Tibbiy ko'rik -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><i class="bi bi-heart-pulse"></i></span>
+                    Tibbiy ko‘rik
+                </div>
+                <span class="rounded-full {% if org_leader_dashboard.med_danger %}bg-rose-100 text-rose-700{% else %}bg-emerald-50 text-emerald-700{% endif %} px-2.5 py-0.5 text-xs font-bold">
+                    {% if org_leader_dashboard.med_danger %}{{ org_leader_dashboard.med_danger }} ta muddati o‘tgan{% else %}Nazoratda{% endif %}
+                </span>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between text-slate-600">
+                    <span>Sog‘lom / Yaroqli:</span>
+                    <strong class="text-emerald-600">{{ org_leader_dashboard.med_ok }} ta</strong>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>Muddati yaqinlashgan:</span>
+                    <strong class="text-amber-600">{{ org_leader_dashboard.med_warning }} ta</strong>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>Muddati o‘tib ketgan:</span>
+                    <strong class="text-rose-600">{{ org_leader_dashboard.med_danger }} ta</strong>
+                </div>
+            </div>
+            <a href="{% url 'medical-records' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/50 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
+                Tibbiy daftarni ko‘rish <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+
+        <!-- Bilim baholash -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600"><i class="bi bi-mortarboard"></i></span>
+                    Bilim baholash (Testlar)
+                </div>
+                <span class="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-bold text-violet-700">{{ org_leader_dashboard.assessment_pass_rate }}% muvaffaqiyat</span>
+            </div>
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between text-slate-600">
+                    <span>Jami topshirishlar:</span>
+                    <strong class="text-slate-900">{{ org_leader_dashboard.total_attempts }} ta</strong>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>Muvaffaqiyatli / O‘tmagan:</span>
+                    <strong class="text-slate-900"><span class="text-emerald-600">{{ org_leader_dashboard.passed_attempts }}</span> / <span class="text-rose-600">{{ org_leader_dashboard.failed_attempts }}</span></strong>
+                </div>
+                <div class="flex justify-between text-slate-600">
+                    <span>O‘rtacha o‘zlashtirish:</span>
+                    <strong class="text-violet-700">{{ org_leader_dashboard.avg_assessment_score }}%</strong>
+                </div>
+            </div>
+            <a href="{% url 'assessment-overview' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50/50 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100 transition">
+                Test monitoringiga o‘tish <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- 4. Tezkor Boshqaruv Tugmalari (Executive Quick Actions Bar) -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Tezkor amallar va boshqaruv</div>
+        <div class="flex flex-wrap gap-2.5">
+            <a href="{% url 'department-admins' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition">
+                <i class="bi bi-building-add text-emerald-400"></i> Boshqarma qo‘shish
+            </a>
+            <a href="{% url 'section-admins' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-diagram-2 text-sky-600"></i> Bo‘lim ochish
+            </a>
+            <a href="{% url 'org-workers' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-people text-indigo-600"></i> Xodimlar ro‘yxati
+            </a>
+            <a href="{% url 'assessment-create' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-plus-circle text-violet-600"></i> Yangi test yaratish
+            </a>
+            <a href="{% url 'violations:dashboard' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-exclamation-octagon text-rose-600"></i> Qoidabuzarliklar reestri
+            </a>
+            <a href="{% url 'ppe:dashboard' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-shield-shaded text-teal-600"></i> IHV hisoboti
+            </a>
+            <a href="{% url 'certificate-dashboard' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-award text-amber-600"></i> Sertifikatlar
+            </a>
+        </div>
+    </div>
+
+    <!-- 5. Boshqarmalar faoliyati va Xavfsizlik ko'rsatkichlari (Department Performance & Safety Rating Table) -->
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900">Boshqarmalar kesimida Mehnat Muhofazasi va Xavfsizlik Reytingi</h3>
+                <p class="text-xs text-slate-500">Tashkilotdagi barcha boshqarmalarning joriy ko‘rsatkichlari va qiyosiy tahlili</p>
+            </div>
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                <i class="bi bi-buildings"></i> {{ org_leader_dashboard.department_stats|length }} ta boshqarma
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-100 text-xs">
+                <thead class="bg-slate-50/50 text-left font-semibold uppercase tracking-wider text-slate-500">
+                    <tr>
+                        <th class="px-5 py-3.5">Boshqarma nomi</th>
+                        <th class="px-4 py-3.5">Nazoratchi</th>
+                        <th class="px-4 py-3.5 text-center">Bo‘limlar</th>
+                        <th class="px-4 py-3.5 text-center">Ishchilar</th>
+                        <th class="px-4 py-3.5">Mehnatga ruxsat</th>
+                        <th class="px-4 py-3.5">Kirish yo‘riqnomasi</th>
+                        <th class="px-4 py-3.5 text-center">Qoidabuzarlik</th>
+                        <th class="px-4 py-3.5 text-center">Xavfsizlik darajasi</th>
+                        <th class="px-5 py-3.5 text-right">Amal</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for row in org_leader_dashboard.department_stats %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="px-5 py-3.5 font-bold text-slate-900">
+                            <div class="flex items-center gap-2">
+                                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 text-sky-600 font-bold"><i class="bi bi-building"></i></span>
+                                {{ row.name }}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3.5 text-slate-600 font-medium">
+                            {{ row.supervisor_name }}
+                        </td>
+                        <td class="px-4 py-3.5 text-center font-semibold text-slate-800">
+                            {{ row.sections_count }}
+                        </td>
+                        <td class="px-4 py-3.5 text-center font-bold text-slate-900">
+                            {{ row.workers_count }}
+                        </td>
+                        <td class="px-4 py-3.5">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold {% if row.qualified_rate >= 80 %}text-emerald-600{% elif row.qualified_rate >= 50 %}text-sky-600{% else %}text-rose-600{% endif %}">{{ row.qualified_rate }}%</span>
+                                <div class="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                                    <div class="h-full rounded-full {% if row.qualified_rate >= 80 %}bg-emerald-500{% elif row.qualified_rate >= 50 %}bg-sky-500{% else %}bg-rose-500{% endif %}" style="width: {{ row.qualified_rate }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3.5">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold {% if row.entry_rate >= 80 %}text-emerald-600{% elif row.entry_rate >= 50 %}text-sky-600{% else %}text-amber-600{% endif %}">{{ row.entry_rate }}%</span>
+                                <div class="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                                    <div class="h-full rounded-full {% if row.entry_rate >= 80 %}bg-emerald-500{% elif row.entry_rate >= 50 %}bg-sky-500{% else %}bg-amber-500{% endif %}" style="width: {{ row.entry_rate }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3.5 text-center">
+                            {% if row.active_violations > 0 %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 font-bold text-rose-700">
+                                <i class="bi bi-exclamation-circle-fill"></i> {{ row.active_violations }} faol
+                            </span>
+                            {% elif row.violations_count > 0 %}
+                            <span class="text-slate-500 font-semibold">{{ row.violations_count }} (hal qilingan)</span>
+                            {% else %}
+                            <span class="text-emerald-600 font-semibold"><i class="bi bi-check2"></i> 0</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5 text-center">
+                            <span class="inline-flex items-center gap-1 rounded-full {% if row.status_tone == 'emerald' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% elif row.status_tone == 'sky' %}bg-sky-50 text-sky-700 border border-sky-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %} px-2.5 py-1 font-bold">
+                                {{ row.safety_score }} ball · {{ row.status_text }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-3.5 text-right">
+                            <a href="{% url 'org-workers' %}?department={{ row.dept.id }}" class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-200 transition">
+                                Ishchilar <i class="bi bi-chevron-right text-[10px]"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-5 py-8 text-center text-slate-400">Hozircha boshqarmalar kiritilmagan.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 6. Jonli Nazorat: So'nggi Qoidabuzarliklar & So'nggi Bilim Sinovlari -->
+    <div class="grid gap-6 lg:grid-cols-2">
+        <!-- So'nggi Qoidabuzarliklar -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><i class="bi bi-exclamation-triangle"></i></span>
+                    So‘nggi qayd etilgan qoidabuzarliklar
+                </div>
+                <a href="{% url 'violations:dashboard' %}" class="text-xs font-bold text-rose-600 hover:text-rose-700">Hammasi <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="space-y-2.5">
+                {% for v in org_leader_dashboard.recent_violations %}
+                <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition">
+                    <div class="min-w-0">
+                        <div class="truncate text-xs font-bold text-slate-900">{{ v.employee.get_full_name|default:v.employee.username }}</div>
+                        <div class="mt-0.5 truncate text-[11px] text-slate-500">{{ v.violation_type.name }} · {{ v.date|date:"d.m.Y" }}</div>
+                    </div>
+                    <div>
+                        {% if v.is_active %}
+                        <span class="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">Faol</span>
+                        {% else %}
+                        <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Hal bo‘lgan</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-400">
+                    <i class="bi bi-shield-check text-2xl text-emerald-500 mb-1 block"></i>
+                    Oxirgi vaqtda qoidabuzarlik holati qayd etilmagan.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- So'nggi Bilim Sinovlari -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-600"><i class="bi bi-mortarboard"></i></span>
+                    So‘nggi bilim baholash sinovlari
+                </div>
+                <a href="{% url 'assessment-overview' %}" class="text-xs font-bold text-violet-600 hover:text-violet-700">Hammasi <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="space-y-2.5">
+                {% for att in org_leader_dashboard.recent_assessment_attempts %}
+                <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 hover:bg-slate-50 transition">
+                    <div class="min-w-0">
+                        <div class="truncate text-xs font-bold text-slate-900">{{ att.user.get_full_name|default:att.user.username }}</div>
+                        <div class="mt-0.5 truncate text-[11px] text-slate-500">{{ att.assessment.name }} · {{ att.finished_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-extrabold {% if att.score >= 60 %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ att.score }}%</div>
+                        <span class="inline-flex rounded-full {% if att.score >= 60 %}bg-emerald-100 text-emerald-700{% else %}bg-rose-100 text-rose-700{% endif %} px-2 py-0.5 text-[10px] font-bold">
+                            {% if att.score >= 60 %}O‘tdi{% else %}O‘tmadi{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs text-slate-400">
+                    <i class="bi bi-journal-text text-2xl text-slate-300 mb-1 block"></i>
+                    Hali bilim testi natijalari qayd etilmagan.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
 {% elif dashboard_overview %}
 <div class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
     <div class="border-b border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-5">
@@ -479,39 +886,141 @@
 </div>
 {% endif %}
 
-{% if not worker_dashboard and not dashboard_overview %}
-<div class="mb-6 grid gap-4 md:grid-cols-2">
+{% if not worker_dashboard and not dashboard_overview and not org_leader_dashboard %}
+<div class="mb-6 grid gap-4 md:grid-cols-4">
     {% if is_super_admin %}
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 min-w-0">
+    <!-- 1. Jami tashkilotlar -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5">
         <div class="flex items-center gap-4">
-            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-diagram-3"></i></div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-2xl text-amber-600"><i class="bi bi-buildings"></i></div>
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Jami sohalar</div>
-                <div class="text-3xl font-extrabold text-slate-900">{{ total_industries }}</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tashkilotlar</div>
+                <div class="text-2xl font-extrabold text-slate-900">{{ total_leaders }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">
+                    <span class="text-emerald-600 font-semibold">{{ active_leaders }} faol</span> &bull; 
+                    <span class="text-rose-600 font-semibold">{{ blocked_leaders }} bloklangan</span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 min-w-0">
+
+    <!-- 2. Jami xodimlar -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5">
         <div class="flex items-center gap-4">
-            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-2xl text-amber-600"><i class="bi bi-building-check"></i></div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-2xl text-sky-600"><i class="bi bi-people"></i></div>
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Rahbarlar</div>
-                <div class="text-3xl font-extrabold text-slate-900">{{ total_leaders }}</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Jami xodimlar</div>
+                <div class="text-2xl font-extrabold text-slate-900">{{ total_workers }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Platforma miqyosida</div>
             </div>
         </div>
     </div>
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 md:col-span-2 min-w-0">
+
+    <!-- 3. Jami sohalar -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5">
         <div class="flex items-center gap-4">
-            <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-sky-50 text-2xl text-sky-600"><i class="bi bi-people"></i></div>
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-2xl text-emerald-600"><i class="bi bi-diagram-3"></i></div>
             <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Ishchilar / Yangi rahbarlar</div>
-                <div class="text-lg font-bold text-slate-900">{{ total_workers }} ishchi, {{ new_leaders }} ta yangi rahbar</div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Sohalar</div>
+                <div class="text-2xl font-extrabold text-slate-900">{{ total_industries }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Yo'nalishlar</div>
             </div>
+        </div>
+    </div>
+
+    <!-- 4. Yangi arizalar -->
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5">
+        <div class="flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-50 text-2xl text-violet-600"><i class="bi bi-person-plus"></i></div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Yangi arizalar</div>
+                <div class="text-2xl font-extrabold text-slate-900">{{ new_leaders }}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Tasdiqlash kutilmoqda</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tashkilotlar va Xodimlar Reestri Jadvali -->
+    <div class="md:col-span-4 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="border-b border-slate-100 bg-slate-50 px-5 py-4 flex items-center justify-between">
+            <div>
+                <h3 class="font-bold text-slate-900"><i class="bi bi-buildings me-2 text-brand-500"></i> Tashkilotlar va xodimlar monitoringi</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Tashkilotni bloklash uning barcha xodimlarini avtomatik tizimdan bloklaydi</p>
+            </div>
+            <a href="{% url 'org-stats' %}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                Barchasini ko'rish <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                    <tr>
+                        <th class="px-5 py-3 font-semibold">Tashkilot / Rahbar</th>
+                        <th class="px-5 py-3 font-semibold text-center">Holati</th>
+                        <th class="px-5 py-3 font-semibold">Soha</th>
+                        <th class="px-5 py-3 font-semibold">Viloyat</th>
+                        <th class="px-5 py-3 font-semibold text-center">Xodimlar soni</th>
+                        <th class="px-5 py-3 font-semibold text-right">Amallar</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for org in super_admin_orgs %}
+                    <tr class="hover:bg-slate-50/50 {% if not org.is_active %}bg-rose-50/30{% endif %}">
+                        <td class="px-5 py-3.5">
+                            <div class="font-bold text-slate-900">{{ org.org_name }}</div>
+                            <div class="text-xs text-slate-500">{{ org.leader.full_name }}</div>
+                        </td>
+                        <td class="px-5 py-3.5 text-center">
+                            {% if org.is_active %}
+                                <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Faol
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 border border-rose-200">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span> Bloklangan
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-3.5 text-slate-600">{{ org.industry }}</td>
+                        <td class="px-5 py-3.5 text-slate-600">{{ org.region }}</td>
+                        <td class="px-5 py-3.5 text-center">
+                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                                <i class="bi bi-people text-slate-500"></i> {{ org.workers_count }} nafar
+                            </span>
+                        </td>
+                        <td class="px-5 py-3.5 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{% url 'org-detail' org.leader.id %}" class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 transition">
+                                    <i class="bi bi-eye"></i> Batafsil
+                                </a>
+                                <form action="{% url 'toggle-block' org.user.id %}" method="post" class="inline-block" onsubmit="return confirm('Siz rostdan ham «{{ org.org_name }}» tashkiloti va uning barcha xodimlarini ({% if org.is_active %}bloklamoqchimisiz{% else %}qayta faollashtirmoqchimisiz{% endif %})?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    {% if org.is_active %}
+                                        <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100 border border-rose-200 transition">
+                                            <i class="bi bi-lock"></i> Bloklash
+                                        </button>
+                                    {% else %}
+                                        <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition">
+                                            <i class="bi bi-unlock"></i> Faollashtirish
+                                        </button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-5 py-8 text-center text-slate-500">Tashkilotlar mavjud emas</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
     
     <!-- Mintaqaviy va Sohalar statistikasi -->
-    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-2 lg:col-span-1 min-w-0 w-full overflow-hidden">
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-2 min-w-0 w-full overflow-hidden">
         <h3 class="mb-4 text-base font-bold text-slate-900">Viloyatlar kesimida tahlil</h3>
         <div class="relative w-full h-[300px]">
             <canvas id="regionBarChart"></canvas>
@@ -519,7 +1028,7 @@
     </div>
 
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)] md:col-span-1 min-w-0 w-full overflow-hidden">
-        <h3 class="mb-4 text-base font-bold text-slate-900">Tashkilotlar ulushi (Viloyatlar kesimida)</h3>
+        <h3 class="mb-4 text-base font-bold text-slate-900">Tashkilotlar ulushi</h3>
         <div class="relative w-full h-[300px] flex items-center justify-center">
             <canvas id="regionPieChart"></canvas>
         </div>

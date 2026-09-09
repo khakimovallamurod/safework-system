@@ -9,10 +9,17 @@
       </h2>
       <p class="text-sm text-slate-400 mt-0.5">Boshqarma: <strong class="text-slate-600">{{ dept.name }}</strong></p>
     </div>
+    {% if is_section_admin %}
+    <a href="{% url 'companies:test_list' %}"
+       class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-500 hover:bg-slate-50 transition">
+      <i class="bi bi-journal-check"></i> Bo'lim testlari
+    </a>
+    {% else %}
     <a href="{% url 'assessment-list' %}"
        class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-500 hover:bg-slate-50 transition">
       <i class="bi bi-journal-check"></i> Testlar
     </a>
+    {% endif %}
   </div>
 
   <form method="get" class="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">

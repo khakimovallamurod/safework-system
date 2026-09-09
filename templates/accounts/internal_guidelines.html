@@ -198,49 +198,66 @@
 
 <div class="modal fade" id="internalSendModal{{ guideline.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" action="{% url 'internal-guideline-send' guideline.id %}" id="internalSendForm{{ guideline.id }}">
+        <div class="modal-content rounded-2xl border-0 shadow-2xl overflow-hidden">
+            {% if active_guideline_id == guideline.id %}
+            <form method="post" action="{% url 'internal-guideline-stop' guideline.id %}">
                 {% csrf_token %}
-                <input type="hidden" name="action" value="{% if active_guideline_id == guideline.id %}deactivate{% else %}activate{% endif %}">
-                <div class="modal-header">
-                    <h5 class="modal-title">{% if active_guideline_id == guideline.id %}Faolsizlantirish{% else %}Xodimlarga yuborish{% endif %}: {{ guideline.name }}</h5>
+                <div class="modal-header bg-rose-50 border-b border-rose-100">
+                    <h5 class="modal-title font-bold text-rose-900 flex items-center gap-2">
+                        <i class="bi bi-stop-circle text-rose-600"></i> Ichki yo'riqnomani muddatidan oldin to'xtatish
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    {% if active_guideline_id == guideline.id %}
-                    <div class="space-y-3 text-sm text-slate-700">
-                        <p><strong>{{ guideline.name }}</strong> hozir joriy yo'riqnoma sifatida ishlamoqda.</p>
-                        <p>Faolsizlantirilsa, bo'lim ichidagi xodimlar uchun yo'riqnoma blokdan chiqariladi.</p>
+                <div class="modal-body py-4 space-y-3">
+                    <p class="text-sm text-slate-700">
+                        <strong>{{ guideline.name }}</strong> ayni paytda bo'lim xodimlari uchun faol.
+                    </p>
+                    <p class="text-xs text-rose-600">
+                        Yo'riqnomani oldindan to'xtatmoqchimisiz? To'xtatish sababini kiritishingiz shart.
+                    </p>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">To'xtatish sababi / Izoh <span class="text-rose-500">*</span></label>
+                        <textarea name="stop_reason" rows="3" required
+                                  class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 outline-none resize-none"
+                                  placeholder="Masalan: Bo'lim rejasi o'zgarganligi sababli..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 border-t border-slate-100">
+                    <button type="button" class="h-9 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-100" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="h-9 px-4 rounded-xl bg-rose-600 text-xs font-semibold text-white hover:bg-rose-700 shadow-sm">Oldindan to'xtatish</button>
+                </div>
+            </form>
+            {% else %}
+            <form method="post" action="{% url 'internal-guideline-send' guideline.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="activate">
+                <div class="modal-header bg-emerald-50 border-b border-emerald-100">
+                    <h5 class="modal-title font-bold text-emerald-900 flex items-center gap-2">
+                        <i class="bi bi-shield-check text-emerald-600"></i> Xodimlarga yuborish: {{ guideline.name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4 space-y-3 text-sm text-slate-700">
+                    <p><strong>{{ guideline.name }}</strong> ni bo'lim xodimlariga avtomatik tarzda joriy qilasizmi?</p>
+                    <p class="text-xs text-slate-500">Bu holatda barcha bo'lim xodimlariga yo'riqnoma yuboriladi va o'qib tasdiqlashlari talab qilinadi.</p>
+                    {% if guideline.start_time %}
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
+                        <div><span class="font-medium text-slate-500">Boshlanish:</span> {{ guideline.start_time|date:'d.m.Y' }}</div>
+                        <div><span class="font-medium text-slate-500">Ro'yxat oxiri:</span> {{ guideline.registration_end_time|date:'d.m.Y' }}</div>
+                        <div><span class="font-medium text-slate-500">Faollik:</span> {{ guideline.active_until|date:'d.m.Y' }}</div>
                     </div>
                     {% else %}
-                    <div class="space-y-3 text-sm text-slate-700">
-                        <p><strong>{{ guideline.name }}</strong> ni bo'lim xodimlariga avtomatik tarzda joriy qilasizmi?</p>
-                        <p>Bu holatda barcha bo'lim xodimlariga yo'riqnoma yuboriladi.</p>
-                        {% if guideline.start_time %}
-                        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-                            <div><span class="font-medium text-slate-500">Boshlanish:</span> {{ guideline.start_time|date:'d.m.Y' }}</div>
-                            <div><span class="font-medium text-slate-500">Ro'yxat oxiri:</span> {{ guideline.registration_end_time|date:'d.m.Y' }}</div>
-                            <div><span class="font-medium text-slate-500">Faollik:</span> {{ guideline.active_until|date:'d.m.Y' }}</div>
-                        </div>
-                        {% else %}
-                        <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Avval yo'riqnomaga vaqt oralig'ini kiriting (tahrirlash orqali).</p>
-                        {% endif %}
-                    </div>
+                    <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Avval yo'riqnomaga vaqt oralig'ini kiriting (tahrirlash orqali).</p>
                     {% endif %}
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 transition" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Bekor
-                    </button>
-                    <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition">
-                        {% if active_guideline_id == guideline.id %}
-                        <i class="bi bi-unlock"></i> Faolsizlantirish
-                        {% else %}
-                        <i class="bi bi-check-circle"></i> Ha, joriy qilish
-                        {% endif %}
+                <div class="modal-footer bg-slate-50 border-t border-slate-100">
+                    <button type="button" class="h-9 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-100" data-bs-dismiss="modal">Bekor</button>
+                    <button type="submit" class="h-9 px-4 rounded-xl bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm">
+                        <i class="bi bi-check-circle mr-1"></i> Ha, joriy qilish
                     </button>
                 </div>
             </form>
+            {% endif %}
         </div>
     </div>
 </div>

@@ -35,6 +35,13 @@
                         <span class="text-xs text-slate-500 font-medium"><i class="bi bi-calendar3 mr-1"></i> {{ v.date|date:"d.m.Y" }}</span>
                     </div>
                     <p class="text-sm text-slate-700 font-medium mb-3">{{ v.reason }}</p>
+                    {% if v.image %}
+                    <div class="mb-3">
+                        <a href="{{ v.image.url }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition">
+                            <i class="bi bi-image"></i> Qoidabuzarlik fotosurati (dalil)
+                        </a>
+                    </div>
+                    {% endif %}
                     <div class="text-xs text-slate-500 flex items-center justify-between">
                         <span><i class="bi bi-person mr-1"></i> Yozdi: {{ v.issued_by.get_full_name|default:v.issued_by.username }}</span>
                         {% if not v.is_active %}

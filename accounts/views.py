@@ -1,3 +1,4 @@
+import datetime
 import json
 from urllib import error, request as urlrequest
 
@@ -88,6 +89,8 @@ from companies.models import (
 )
 from industries.models import Industry
 from professions.models import Profession
+from violations.models import Violation
+from ppe.models import PPEIssue
 
 User = get_user_model()
 
@@ -281,7 +284,11 @@ class AdminLoginView(LoginView):
             normalized_username = username
         user = User.objects.filter(username=normalized_username).first()
         if user and not user.is_active:
-            messages.error(self.request, "Akkauntingiz bloklangan. Tizimga kirish mumkin emas.")
+            profile = getattr(user, 'profile', None)
+            if profile and profile.role == UserProfile.ROLE_ORG_LEADER:
+                messages.error(self.request, "Tashkilotingiz administrator tomonidan bloklangan. Tizimga kirish taqiqlangan.")
+            else:
+                messages.error(self.request, "Hisobingiz yoki tashkilotingiz administrator tomonidan bloklangan. Tizimga kirish taqiqlangan.")
         return super().form_invalid(form)
 
 
@@ -839,17 +846,36 @@ class DashboardView(AuthenticatedRequiredMixin, TemplateView):
             context['dashboard_overview'] = None
         elif role_context.get('is_super_admin'):
             context['dashboard_overview'] = None
+        elif role_context.get('is_org_leader') and role_context.get('user_profile'):
+            context['org_leader_dashboard'] = _build_org_leader_dashboard(self.request.user, role_context['user_profile'])
+            context['dashboard_overview'] = None
         else:
             context['dashboard_overview'] = _build_dashboard_overview(self.request.user, role_context)
 
         if role_context['is_super_admin']:
             context['total_industries'] = Industry.objects.count()
-            context['total_leaders'] = UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER).count()
+            leaders_qs = UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER).select_related('user', 'industry', 'region')
+            context['total_leaders'] = leaders_qs.count()
+            context['active_leaders'] = leaders_qs.filter(user__is_active=True).count()
+            context['blocked_leaders'] = leaders_qs.filter(user__is_active=False).count()
             context['total_workers'] = UserProfile.objects.filter(role=UserProfile.ROLE_WORKER).count()
-            context['new_leaders'] = UserProfile.objects.filter(
-                role=UserProfile.ROLE_ORG_LEADER,
-                is_new_registration=True,
-            ).count()
+            context['new_leaders'] = leaders_qs.filter(is_new_registration=True).count()
+
+            # Super admin uchun tashkilotlar reestri va xodimlar soni
+            org_summary_list = []
+            for leader in leaders_qs:
+                staff_count = get_organization_staff_users(leader).count()
+                org_summary_list.append({
+                    'leader': leader,
+                    'user': leader.user,
+                    'org_name': leader.organization_name or leader.full_name,
+                    'industry': leader.industry.name if leader.industry else '-',
+                    'region': leader.region.name if leader.region else '-',
+                    'workers_count': staff_count,
+                    'is_active': leader.user.is_active,
+                })
+            org_summary_list.sort(key=lambda x: x['workers_count'], reverse=True)
+            context['super_admin_orgs'] = org_summary_list
 
             # Region stats for charts
             from accounts.models import Region
@@ -1090,6 +1116,28 @@ class UserManagementView(SuperuserActionRequiredMixin, TemplateView):
         return context
 
 
+def get_organization_staff_users(leader_profile):
+    """
+    Tashkilot rahbariga qarashli barcha xodimlar User querysetini qaytaradi
+    (rahbarning o'zidan tashqari va superuserlar bundan mustasno).
+    """
+    if not leader_profile:
+        return User.objects.none()
+
+    leader_user = leader_profile.user
+    org_name = (leader_profile.organization_name or '').strip()
+
+    q_filter = (
+        Q(profile__organization=leader_profile) |
+        Q(profile__department__leader=leader_profile) |
+        Q(profile__section__department__leader=leader_profile)
+    )
+    if org_name:
+        q_filter |= Q(profile__organization_name__iexact=org_name)
+
+    return User.objects.filter(q_filter).exclude(pk=leader_user.pk).exclude(is_superuser=True).distinct()
+
+
 class ToggleUserBlockView(SuperuserActionRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         managed_user = User.objects.filter(pk=pk, is_superuser=False).select_related('profile').first()
@@ -1097,19 +1145,41 @@ class ToggleUserBlockView(SuperuserActionRequiredMixin, View):
             messages.error(request, "Foydalanuvchi topilmadi.")
             return redirect('users')
 
+        next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or reverse('users')
+
         managed_user.is_active = not managed_user.is_active
         managed_user.save(update_fields=['is_active'])
 
         profile = getattr(managed_user, 'profile', None)
-        if profile and profile.role == UserProfile.ROLE_ORG_LEADER and profile.is_new_registration:
-            profile.is_new_registration = False
-            profile.save(update_fields=['is_new_registration'])
+        if profile and profile.role == UserProfile.ROLE_ORG_LEADER:
+            if profile.is_new_registration:
+                profile.is_new_registration = False
+                profile.save(update_fields=['is_new_registration'])
 
-        if managed_user.is_active:
-            messages.success(request, "Foydalanuvchi qayta faollashtirildi.")
+            # Tashkilotning barcha xodimlarini kaskadli bloklash yoki qayta faollashtirish
+            staff_users = get_organization_staff_users(profile)
+            staff_count = staff_users.count()
+            staff_users.update(is_active=managed_user.is_active)
+
+            org_name = profile.organization_name or managed_user.get_full_name() or managed_user.username
+            if managed_user.is_active:
+                messages.success(
+                    request,
+                    f"Tashkilot «{org_name}» va uning barcha xodimlari ({staff_count} nafar) qayta faollashtirildi."
+                )
+            else:
+                messages.warning(
+                    request,
+                    f"Tashkilot «{org_name}» va uning barcha xodimlari ({staff_count} nafar) to'liq bloklandi. Endi ular tizimga kira olmaydi."
+                )
         else:
-            messages.warning(request, "Foydalanuvchi bloklandi. Endi u tizimga kira olmaydi.")
-        return redirect('users')
+            user_label = managed_user.get_full_name() or managed_user.username
+            if managed_user.is_active:
+                messages.success(request, f"Foydalanuvchi {user_label} qayta faollashtirildi.")
+            else:
+                messages.warning(request, f"Foydalanuvchi {user_label} bloklandi. Endi u tizimga kira olmaydi.")
+
+        return redirect(next_url)
 
 
 def _assign_department_supervisor(department, supervisor, profession=None):
@@ -1297,6 +1367,204 @@ def _entry_guideline_status_for_user(user):
         'is_passed': receipt.is_acknowledged,
         'sent_at': receipt.dispatch.sent_at,
         'acknowledged_at': receipt.acknowledged_at,
+    }
+
+
+def _build_org_leader_dashboard(user, profile):
+    departments = _org_leader_departments(user)
+    sections = _org_leader_sections(user)
+    profiles = _org_leader_worker_profiles(user)
+    user_ids = list(profiles.values_list('user_id', flat=True))
+
+    total_departments = departments.count()
+    total_sections = sections.count()
+
+    workers = profiles.filter(role=UserProfile.ROLE_WORKER)
+    total_workers = workers.count()
+    total_staff = profiles.count()
+
+    qualified_workers_count = workers.filter(practice_qualified_status=True).count()
+    unqualified_workers_count = max(0, total_workers - qualified_workers_count)
+    qualified_rate = _percent(qualified_workers_count, max(total_workers, 1))
+
+    # Guidelines
+    entry_receipts = GuidelineDispatchRecipient.objects.filter(user_id__in=user_ids)
+    entry_total = entry_receipts.count()
+    entry_accepted = entry_receipts.filter(is_acknowledged=True).count()
+    entry_rate = _percent(entry_accepted, max(entry_total, 1))
+
+    internal_receipts = SectionInternalGuidelineRecipient.objects.filter(user_id__in=user_ids)
+    internal_total = internal_receipts.count()
+    internal_accepted = internal_receipts.filter(is_acknowledged=True).count()
+    internal_rate = _percent(internal_accepted, max(internal_total, 1))
+
+    # Violations
+    thirty_days_ago = timezone.now().date() - datetime.timedelta(days=30)
+    all_violations = Violation.objects.filter(employee_id__in=user_ids)
+    total_violations = all_violations.count()
+    recent_violations_count = all_violations.filter(date__gte=thirty_days_ago).count()
+    active_violations_count = all_violations.filter(is_active=True).count()
+    blocked_workers_count = profiles.filter(is_blocked_by_violations=True).count()
+
+    recent_violations = list(
+        all_violations.select_related('employee', 'violation_type', 'issued_by')
+        .order_by('-date', '-created_at')[:5]
+    )
+
+    # Tests / Assessments
+    assessment_attempts = DepartmentAssessmentAttempt.objects.filter(
+        user_id__in=user_ids, finished_at__isnull=False
+    )
+    total_attempts = assessment_attempts.count()
+    passed_attempts = assessment_attempts.filter(score__gte=60).count()
+    failed_attempts = assessment_attempts.filter(score__lt=60).count()
+    avg_assessment_score = (
+        assessment_attempts.aggregate(avg=Avg('score'))['avg'] or 0
+    )
+    assessment_pass_rate = _percent(passed_attempts, max(total_attempts, 1))
+
+    recent_assessment_attempts = list(
+        assessment_attempts.select_related('assessment', 'user', 'user__profile')
+        .order_by('-finished_at')[:5]
+    )
+
+    # Medical records
+    medical_records = EmployeeMedicalRecord.objects.filter(user_id__in=user_ids)
+    medical_latest = {}
+    for rec in medical_records.order_by('user_id', '-end_date', '-created_at'):
+        medical_latest.setdefault(rec.user_id, rec)
+    med_ok = 0
+    med_warning = 0
+    med_danger = 0
+    med_missing = 0
+    for uid in user_ids:
+        r = medical_latest.get(uid)
+        if not r:
+            med_missing += 1
+        elif r.status_key == 'danger':
+            med_danger += 1
+        elif r.status_key == 'warning':
+            med_warning += 1
+        else:
+            med_ok += 1
+
+    # PPE
+    ppe_issues = PPEIssue.objects.filter(employee_id__in=user_ids)
+    ppe_total = ppe_issues.count()
+    ppe_accepted = ppe_issues.filter(status='accepted').count()
+    ppe_pending = ppe_issues.filter(status='pending').count()
+    ppe_rate = _percent(ppe_accepted, max(ppe_total, 1))
+
+    # SafeWork Enterprise Index (0 - 100)
+    index_score = round(
+        (qualified_rate * 0.35)
+        + (entry_rate * 0.30)
+        + (assessment_pass_rate * 0.20)
+        + (max(0, 100 - (active_violations_count * 15 + recent_violations_count * 5)) * 0.15)
+    )
+    index_score = max(0, min(100, index_score))
+
+    # Department breakdown
+    department_stats = []
+    for dept in departments:
+        dept_sections = sections.filter(department=dept)
+        dept_workers = profiles.filter(
+            Q(role=UserProfile.ROLE_WORKER)
+            & (
+                Q(department=dept)
+                | Q(section__in=dept_sections)
+                | Q(user__section_memberships__section__in=dept_sections)
+            )
+        ).distinct()
+        dept_worker_ids = list(dept_workers.values_list('user_id', flat=True))
+        w_count = dept_workers.count()
+        q_count = dept_workers.filter(practice_qualified_status=True).count()
+        q_rate = _percent(q_count, max(w_count, 1))
+
+        passed_entry = entry_receipts.filter(
+            user_id__in=dept_worker_ids, is_acknowledged=True
+        ).values('user_id').distinct().count()
+        d_entry_rate = _percent(passed_entry, max(w_count, 1))
+
+        d_violations = all_violations.filter(employee_id__in=dept_worker_ids).count()
+        d_active_violations = all_violations.filter(employee_id__in=dept_worker_ids, is_active=True).count()
+
+        dept_safety_score = round(
+            (q_rate * 0.4)
+            + (d_entry_rate * 0.4)
+            + (max(0, 100 - (d_active_violations * 20 + d_violations * 5)) * 0.2)
+        )
+        dept_safety_score = max(0, min(100, dept_safety_score))
+
+        if dept_safety_score >= 80 and d_active_violations == 0:
+            status_tone = 'emerald'
+            status_text = "A'lo"
+        elif dept_safety_score >= 55:
+            status_tone = 'sky'
+            status_text = 'Barqaror'
+        else:
+            status_tone = 'rose'
+            status_text = 'Nazorat zarur'
+
+        supervisor_name = 'Tayinlanmagan'
+        if dept.supervisor:
+            supervisor_profile = getattr(dept.supervisor, 'profile', None)
+            supervisor_name = (supervisor_profile.full_name if supervisor_profile else dept.supervisor.get_full_name()) or dept.supervisor.username
+
+        department_stats.append({
+            'dept': dept,
+            'name': dept.name,
+            'supervisor_name': supervisor_name,
+            'sections_count': dept_sections.count(),
+            'workers_count': w_count,
+            'qualified_count': q_count,
+            'qualified_rate': q_rate,
+            'entry_rate': d_entry_rate,
+            'violations_count': d_violations,
+            'active_violations': d_active_violations,
+            'safety_score': dept_safety_score,
+            'status_tone': status_tone,
+            'status_text': status_text,
+        })
+
+    return {
+        'org_name': profile.organization_name or profile.full_name or "Tashkilot",
+        'industry_name': profile.industry.name if profile.industry else "Soha belgilanmagan",
+        'leader_name': profile.full_name,
+        'index_score': index_score,
+        'total_departments': total_departments,
+        'total_sections': total_sections,
+        'total_workers': total_workers,
+        'total_staff': total_staff,
+        'qualified_workers_count': qualified_workers_count,
+        'unqualified_workers_count': unqualified_workers_count,
+        'qualified_rate': qualified_rate,
+        'entry_total': entry_total,
+        'entry_accepted': entry_accepted,
+        'entry_rate': entry_rate,
+        'internal_total': internal_total,
+        'internal_accepted': internal_accepted,
+        'internal_rate': internal_rate,
+        'total_violations': total_violations,
+        'recent_violations_count': recent_violations_count,
+        'active_violations_count': active_violations_count,
+        'blocked_workers_count': blocked_workers_count,
+        'recent_violations': recent_violations,
+        'total_attempts': total_attempts,
+        'passed_attempts': passed_attempts,
+        'failed_attempts': failed_attempts,
+        'assessment_pass_rate': assessment_pass_rate,
+        'avg_assessment_score': round(avg_assessment_score, 1),
+        'recent_assessment_attempts': recent_assessment_attempts,
+        'med_ok': med_ok,
+        'med_warning': med_warning,
+        'med_danger': med_danger,
+        'med_missing': med_missing,
+        'ppe_total': ppe_total,
+        'ppe_accepted': ppe_accepted,
+        'ppe_pending': ppe_pending,
+        'ppe_rate': ppe_rate,
+        'department_stats': department_stats,
     }
 
 
@@ -1527,7 +1795,7 @@ class EmployeeMedicalRecordListView(AuthenticatedRequiredMixin, TemplateView):
 
     def dispatch(self, request, *args, **kwargs):
         role = self.get_role_context()
-        if not (role.get('is_org_leader') or role.get('is_department_admin') or role.get('is_worker') or role.get('is_section_member')):
+        if not (role.get('is_org_leader') or role.get('is_department_admin') or role.get('is_section_admin') or role.get('is_worker') or role.get('is_section_member')):
             messages.error(request, "Tibbiy ma'lumotlar siz uchun yopiq.")
             return redirect('dashboard')
         return super().dispatch(request, *args, **kwargs)
@@ -1549,6 +1817,9 @@ class EmployeeMedicalRecordListView(AuthenticatedRequiredMixin, TemplateView):
         if role.get('is_department_admin'):
             department = get_department_admin_department(self.request.user)
             return qs.filter(section__department=department) if department else qs.none()
+        if role.get('is_section_admin'):
+            sec = get_section_admin_section(self.request.user)
+            return qs.filter(section=sec) if sec else qs.none()
         return qs.filter(user=self.request.user)
 
     def get_context_data(self, **kwargs):
@@ -2144,9 +2415,17 @@ def _assign_worker_to_section(section, worker, profession=None, assigned_by=None
 
 def _broadcast_section_message(section, sender, title, body):
     message = SectionMessage.objects.create(section=section, sender=sender, title=title, body=body)
-    member_ids = SectionMembership.objects.filter(section=section).values_list('user_id', flat=True)
+    member_uids = set(SectionMembership.objects.filter(section=section).values_list('user_id', flat=True))
+    admin_uids = set(UserProfile.objects.filter(
+        section_id=section.id,
+        role=UserProfile.ROLE_SECTION_ADMIN
+    ).values_list('user_id', flat=True))
+    if getattr(section, 'supervisor_id', None):
+        admin_uids.add(section.supervisor_id)
+
+    target_uids = (member_uids | admin_uids) - {sender.id}
     SectionMessageReceipt.objects.bulk_create(
-        [SectionMessageReceipt(message=message, user_id=uid) for uid in member_ids],
+        [SectionMessageReceipt(message=message, user_id=uid, is_read=False) for uid in target_uids],
         ignore_conflicts=True,
     )
     return message
@@ -2295,33 +2574,212 @@ class SectionWorkerDeleteView(SectionAdminRequiredMixin, View):
         return redirect('section-workers')
 
 
-class SectionMemberMessagesView(SectionMemberRequiredMixin, TemplateView):
-    template_name = 'accounts/section_member_messages.html'
+class SectionMemberMessagesView(AuthenticatedRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        role = self.get_role_context()
+        section = None
+        membership = None
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        membership = get_section_member_for_user(self.request.user)
-        if not membership:
-            messages.error(self.request, "Siz bo‘lim xodimlari ro‘yxatida topilmadingiz.")
-            return context
+        if role.get('is_section_admin'):
+            section = get_section_admin_section(request.user)
+        elif role.get('is_section_member') or role.get('is_worker'):
+            membership = get_section_member_for_user(request.user)
+            section = membership.section if membership else None
 
-        section = membership.section
-        receipts = (
-            SectionMessageReceipt.objects.filter(user=self.request.user, message__section=section)
-            .select_related('message', 'message__sender', 'message__sender__profile')
-            .order_by('-message__created_at')
+        if not section:
+            messages.error(request, "Sizga biriktirilgan bo‘lim topilmadi.")
+            return redirect('dashboard')
+
+        if request.GET.get('ajax') == '1' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            last_id = request.GET.get('last_id', '0')
+            last_id_num = int(last_id) if last_id.isdigit() else 0
+
+            new_msgs_qs = (
+                SectionMessage.objects.filter(section=section, id__gt=last_id_num)
+                .select_related('sender', 'sender__profile')
+                .order_by('created_at')
+            )
+
+            if new_msgs_qs.exists():
+                SectionMessageReceipt.objects.filter(
+                    user=request.user,
+                    message__in=new_msgs_qs,
+                    is_read=False
+                ).update(is_read=True, read_at=timezone.now())
+
+            new_list = []
+            for m in new_msgs_qs:
+                s_prof = getattr(m.sender, 'profile', None)
+                s_name = s_prof.full_name if (s_prof and s_prof.full_name) else (m.sender.get_full_name() or m.sender.username)
+                s_admin = (
+                    (s_prof and s_prof.role == UserProfile.ROLE_SECTION_ADMIN)
+                    or (section.supervisor_id == m.sender_id)
+                )
+                s_role = "Bo‘lim nazoratchisi" if s_admin else (s_prof.position if (s_prof and s_prof.position) else "Xodim")
+                new_list.append({
+                    'id': m.id,
+                    'is_me': (m.sender_id == request.user.id),
+                    'body': m.body,
+                    'sender_name': s_name,
+                    'sender_role_label': s_role,
+                    'is_sender_admin': s_admin,
+                    'time_str': timezone.localtime(m.created_at).strftime('%H:%M'),
+                })
+
+            return JsonResponse({'status': 'ok', 'messages': new_list})
+
+        # Telegram kabi: guruhga kirishi bilan barcha o'qilmagan xabarlar o'qilgan deb belgilanadi
+        SectionMessageReceipt.objects.filter(
+            user=request.user,
+            message__section=section,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
+
+        # Bo'lim xabarlarini xronologik tartibda olish
+        messages_qs = (
+            SectionMessage.objects.filter(section=section)
+            .select_related('sender', 'sender__profile')
+            .prefetch_related('receipts', 'receipts__user', 'receipts__user__profile')
+            .order_by('created_at')
         )
-        context.update(
-            self.get_role_context()
-            | {
-                'membership': membership,
-                'section': section,
-                'department': section.department,
-                'receipts': receipts,
-                'page_title': 'Xabarnomalar',
-            }
+
+        today = timezone.localdate()
+        chat_messages = []
+        last_date_val = None
+        total_receipts_all = 0
+        read_receipts_all = 0
+
+        for msg in messages_qs:
+            r_list = list(msg.receipts.all())
+            total_r = len(r_list)
+            read_r = sum(1 for r in r_list if r.is_read)
+            total_receipts_all += total_r
+            read_receipts_all += read_r
+
+            is_me = (msg.sender_id == request.user.id)
+            sender_prof = getattr(msg.sender, 'profile', None)
+
+            sender_name = (
+                sender_prof.full_name if (sender_prof and sender_prof.full_name)
+                else (msg.sender.get_full_name() or msg.sender.username)
+            )
+            is_sender_admin = (
+                (sender_prof and sender_prof.role == UserProfile.ROLE_SECTION_ADMIN)
+                or (section.supervisor_id == msg.sender_id)
+            )
+            sender_role_label = (
+                "Bo‘lim nazoratchisi" if is_sender_admin
+                else (sender_prof.position if (sender_prof and sender_prof.position) else "Xodim")
+            )
+
+            local_dt = timezone.localtime(msg.created_at)
+            msg_date = local_dt.date()
+            show_date_divider = (msg_date != last_date_val)
+            last_date_val = msg_date
+
+            delta = (today - msg_date).days
+            if delta == 0:
+                date_display = "Bugun"
+            elif delta == 1:
+                date_display = "Kecha"
+            else:
+                date_display = msg_date.strftime('%d.%m.%Y')
+
+            chat_messages.append({
+                'id': msg.id,
+                'is_me': is_me,
+                'sender_id': msg.sender_id,
+                'sender_name': sender_name,
+                'sender_role_label': sender_role_label,
+                'is_sender_admin': is_sender_admin,
+                'title': msg.title,
+                'body': msg.body,
+                'created_at': msg.created_at,
+                'show_date_divider': show_date_divider,
+                'date_display': date_display,
+                'time_str': local_dt.strftime('%H:%M'),
+                'total_receipts': total_r,
+                'read_count': read_r,
+                'has_read': read_r > 0,
+                'all_read': (total_r > 0 and read_r == total_r),
+                'percent': int((read_r / total_r) * 100) if total_r > 0 else 0,
+                'receipts': [
+                    {
+                        'user_name': r.user.profile.full_name if getattr(r.user, 'profile', None) else (r.user.get_full_name() or r.user.username),
+                        'position': getattr(r.user.profile, 'position', '') if getattr(r.user, 'profile', None) else '',
+                        'is_read': r.is_read,
+                        'read_at': timezone.localtime(r.read_at).strftime('%d.%m.%Y %H:%M') if r.read_at else '',
+                    }
+                    for r in r_list
+                ]
+            })
+
+        members_qs = (
+            SectionMembership.objects.filter(section=section)
+            .select_related('user', 'user__profile', 'profession')
+            .order_by('user__first_name')
         )
-        return context
+        members_count = members_qs.count()
+        overall_read_rate = int((read_receipts_all / total_receipts_all) * 100) if total_receipts_all > 0 else 0
+
+        supervisor = section.supervisor if getattr(section, 'supervisor', None) else None
+        supervisor_profile = getattr(supervisor, 'profile', None) if supervisor else None
+
+        ctx = role | {
+            'section': section,
+            'department': section.department if section else None,
+            'chat_messages': chat_messages,
+            'members': members_qs,
+            'members_count': members_count,
+            'supervisor': supervisor,
+            'supervisor_profile': supervisor_profile,
+            'total_messages_count': len(chat_messages),
+            'overall_read_rate': overall_read_rate,
+            'page_title': f"{section.name} — Bo‘lim chati",
+        }
+        return render(request, 'accounts/section_chat.html', ctx)
+
+    def post(self, request, *args, **kwargs):
+        role = self.get_role_context()
+        section = None
+        if role.get('is_section_admin'):
+            section = get_section_admin_section(request.user)
+        elif role.get('is_section_member') or role.get('is_worker'):
+            membership = get_section_member_for_user(request.user)
+            section = membership.section if membership else None
+
+        if not section:
+            messages.error(request, "Biriktirilgan bo‘lim topilmadi.")
+            return redirect('section-member-messages')
+
+        body = request.POST.get('body', '').strip()
+        if not body:
+            messages.error(request, "Xabar matni bo‘sh bo‘lishi mumkin emas.")
+            return redirect('section-member-messages')
+
+        title = body[:60].replace('\n', ' ').strip()
+        msg = _broadcast_section_message(section, request.user, title, body)
+
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.POST.get('ajax') == '1':
+            sender_prof = getattr(request.user, 'profile', None)
+            sender_name = (
+                sender_prof.full_name if (sender_prof and sender_prof.full_name)
+                else (request.user.get_full_name() or request.user.username)
+            )
+            is_admin = (
+                (sender_prof and sender_prof.role == UserProfile.ROLE_SECTION_ADMIN)
+                or (section.supervisor_id == request.user.id)
+            )
+            return JsonResponse({
+                'status': 'ok',
+                'id': msg.id,
+                'body': msg.body,
+                'sender_name': sender_name,
+                'is_admin': is_admin,
+                'time_str': timezone.localtime(msg.created_at).strftime('%H:%M'),
+            })
+
+        return redirect('section-member-messages')
 
 
 class SectionMemberMessageReadView(SectionMemberRequiredMixin, View):
@@ -2709,9 +3167,17 @@ class EntryGuidelineSendView(DepartmentSupervisorOnlyMixin, View):
             if not active_dispatch or active_dispatch.guideline_id != guideline.pk:
                 messages.info(request, 'Bu yo‘riqnoma hozir joriy emas.')
                 return redirect('entry-guidelines')
+            stop_reason = (request.POST.get('stop_reason') or '').strip()
+            if not stop_reason:
+                messages.error(request, "Yo‘riqnomani muddatidan oldin to‘xtatish uchun izoh (sabab) kiritish shart!")
+                return redirect('entry-guidelines')
             active_dispatch.is_active = False
-            active_dispatch.save(update_fields=['is_active'])
-            messages.success(request, "Kirish yo‘riqnomasi faolsizlantirildi. Blok yechildi.")
+            active_dispatch.is_stopped = True
+            active_dispatch.stopped_at = timezone.now()
+            active_dispatch.stop_reason = stop_reason
+            active_dispatch.stopped_by = request.user
+            active_dispatch.save(update_fields=['is_active', 'is_stopped', 'stopped_at', 'stop_reason', 'stopped_by'])
+            messages.success(request, f"Kirish yo‘riqnomasi muddatidan oldin to‘xtatildi. Sabab: {stop_reason}")
             return redirect('entry-guidelines')
 
         payload = _collect_department_entry_guideline_recipients(department)
@@ -2883,28 +3349,41 @@ class GuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
 
 
 class WorkerEntryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
-    """Xodimlar va bo'lim nazoratchilari uchun majburiy kirish yo'riqnomalari."""
+    """Kirish yo'riqnomalari bilan tanishish va qabul qilish sahifasi."""
 
     template_name = 'accounts/worker_entry_guidelines.html'
 
     def dispatch(self, request, *args, **kwargs):
-        role_context = self.get_role_context()
-        if not (role_context.get('is_worker') or role_context.get('is_section_admin')):
-            messages.error(request, "Bu sahifa faqat xodimlar va bo‘lim nazoratchilari uchun.")
-            return redirect('dashboard')
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        role_context = self.get_role_context()
+        profile = getattr(self.request.user, 'profile', None)
+        is_admin_view = not (role_context.get('is_worker') or role_context.get('is_section_admin'))
+
         receipts = (
             GuidelineDispatchRecipient.objects.filter(user=self.request.user, dispatch__is_active=True)
             .select_related('dispatch__guideline', 'section')
             .order_by('-dispatch__sent_at')
         )
+
+        dept = None
+        if profile and profile.department_id:
+            dept = profile.department
+        elif role_context.get('is_department_admin'):
+            dept = _guideline_department_or_redirect(self.request)
+
+        department_guidelines = None
+        if dept:
+            department_guidelines = EntryGuideline.objects.filter(department=dept).order_by('-created_at')
+
         context.update(
-            self.get_role_context()
+            role_context
             | {
                 'receipts': receipts,
+                'department_guidelines': department_guidelines,
+                'is_admin_view': is_admin_view,
                 'page_title': "Kirish yo'riqnomasi",
             }
         )
@@ -3015,6 +3494,28 @@ class MandatoryGuidelineDeleteView(DepartmentSupervisorOnlyMixin, View):
         guideline.delete()
         messages.success(request, 'Yo‘riqnoma o‘chirildi.')
         return redirect(f"{reverse('mandatory-guidelines')}?type={guideline_type}")
+
+
+class MandatoryGuidelineStopView(DepartmentSupervisorOnlyMixin, View):
+    """Majburiy yo'riqnomani muddatidan oldin izoh (sabab) bilan to'xtatish."""
+
+    def post(self, request, pk, *args, **kwargs):
+        department = _guideline_department_or_redirect(request)
+        guideline = MandatoryGuideline.objects.filter(pk=pk, department=department).first() if department else None
+        if not guideline:
+            messages.error(request, 'Yo‘riqnoma topilmadi.')
+            return redirect('mandatory-guidelines')
+        stop_reason = (request.POST.get('stop_reason') or '').strip()
+        if not stop_reason:
+            messages.error(request, "Yo‘riqnomani to‘xtatish uchun izoh (sabab) kiritish shart!")
+            return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}")
+        guideline.is_stopped = True
+        guideline.stopped_at = timezone.now()
+        guideline.stop_reason = stop_reason
+        guideline.stopped_by = request.user
+        guideline.save(update_fields=['is_stopped', 'stopped_at', 'stop_reason', 'stopped_by'])
+        messages.success(request, f"Yo‘riqnoma muddatidan oldin to‘xtatildi. Sabab: {stop_reason}")
+        return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}")
 
 
 class MandatoryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
@@ -3408,6 +3909,41 @@ class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
         )
         messages.success(request, f'Ichki yo‘riqnoma {len(users)} ta xodimga yuborildi.')
         return redirect('internal-guideline-status')
+
+
+class SectionInternalGuidelineStopView(SectionAdminRequiredMixin, View):
+    """Ichki yo'riqnomani muddatidan oldin to'xtatish (izoh bilan)."""
+
+    def post(self, request, pk, *args, **kwargs):
+        section = _section_for_admin_or_redirect(request)
+        if not section:
+            return redirect('dashboard')
+
+        guideline = _internal_guidelines_for_section(section).filter(pk=pk).first()
+        if not guideline:
+            messages.error(request, 'Yo‘riqnoma topilmadi.')
+            return redirect('internal-guidelines')
+
+        stop_reason = (request.POST.get('stop_reason') or '').strip()
+        if not stop_reason:
+            messages.error(request, 'Yo‘riqnomani to‘xtatish uchun izoh (sabab) kiritish shart!')
+            return redirect('internal-guidelines')
+
+        active_dispatches = SectionInternalGuidelineDispatch.objects.filter(guideline=guideline, is_active=True)
+        if not active_dispatches.exists():
+            messages.info(request, 'Ushbu yo‘riqnoma hozir faol emas.')
+            return redirect('internal-guidelines')
+
+        now = timezone.now()
+        active_dispatches.update(
+            is_active=False,
+            is_stopped=True,
+            stopped_at=now,
+            stop_reason=stop_reason,
+            stopped_by=request.user
+        )
+        messages.success(request, f"Ichki yo‘riqnoma muddatidan oldin to‘xtatildi. Sabab: {stop_reason}")
+        return redirect('internal-guidelines')
 
 
 class InternalGuidelinePdfView(AuthenticatedRequiredMixin, View):
@@ -4264,7 +4800,7 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         
         # Get all users who are org leaders
-        leaders = UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER).select_related('user')
+        leaders = UserProfile.objects.filter(role=UserProfile.ROLE_ORG_LEADER).select_related('user', 'industry', 'region')
         
         # We need total workers to calculate percentage
         total_workers = UserProfile.objects.filter(role=UserProfile.ROLE_WORKER).count()
@@ -4279,11 +4815,9 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
             sections = Section.objects.filter(department__in=departments)
             section_count = sections.count()
             
-            # Count workers for this organization
-            workers_count = UserProfile.objects.filter(
-                role=UserProfile.ROLE_WORKER,
-                organization_name=leader.organization_name
-            ).count()
+            # Count workers for this organization using unified staff helper
+            staff_users = get_organization_staff_users(leader)
+            workers_count = staff_users.count()
             
             percent = (workers_count / total_workers * 100) if total_workers > 0 else 0
             
@@ -4295,7 +4829,10 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
                 'departments_count': dept_count,
                 'sections_count': section_count,
                 'workers_count': workers_count,
-                'workers_percent': round(percent, 1)
+                'workers_percent': round(percent, 1),
+                'is_active': leader.user.is_active,
+                'active_workers_count': staff_users.filter(is_active=True).count(),
+                'blocked_workers_count': staff_users.filter(is_active=False).count(),
             })
             
         org_stats.sort(key=lambda x: x['workers_count'], reverse=True)
@@ -4307,6 +4844,8 @@ class OrganizationStatsView(SuperuserActionRequiredMixin, TemplateView):
         context['org_stats'] = org_stats
         context['total_workers'] = total_workers
         context['total_organizations'] = leaders.count()
+        context['active_organizations'] = leaders.filter(user__is_active=True).count()
+        context['blocked_organizations'] = leaders.filter(user__is_active=False).count()
         return context
 
 
@@ -4320,9 +4859,9 @@ class OrganizationDetailSuperAdminView(SuperuserActionRequiredMixin, TemplateVie
         departments = Department.objects.filter(leader=leader_profile).select_related('supervisor', 'supervisor__profile')
         sections = Section.objects.filter(department__in=departments).select_related('department', 'supervisor', 'supervisor__profile')
         
+        staff_users = get_organization_staff_users(leader_profile)
         workers = UserProfile.objects.filter(
-            role=UserProfile.ROLE_WORKER,
-            organization_name=leader_profile.organization_name
+            user__in=staff_users
         ).select_related('user', 'department', 'section').order_by('full_name')
 
         context.update({
@@ -4332,7 +4871,9 @@ class OrganizationDetailSuperAdminView(SuperuserActionRequiredMixin, TemplateVie
             'workers': workers,
             'departments_count': departments.count(),
             'sections_count': sections.count(),
-            'workers_count': workers.count(),
+            'workers_count': staff_users.count(),
+            'active_workers_count': staff_users.filter(is_active=True).count(),
+            'blocked_workers_count': staff_users.filter(is_active=False).count(),
         })
         return context
 

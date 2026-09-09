@@ -3,14 +3,14 @@
 {% block content %}
 {% include 'accounts/includes/inbox_ack_styles.html' %}
 
-<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-slate-100 pb-5">
         <div>
-            <h2 class="text-lg font-semibold text-slate-900">
-                <i class="bi bi-shield-check mr-2 text-emerald-600"></i>Kirish yo'riqnomasi
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <i class="bi bi-shield-check text-emerald-600 text-xl"></i> Kirish yo'riqnomasi
             </h2>
             <p class="mt-1 text-sm text-slate-500">
-                Tizimdagi qolgan bo'limlardan foydalanish uchun yuborilgan kirish yo'riqnomalarini o'qing va tasdiqlang.
+                Tashkilotga yangi kelgan xodimlar va bo'lim xodimlari uchun rasmiy kirish yo'riqnomasi bilan tanishish va tasdiqlash.
             </p>
         </div>
         {% if pending_entry_guidelines_count %}
@@ -24,65 +24,98 @@
         {% endif %}
     </div>
 
-    <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+    <div class="mt-5 overflow-x-auto rounded-xl border border-slate-200">
         <table class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-4 py-3 text-left">Nomi</th>
-                    <th class="px-4 py-3 text-left">Yaratilgan</th>
-                    <th class="px-4 py-3 text-left">PDF</th>
-                    <th class="px-4 py-3 text-left">Holat</th>
+                    <th class="px-4 py-3.5 text-left">Nomi</th>
+                    <th class="px-4 py-3.5 text-left">Yaratilgan sana</th>
+                    <th class="px-4 py-3.5 text-left">Fayl (PDF)</th>
+                    <th class="px-4 py-3.5 text-left">Holat</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-                {% for receipt in receipts %}
-                <tr class="{% if receipt.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
-                    <td class="px-4 py-3 font-medium text-slate-900">{{ receipt.dispatch.guideline.name }}</td>
-                    <td class="px-4 py-3 text-slate-500">{{ receipt.dispatch.guideline.created_at|date:'d.m.Y' }}</td>
-                    <td class="px-4 py-3">
-                        {% if receipt.dispatch.guideline.pdf_file_exists %}
-                        <a
-                            href="{% url 'guideline-pdf' receipt.dispatch.guideline.id %}?receipt={{ receipt.id }}&next={{ request.get_full_path|urlencode }}"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100"
-                        >
-                            <i class="bi bi-eye"></i> O'qish
-                        </a>
-                        {% else %}
-                        <span class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
-                            <i class="bi bi-exclamation-circle"></i> Fayl yo'q
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3">
-                        <div class="mb-2">
-                            {% if receipt.dispatch.guideline.is_currently_active %}
+                {% if is_admin_view and not receipts %}
+                    {% for guideline in department_guidelines %}
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-4 py-3.5 font-medium text-slate-900">{{ guideline.name }}</td>
+                        <td class="px-4 py-3.5 text-slate-500">{{ guideline.created_at|date:'d.m.Y' }}</td>
+                        <td class="px-4 py-3.5">
+                            {% if guideline.pdf_file_exists %}
+                            <a href="{% url 'guideline-pdf' guideline.id %}" target="_blank" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
+                                <i class="bi bi-file-earmark-pdf"></i> O'qish (PDF)
+                            </a>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
+                                <i class="bi bi-exclamation-circle"></i> Fayl yo'q
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5">
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">
+                                <i class="bi bi-shield-check"></i> Boshqarma yo'riqnomasi
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-10 text-center text-slate-400">
+                            <i class="bi bi-inbox mb-2 block text-3xl text-slate-300"></i>Hozircha kirish yo'riqnomasi mavjud emas
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    {% for receipt in receipts %}
+                    <tr class="{% if receipt.is_acknowledged %}inbox-row-accepted{% else %}inbox-row-pending{% endif %}">
+                        <td class="px-4 py-3.5 font-medium text-slate-900">{{ receipt.dispatch.guideline.name }}</td>
+                        <td class="px-4 py-3.5 text-slate-500">{{ receipt.dispatch.guideline.created_at|date:'d.m.Y' }}</td>
+                        <td class="px-4 py-3.5">
+                            {% if receipt.dispatch.guideline.pdf_file_exists %}
+                            <a href="{% url 'guideline-pdf' receipt.dispatch.guideline.id %}?receipt={{ receipt.id }}&next={{ request.get_full_path|urlencode }}"
+                               class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100">
+                                <i class="bi bi-file-earmark-pdf"></i> O'qish
+                            </a>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
+                                <i class="bi bi-exclamation-circle"></i> Fayl yo'q
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5">
+                            <div class="mb-1">
+                                {% if receipt.dispatch.is_stopped %}
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800" title="{{ receipt.dispatch.stop_reason }}">
+                                        <i class="bi bi-stop-circle"></i> To'xtatilgan
+                                    </span>
+                                {% elif receipt.dispatch.is_active %}
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
+                                        <i class="bi bi-check-circle-fill"></i> Joriy
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                        <i class="bi bi-circle"></i> Faol emas
+                                    </span>
+                                {% endif %}
+                            </div>
+                            {% if receipt.is_acknowledged %}
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                                    <i class="bi bi-check-circle-fill"></i> Joriy
+                                    <i class="bi bi-check-circle-fill"></i> Qabul qilingan
                                 </span>
                             {% else %}
-                                <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                                    <i class="bi bi-circle"></i> Faol emas
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
+                                    <i class="bi bi-exclamation-circle-fill"></i> Qabul qilinmagan
                                 </span>
                             {% endif %}
-                        </div>
-                        {% if receipt.is_acknowledged %}
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
-                                <i class="bi bi-check-circle-fill"></i> Qabul qilingan
-                            </span>
-                        {% else %}
-                            <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800">
-                                <i class="bi bi-exclamation-circle-fill"></i> Qabul qilinmagan
-                            </span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha kirish yo'riqnomasi yuborilmagan
-                    </td>
-                </tr>
-                {% endfor %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-10 text-center text-slate-400">
+                            <i class="bi bi-inbox mb-2 block text-3xl text-slate-300"></i>Hozircha kirish yo'riqnomasi yuborilmagan
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
             </tbody>
         </table>
     </div>

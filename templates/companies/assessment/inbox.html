@@ -34,6 +34,21 @@
                 Eng yaxshi: {{ item.best_score }}%
               </span>
               {% endif %}
+              {% if item.assessment.start_time or item.assessment.end_time %}
+                {% if item.time_status == 'upcoming' %}
+                <span class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
+                  <i class="bi bi-calendar-event"></i> Boshlanish: {{ item.assessment.start_time|date:"d.m.Y H:i" }}
+                </span>
+                {% elif item.time_status == 'expired' %}
+                <span class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200">
+                  <i class="bi bi-clock-history"></i> Muddat tugagan ({{ item.assessment.end_time|date:"d.m.Y H:i" }})
+                </span>
+                {% elif item.assessment.end_time %}
+                <span class="inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700 border border-sky-200">
+                  <i class="bi bi-hourglass-split"></i> Muddat: {{ item.assessment.end_time|date:"d.m.Y H:i" }} gacha
+                </span>
+                {% endif %}
+              {% endif %}
             </div>
             {% if item.assessment.notes %}
             <p class="text-xs text-slate-400 mt-1.5">{{ item.assessment.notes|truncatechars:120 }}</p>

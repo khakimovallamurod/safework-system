@@ -268,6 +268,17 @@ class GuidelineDispatch(models.Model):
     )
     sent_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    is_stopped = models.BooleanField(default=False, verbose_name="Oldindan to'xtatilgan")
+    stopped_at = models.DateTimeField(null=True, blank=True, verbose_name="To'xtatilgan sana")
+    stop_reason = models.TextField(blank=True, verbose_name="To'xtatish sababi / Izoh")
+    stopped_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stopped_guideline_dispatches',
+        verbose_name="To'xtatgan foydalanuvchi",
+    )
 
     class Meta:
         ordering = ['-sent_at']
@@ -348,6 +359,17 @@ class MandatoryGuideline(models.Model):
         blank=True,
         related_name='created_mandatory_guidelines',
     )
+    is_stopped = models.BooleanField(default=False, verbose_name="Oldindan to'xtatilgan")
+    stopped_at = models.DateTimeField(null=True, blank=True, verbose_name="To'xtatilgan sana")
+    stop_reason = models.TextField(blank=True, verbose_name="To'xtatish sababi / Izoh")
+    stopped_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stopped_mandatory_guidelines',
+        verbose_name="To'xtatgan foydalanuvchi",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -367,6 +389,8 @@ class MandatoryGuideline(models.Model):
 
     @property
     def is_currently_active(self):
+        if self.is_stopped:
+            return False
         now = timezone.now()
         return self.start_time <= now <= self.active_until
 
@@ -558,6 +582,17 @@ class SectionInternalGuidelineDispatch(models.Model):
     start_time = models.DateTimeField(null=True, blank=True, verbose_name='Boshlanish vaqti')
     registration_end_time = models.DateTimeField(null=True, blank=True, verbose_name="Ro'yxatdan o'tish oxiri")
     active_until = models.DateTimeField(null=True, blank=True, verbose_name='Faollik tugashi')
+    is_stopped = models.BooleanField(default=False, verbose_name="To'xtatilganmi")
+    stopped_at = models.DateTimeField(null=True, blank=True, verbose_name="To'xtatilgan vaqti")
+    stop_reason = models.TextField(blank=True, default='', verbose_name="To'xtatish sababi")
+    stopped_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stopped_section_internal_guidelines',
+        verbose_name="To'xtatgan shaxs"
+    )
     sent_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -733,8 +768,33 @@ class WorkPracticeTest(models.Model):
     attempts_allowed = models.PositiveIntegerField(verbose_name="Urinishlar soni")
     questions_count = models.PositiveIntegerField(verbose_name="Savollar soni")
     is_active = models.BooleanField(default=True, verbose_name="Status")
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name="Boshlanish vaqti")
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name="Tugash vaqti")
+    is_stopped = models.BooleanField(default=False, verbose_name="To'xtatilganmi")
+    stopped_at = models.DateTimeField(null=True, blank=True, verbose_name="To'xtatilgan vaqti")
+    stop_reason = models.TextField(blank=True, default='', verbose_name="To'xtatish sababi")
+    stopped_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stopped_work_practice_tests',
+        verbose_name="To'xtatgan shaxs"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_in_time_window(self):
+        from django.utils import timezone
+        now = timezone.now()
+        if self.is_stopped:
+            return False, "Test muddatidan oldin to'xtatilgan."
+        if self.start_time and now < self.start_time:
+            return False, f"Test boshlanish vaqti: {timezone.localtime(self.start_time):%d.%m.%Y %H:%M}"
+        if self.end_time and now > self.end_time:
+            return False, f"Test topshirish muddati tugagan (Tugash vaqti: {timezone.localtime(self.end_time):%d.%m.%Y %H:%M})"
+        return True, "faol"
 
     class Meta:
         ordering = ['-created_at']
@@ -879,7 +939,23 @@ class DepartmentAssessment(models.Model):
     notes = models.TextField(blank=True, verbose_name="Izoh")
     is_active = models.BooleanField(default=False, verbose_name="Faol")
     is_published = models.BooleanField(default=False, verbose_name="Joriy qilingan")
+    is_stopped = models.BooleanField(default=False, verbose_name="Oldindan to'xtatilgan")
+    stopped_at = models.DateTimeField(null=True, blank=True, verbose_name="To'xtatilgan sana")
+    stop_reason = models.TextField(blank=True, verbose_name="To'xtatish sababi / Izoh")
+    stopped_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='stopped_assessments',
+        verbose_name="To'xtatgan foydalanuvchi",
+    )
     published_at = models.DateTimeField(null=True, blank=True)
+    start_time = models.DateTimeField(null=True, blank=True, verbose_name="Boshlanish vaqti")
+    end_time = models.DateTimeField(null=True, blank=True, verbose_name="Tugash vaqti")
+    target_sections = models.ManyToManyField(
+        'companies.Section',
+        blank=True,
+        related_name='targeted_department_assessments',
+        verbose_name="Joriy qilingan bo'limlar",
+    )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True,
         related_name='created_assessments',
@@ -898,6 +974,26 @@ class DepartmentAssessment(models.Model):
     @property
     def question_count_ok(self):
         return self.questions.count() >= self.questions_count
+
+    def get_target_sections(self):
+        if self.target_sections.exists():
+            return self.target_sections.all()
+        notif_user_ids = self.notifications.values_list('user_id', flat=True)
+        if notif_user_ids:
+            return Section.objects.filter(
+                models.Q(memberships__user_id__in=notif_user_ids) |
+                models.Q(supervisor_id__in=notif_user_ids)
+            ).distinct()
+        return self.department.sections.all()
+
+    @property
+    def is_in_time_window(self):
+        now = timezone.now()
+        if self.start_time and now < self.start_time:
+            return False, f"Test hali boshlanmagan (Boshlanish vaqti: {self.start_time.strftime('%d.%m.%Y %H:%M')})"
+        if self.end_time and now > self.end_time:
+            return False, f"Test topshirish muddati tugagan (Tugash vaqti: {self.end_time.strftime('%d.%m.%Y %H:%M')})"
+        return True, "faol"
 
 
 class DepartmentAssessmentQuestion(models.Model):

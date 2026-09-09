@@ -126,6 +126,7 @@ def create_violation(request):
         v_type = request.POST.get('violation_type')
         reason = request.POST.get('reason')
         date_str = request.POST.get('date')
+        image = request.FILES.get('image')
         
         try:
             employee = User.objects.get(id=employee_id)
@@ -135,7 +136,8 @@ def create_violation(request):
                 issued_by=request.user,
                 violation_type=v_type_obj,
                 reason=reason,
-                date=date_str
+                date=date_str if date_str else timezone.now().date(),
+                image=image
             )
             SystemNotification.objects.create(
                 user=employee,

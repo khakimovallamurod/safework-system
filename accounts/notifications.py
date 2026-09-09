@@ -1,9 +1,12 @@
 def get_unread_notifications_count(user):
-    """O'qilmagan barcha bildirishnomalar soni."""
+    """O'qilmagan barcha tizim bildirishnomalari soni (yo'riqnomalar, testlar, tizim xabarlari)."""
     if not user.is_authenticated:
         return 0
 
-    from companies.models import GuidelineDispatchRecipient, SectionInternalGuidelineRecipient, DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt
+    from companies.models import (
+        GuidelineDispatchRecipient, SectionInternalGuidelineRecipient,
+        DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt
+    )
     from accounts.models import SystemNotification
 
     dept_count = GuidelineDispatchRecipient.objects.filter(user=user, is_acknowledged=False).count()
@@ -15,12 +18,24 @@ def get_unread_notifications_count(user):
     return dept_count + internal_count + assessment_count + practice_msg_count + system_count
 
 
+def get_unread_section_messages_count(user):
+    """Bo'lim chatidagi o'qilmagan xabarlar soni."""
+    if not user.is_authenticated:
+        return 0
+    from companies.models import SectionMessageReceipt
+    return SectionMessageReceipt.objects.filter(user=user, is_read=False).count()
+
+
 def get_all_notifications(user):
     """Barcha bildirishnomalarni yagona ro'yxatga birlashtirish."""
     if not user.is_authenticated:
         return []
         
-    from companies.models import GuidelineDispatchRecipient, SectionInternalGuidelineRecipient, DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt
+    from companies.models import (
+        GuidelineDispatchRecipient, SectionInternalGuidelineRecipient,
+        DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt,
+        SectionMessageReceipt
+    )
     from accounts.models import SystemNotification
     
     notifications = []
@@ -46,7 +61,7 @@ def get_all_notifications(user):
             'message': r.dispatch.guideline.name,
             'is_read': r.is_acknowledged,
             'created_at': r.dispatch.sent_at,
-            'url': '/yo-riqnomalarim/',
+            'url': '/xabarlarim/',
             'icon': 'bi-file-earmark-text',
             'type': 'guideline'
         })
@@ -76,8 +91,21 @@ def get_all_notifications(user):
             'icon': 'bi-chat-left-text',
             'type': 'message'
         })
+
+    # 5. Section Direct Messages
+    for r in SectionMessageReceipt.objects.filter(user=user).select_related('message'):
+        notifications.append({
+            'id': f"sm_{r.id}",
+            'title': f"Bo'lim xabarnomasi: {r.message.title}",
+            'message': r.message.body[:100] + ('...' if len(r.message.body) > 100 else ''),
+            'is_read': r.is_read,
+            'created_at': r.message.created_at,
+            'url': '/xabarnomalar/',
+            'icon': 'bi-chat-dots',
+            'type': 'message'
+        })
         
-    # 5. System Notifications
+    # 6. System Notifications
     for sn in SystemNotification.objects.filter(user=user):
         notifications.append({
             'id': f"sn_{sn.id}",

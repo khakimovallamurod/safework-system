@@ -1,5 +1,5 @@
 from accounts.mixins import RoleContextMixin
-from accounts.notifications import get_unread_notifications_count
+from accounts.notifications import get_unread_notifications_count, get_unread_section_messages_count
 
 
 def sopline_role_context(request):
@@ -8,8 +8,10 @@ def sopline_role_context(request):
     mixin = RoleContextMixin()
     mixin.request = request
     context = mixin.get_role_context()
-    if context.get('is_section_admin') or context.get('is_section_member'):
+    if context.get('is_section_admin') or context.get('is_section_member') or context.get('is_worker'):
         context['unread_notifications_count'] = get_unread_notifications_count(request.user)
+        context['unread_section_messages_count'] = get_unread_section_messages_count(request.user)
     else:
         context['unread_notifications_count'] = 0
+        context['unread_section_messages_count'] = 0
     return context

@@ -1,22 +1,89 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% if test.is_stopped %}
+<div class="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 flex items-center gap-3">
+    <i class="bi bi-stop-circle text-rose-600 text-2xl flex-shrink-0"></i>
+    <div class="flex-1">
+        <h3 class="text-sm font-bold text-rose-800">Ushbu test bo'lim nazoratchisi tomonidan oldindan to'xtatilgan</h3>
+        <p class="text-xs text-rose-600 mt-0.5">To'xtatilgan vaqti: {{ test.stopped_at|date:"d.m.Y H:i" }} | Sabab: <strong>{{ test.stop_reason }}</strong></p>
+    </div>
+</div>
+{% endif %}
+
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3">
         <a href="{% url 'companies:test_list' %}" class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm">
             <i class="bi bi-arrow-left"></i>
         </a>
         <div>
-            <h2 class="text-xl font-bold text-slate-900">{{ test.name }}</h2>
-            <p class="text-sm text-slate-500 flex items-center gap-3 mt-1">
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                {{ test.name }}
+                {% if test.is_stopped %}
+                <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">
+                    <i class="bi bi-stop-circle"></i> To'xtatilgan
+                </span>
+                {% endif %}
+            </h2>
+            <p class="text-sm text-slate-500 flex flex-wrap items-center gap-3 mt-1">
                 <span><i class="bi bi-clock mr-1 text-slate-400"></i>{{ test.duration }} daqiqa</span>
                 <span class="text-slate-300">|</span>
                 <span><i class="bi bi-arrow-repeat mr-1 text-slate-400"></i>{{ test.attempts_allowed }} marta</span>
                 <span class="text-slate-300">|</span>
                 <span><i class="bi bi-list-check mr-1 text-slate-400"></i>{{ test.questions_count }} ta savol tushadi</span>
+                {% if test.start_time %}
+                <span class="text-slate-300">|</span>
+                <span><i class="bi bi-calendar-event mr-1 text-indigo-500"></i>Boshlanish: {{ test.start_time|date:"d.m.Y H:i" }}</span>
+                {% endif %}
+                {% if test.end_time %}
+                <span class="text-slate-300">|</span>
+                <span><i class="bi bi-calendar-x mr-1 text-indigo-500"></i>Tugash: {{ test.end_time|date:"d.m.Y H:i" }}</span>
+                {% endif %}
             </p>
         </div>
     </div>
+    <div class="flex items-center gap-2">
+        {% if not test.is_stopped %}
+        <button type="button" data-bs-toggle="modal" data-bs-target="#stopTestModal"
+                class="inline-flex h-9 items-center gap-1.5 px-3.5 rounded-xl border border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition shadow-sm">
+            <i class="bi bi-stop-circle"></i> Oldindan to'xtatish
+        </button>
+        {% endif %}
+        <a href="{% url 'companies:test_edit' test.pk %}" class="inline-flex h-9 items-center gap-1.5 px-3.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm">
+            <i class="bi bi-pencil"></i> Tahrirlash
+        </a>
+    </div>
+</div>
+
+<!-- Stop Test Modal -->
+<div class="modal fade" id="stopTestModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-2xl border-0 shadow-2xl p-2">
+      <form method="post" action="{% url 'companies:test_stop' test.pk %}">
+        {% csrf_token %}
+        <div class="modal-header border-0 pb-0">
+          <div class="flex items-center gap-2 text-rose-600 font-bold">
+            <i class="bi bi-exclamation-triangle-fill text-lg"></i>
+            <span>Testni muddatidan oldin to‘xtatish</span>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body py-4">
+          <p class="text-xs text-slate-500 mb-3">
+            Ushbu testni to‘xtatmoqchimisiz? To‘xtatilgandan so‘ng xodimlar ushbu testni topshira olmaydi.
+          </p>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">To‘xtatish sababi / Izoh <span class="text-rose-500">*</span></label>
+          <textarea name="stop_reason" rows="3" required
+                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 outline-none resize-none"
+                    placeholder="Masalan: Bo'lim topshirig'i bo'yicha test qayta ko'rib chiqilmoqda..."></textarea>
+        </div>
+        <div class="modal-footer border-0 pt-0 flex justify-end gap-2">
+          <button type="button" class="h-9 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+          <button type="submit" class="h-9 px-4 rounded-xl bg-rose-600 text-xs font-semibold text-white hover:bg-rose-700 shadow-sm">To‘xtatish</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 {% if questions %}

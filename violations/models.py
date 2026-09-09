@@ -21,6 +21,7 @@ class Violation(models.Model):
     violation_type = models.ForeignKey(ViolationType, on_delete=models.CASCADE, verbose_name="Qoidabuzarlik turi")
     reason = models.TextField(verbose_name="Sabab (Izoh)")
     date = models.DateField(default=timezone.now, verbose_name="Sana")
+    image = models.ImageField(upload_to='violations/', null=True, blank=True, verbose_name="Qoidabuzarlik rasmi")
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True, verbose_name="Faolmi (Tushuntirish xati olinmagan)")
 

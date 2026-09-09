@@ -32,18 +32,15 @@
                     </div>
                     
                     <div class="space-y-3 ml-12">
+                        {% for opt in question.shuffled_options %}
                         <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
-                            <input type="radio" name="question_{{ question.id }}" value="1" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
-                            <span class="text-slate-700 font-medium select-none">{{ question.option_1 }}</span>
+                            <input type="radio" name="question_{{ question.id }}" value="{{ opt.0 }}" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
+                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600">
+                                {% if forloop.counter == 1 %}A{% elif forloop.counter == 2 %}B{% else %}C{% endif %}
+                            </span>
+                            <span class="text-slate-700 font-medium select-none">{{ opt.1 }}</span>
                         </label>
-                        <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
-                            <input type="radio" name="question_{{ question.id }}" value="2" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
-                            <span class="text-slate-700 font-medium select-none">{{ question.option_2 }}</span>
-                        </label>
-                        <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
-                            <input type="radio" name="question_{{ question.id }}" value="3" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
-                            <span class="text-slate-700 font-medium select-none">{{ question.option_3 }}</span>
-                        </label>
+                        {% endfor %}
                     </div>
                 </div>
                 

@@ -189,7 +189,18 @@
                 <div class="modal-body space-y-3 text-sm text-slate-700">
                     <p><strong>{{ guideline.name }}</strong></p>
                     {% if active_guideline_id == guideline.id %}
-                        <p>Faolsizlantirilsa, shu yo'riqnoma bo'yicha blok o'chadi va foydalanuvchilarning qolgan menyulari ochiladi.</p>
+                        <div class="rounded-xl border border-rose-200 bg-rose-50/50 p-3 text-xs text-rose-800">
+                            <i class="bi bi-exclamation-triangle-fill mr-1"></i>
+                            <strong>Diqqat:</strong> Yo'riqnoma oldindan to'xtatilsa, tizim bo'yicha kirish blokirovkasi yechiladi va jarayon muddatidan oldin yakunlanadi.
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                To'xtatish sababi / Izoh <span class="text-rose-500">*</span>
+                            </label>
+                            <textarea name="stop_reason" required rows="3"
+                                      class="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-900 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                                      placeholder="Yo'riqnomani nima sababdan oldindan to'xtatayotganingizni yozing..."></textarea>
+                        </div>
                     {% else %}
                         <p>Joriy qilinsa, boshqarma tarkibidagi barcha bo'lim nazoratchilari va xodimlarda “Kirish yo'riqnomasi” menyusida chiqadi.</p>
                         <p>Tasdiqlamaguncha ularning qolgan menyulari qulf va disabled holatda bo'ladi.</p>
@@ -199,7 +210,7 @@
                     <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
                     <button type="submit" class="inline-flex items-center gap-2 rounded-xl {% if active_guideline_id == guideline.id %}bg-rose-600 hover:bg-rose-700{% else %}bg-emerald-600 hover:bg-emerald-700{% endif %} px-4 py-2 text-sm font-medium text-white">
                         {% if active_guideline_id == guideline.id %}
-                            <i class="bi bi-unlock"></i> Faolsizlantirish
+                            <i class="bi bi-stop-circle"></i> Oldindan to'xtatish
                         {% else %}
                             <i class="bi bi-shield-lock"></i> Joriy qilish
                         {% endif %}

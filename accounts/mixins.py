@@ -4,6 +4,12 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import redirect
 
 from accounts.role_navigation import get_worker_entry_guideline_context
+from accounts.permissions import (
+    get_user_permissions,
+    has_permission,
+    PERM_GUIDELINE_STOP,
+    PERM_ASSESSMENT_STOP,
+)
 
 
 class RoleContextMixin:
@@ -61,7 +67,10 @@ class RoleContextMixin:
         can_view_work_practices = False
         if is_worker and user.is_authenticated:
             from companies.models import SectionMembership
-            is_section_member = SectionMembership.objects.filter(user=user).exists()
+            is_section_member = SectionMembership.objects.filter(user=user, section__isnull=False).exists()
+            if not is_section_member and profile and profile.section_id:
+                SectionMembership.objects.get_or_create(user=user, section_id=profile.section_id)
+                is_section_member = True
         has_dept_assessment = False
         if user.is_authenticated:
             from companies.models import DepartmentAssessmentNotification
@@ -126,10 +135,35 @@ class RoleContextMixin:
             'company_industry': profile.industry if profile else None,
             'can_manage_professions': is_super_admin or is_org_leader or is_department_admin,
             'has_dept_assessment': has_dept_assessment,
+            'user_permissions': get_user_permissions(user),
+            'can_stop_guidelines': has_permission(user, PERM_GUIDELINE_STOP),
+            'can_stop_assessments': has_permission(user, PERM_ASSESSMENT_STOP),
         }
         context.update(get_worker_entry_guideline_context(user, is_worker or is_section_admin))
         context.update(self._get_structure_context(profile, is_section_member))
         return context
+
+
+class PermissionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
+    """View-level permission check based on permission code."""
+
+    permission_required = None
+    login_url = 'login'
+
+    def get_permission_required(self):
+        return self.permission_required
+
+    def test_func(self):
+        perm = self.get_permission_required()
+        if not perm:
+            return True
+        return has_permission(self.request.user, perm)
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            messages.error(self.request, "Ushbu amalni bajarish uchun sizda ruxsat yo'q.")
+            return redirect('dashboard')
+        return redirect('login')
 
 
 class AuthenticatedRequiredMixin(LoginRequiredMixin, RoleContextMixin):
@@ -245,7 +279,8 @@ class SectionMemberRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleCo
     login_url = 'login'
 
     def test_func(self):
-        return self.get_role_context().get('is_section_member', False)
+        role = self.get_role_context()
+        return role.get('is_section_member', False) or role.get('is_worker', False) or role.get('is_section_admin', False)
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:

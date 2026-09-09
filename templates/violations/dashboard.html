@@ -125,8 +125,13 @@
                         {% if row.violations %}
                             <div class="space-y-1">
                             {% for v in row.violations %}
-                                <div class="text-xs text-slate-600" title="{{ v.reason }}">
+                                <div class="text-xs text-slate-600 flex items-center gap-1.5" title="{{ v.reason }}">
                                     <span class="font-medium text-slate-800">{{ v.date|date:"d.m.Y" }}</span> - {{ v.violation_type.name }}
+                                    {% if v.image %}
+                                    <a href="{{ v.image.url }}" target="_blank" class="inline-flex items-center text-indigo-600 hover:text-indigo-800" title="Rasmni ko'rish">
+                                        <i class="bi bi-image"></i>
+                                    </a>
+                                    {% endif %}
                                 </div>
                             {% endfor %}
                             </div>
@@ -172,7 +177,7 @@
                 <h5 class="modal-title font-bold text-red-900 flex items-center gap-2"><i class="bi bi-exclamation-octagon"></i> Yangi qoidabuzarlik yozish</h5>
                 <button type="button" class="btn-close" onclick="this.closest('.modal').classList.remove('show')"></button>
             </div>
-            <form method="post" action="{% url 'violations:create' %}">
+            <form method="post" action="{% url 'violations:create' %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="modal-body space-y-4">
                     <div>
@@ -207,6 +212,11 @@
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sana</label>
                         <input type="date" name="date" class="form-control rounded-xl" required value="{% now 'Y-m-d' %}">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Qoidabuzarlik rasmi (ixtiyoriy)</label>
+                        <input type="file" name="image" accept="image/*" class="form-control rounded-xl">
+                        <span class="text-xs text-slate-400 mt-1 block">Dalil sifatida fotosurat biriktirishingiz mumkin</span>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-1.5">Sabab / Izoh</label>

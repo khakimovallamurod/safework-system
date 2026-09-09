@@ -39,24 +39,14 @@
         <p class="text-[15px] text-slate-800 leading-relaxed mb-4">{{ q.text|safe }}</p>
 
         <div class="space-y-2" id="opts-{{ q.id }}">
-          <div class="opt-card" data-qid="{{ q.id }}" data-val="1" onclick="pickOpt(this,'{{ q.id }}',1)">
+          {% for opt in q.shuffled_options %}
+          <div class="opt-card" data-qid="{{ q.id }}" data-val="{{ opt.0 }}" onclick="pickOpt(this,'{{ q.id }}',{{ opt.0 }})">
             <div class="opt-radio"><div class="opt-dot"></div></div>
-            <div class="opt-badge">A</div>
-            <input type="radio" name="question_{{ q.id }}" value="1" class="sr-only">
-            <span class="text-sm text-slate-700">{{ q.option_1 }}</span>
+            <div class="opt-badge">{% if forloop.counter == 1 %}A{% elif forloop.counter == 2 %}B{% else %}C{% endif %}</div>
+            <input type="radio" name="question_{{ q.id }}" value="{{ opt.0 }}" class="sr-only">
+            <span class="text-sm text-slate-700">{{ opt.1 }}</span>
           </div>
-          <div class="opt-card" data-qid="{{ q.id }}" data-val="2" onclick="pickOpt(this,'{{ q.id }}',2)">
-            <div class="opt-radio"><div class="opt-dot"></div></div>
-            <div class="opt-badge">B</div>
-            <input type="radio" name="question_{{ q.id }}" value="2" class="sr-only">
-            <span class="text-sm text-slate-700">{{ q.option_2 }}</span>
-          </div>
-          <div class="opt-card" data-qid="{{ q.id }}" data-val="3" onclick="pickOpt(this,'{{ q.id }}',3)">
-            <div class="opt-radio"><div class="opt-dot"></div></div>
-            <div class="opt-badge">C</div>
-            <input type="radio" name="question_{{ q.id }}" value="3" class="sr-only">
-            <span class="text-sm text-slate-700">{{ q.option_3 }}</span>
-          </div>
+          {% endfor %}
         </div>
       </div>
       {% endfor %}
