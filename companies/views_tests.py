@@ -7,6 +7,7 @@ from django.views import View
 from django.utils import timezone
 
 from accounts.mixins import SectionAdminRequiredMixin, AuthenticatedRequiredMixin, SectionMemberRequiredMixin
+from accounts.notifications import send_action_notification
 from companies.forms import WorkPracticeTestForm, WorkPracticeTestQuestionForm
 from companies.models import (
     Section,
@@ -117,9 +118,7 @@ class TestCreateView(SectionAdminRequiredMixin, View):
 
             test.save()
             
-            # Auto-populate questions without duplicates
-            random.shuffle(test_base_questions)
-            selected_questions = test_base_questions[:test.questions_count]
+            # Populate questions from all unique base questions
             questions_to_create = [
                 WorkPracticeTestQuestion(
                     test=test,
@@ -129,11 +128,22 @@ class TestCreateView(SectionAdminRequiredMixin, View):
                     option_3=q.option_3,
                     correct_option=q.correct_option
                 )
-                for q in selected_questions
+                for q in test_base_questions
             ]
             WorkPracticeTestQuestion.objects.bulk_create(questions_to_create)
 
-            messages.success(request, f"Test muvaffaqiyatli yaratildi va bazadan {test.questions_count} ta savol olindi.")
+            creator_profile = getattr(request.user, 'profile', None)
+            creator_name = (creator_profile.full_name if creator_profile and creator_profile.full_name else request.user.username)
+            send_action_notification(
+                title="Yangi test joriy qilindi",
+                message=f"«{section.name}» bo‘limi ({creator_name}) o‘z ishchilariga test joriy qildi: «{test.name}» ({test.questions_count} ta savol, {test.duration} daqiqa).",
+                notif_type='test',
+                url=reverse('companies:test_detail', kwargs={'pk': test.id}),
+                section=section,
+                department=section.department
+            )
+
+            messages.success(request, f"Test yaratildi va bazadan {len(questions_to_create)} ta savol yuklandi. Har bir urinishda {test.questions_count} ta tasodifiy savol beriladi.")
             return redirect('companies:test_list')
         
         context = self.get_role_context()
@@ -316,6 +326,25 @@ class QuizStartView(SectionMemberRequiredMixin, View):
             test=test
         )
         
+        # Sync any missing questions from department test base
+        dept = practice.section.department
+        if dept:
+            existing_texts = set(t.strip().lower() for t in test.questions.values_list('text', flat=True))
+            dept_questions = DepartmentTestBaseQuestion.objects.filter(department=dept)
+            missing_q = [
+                WorkPracticeTestQuestion(
+                    test=test,
+                    text=dq.text,
+                    option_1=dq.option_1,
+                    option_2=dq.option_2,
+                    option_3=dq.option_3,
+                    correct_option=dq.correct_option
+                )
+                for dq in dept_questions if dq.text.strip().lower() not in existing_texts
+            ]
+            if missing_q:
+                WorkPracticeTestQuestion.objects.bulk_create(missing_q)
+
         # Generate random questions
         all_questions = list(test.questions.all())
         random.shuffle(all_questions)

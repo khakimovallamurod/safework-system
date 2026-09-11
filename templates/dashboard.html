@@ -195,12 +195,29 @@
 </div>
 {% elif org_leader_dashboard %}
 <div class="mb-6 space-y-6">
-    <!-- 1. Tashkilot Rahbari Boshqaruv Banneri -->
+    <!-- 1. Boshqaruv Markazi Banneri (Direktor yoki Boshqarma Nazoratchisi) -->
     <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-5 text-white shadow-xl sm:p-7">
         <div class="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-brand-500/10 blur-2xl pointer-events-none"></div>
         <div class="absolute -bottom-10 right-32 h-40 w-40 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
         <div class="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div class="space-y-2">
+                {% if org_leader_dashboard.is_department_view %}
+                <div class="inline-flex items-center gap-2 rounded-full border border-violet-400/30 bg-violet-500/20 px-3 py-1 text-xs font-semibold text-violet-300 backdrop-blur-md">
+                    <i class="bi bi-building-gear"></i> Boshqarma Boshqaruv Markazi (Nazoratchi)
+                </div>
+                <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                    {{ org_leader_dashboard.dept_name }}
+                </h1>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300 sm:text-sm">
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-building text-sky-400"></i> Tashkilot: <strong>{{ org_leader_dashboard.org_name }}</strong></span>
+                    <span class="text-slate-500">·</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-briefcase text-emerald-400"></i> Soha: <strong>{{ org_leader_dashboard.industry_name }}</strong></span>
+                    <span class="text-slate-500">·</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-person-badge text-violet-400"></i> Nazoratchi: <strong>{{ org_leader_dashboard.supervisor_name }}</strong></span>
+                    <span class="text-slate-500">·</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="bi bi-calendar-event text-amber-400"></i> Bugun: {% now "d.m.Y" %}</span>
+                </div>
+                {% else %}
                 <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-400 backdrop-blur-md">
                     <i class="bi bi-shield-check"></i> Tashkilot Boshqaruv Markazi (Direktor)
                 </div>
@@ -214,6 +231,7 @@
                     <span class="text-slate-500">·</span>
                     <span class="inline-flex items-center gap-1.5"><i class="bi bi-calendar-event text-amber-400"></i> Bugun: {% now "d.m.Y" %}</span>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Xavfsizlik Indeksi Vidjeti -->
@@ -232,7 +250,9 @@
                         <span class="text-rose-400"><i class="bi bi-exclamation-triangle-fill mr-1"></i> Nazorat zarur</span>
                         {% endif %}
                     </div>
-                    <div class="text-xs text-slate-400 mt-0.5">Tashkilot umumiy xavfsizlik reytingi</div>
+                    <div class="text-xs text-slate-400 mt-0.5">
+                        {% if org_leader_dashboard.is_department_view %}Boshqarma umumiy xavfsizlik reytingi{% else %}Tashkilot umumiy xavfsizlik reytingi{% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -245,7 +265,11 @@
             <div class="flex items-start justify-between">
                 <div>
                     <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Tuzilma va Ishchilar</div>
-                    <div class="mt-2 text-3xl font-black text-slate-900">{{ org_leader_dashboard.total_workers }}</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">
+                        <a href="{% if org_leader_dashboard.is_department_view %}{% url 'department-workers' %}{% else %}{% url 'org-workers' %}{% endif %}" class="hover:text-sky-600 transition" title="Xodimlar ro'yxatini ko'rish">
+                            {{ org_leader_dashboard.total_workers }}
+                        </a>
+                    </div>
                     <div class="mt-1 text-xs text-slate-500">jami {{ org_leader_dashboard.total_staff }} nafar xodim</div>
                 </div>
                 <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-xl text-sky-600 transition group-hover:scale-110">
@@ -253,10 +277,12 @@
                 </div>
             </div>
             <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-600">
+                {% if not org_leader_dashboard.is_department_view %}
                 <span><strong>{{ org_leader_dashboard.total_departments }}</strong> boshqarma</span>
                 <span>·</span>
+                {% endif %}
                 <span><strong>{{ org_leader_dashboard.total_sections }}</strong> bo‘lim</span>
-                <a href="{% url 'org-workers' %}" class="font-bold text-sky-600 hover:text-sky-700">Ko‘rish <i class="bi bi-arrow-right"></i></a>
+                <a href="{% if org_leader_dashboard.is_department_view %}{% url 'department-workers' %}{% else %}{% url 'org-workers' %}{% endif %}" class="font-bold text-sky-600 hover:text-sky-700">Ko‘rish <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
 
@@ -265,7 +291,11 @@
             <div class="flex items-start justify-between">
                 <div>
                     <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Mehnatga ruxsat</div>
-                    <div class="mt-2 text-3xl font-black text-slate-900">{{ org_leader_dashboard.qualified_workers_count }}</div>
+                    <div class="mt-2 text-3xl font-black text-slate-900">
+                        <a href="{% if org_leader_dashboard.is_department_view %}{% url 'department-workers' %}{% else %}{% url 'org-workers-status' 'qualified' %}{% endif %}" class="hover:text-emerald-600 transition" title="Mehnatga ruxsati bor xodimlar ro'yxati">
+                            {{ org_leader_dashboard.qualified_workers_count }}
+                        </a>
+                    </div>
                     <div class="mt-1 text-xs text-slate-500">ishchilarning <strong>{{ org_leader_dashboard.qualified_rate }}%</strong> qismi</div>
                 </div>
                 <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-xl text-emerald-600 transition group-hover:scale-110">
@@ -276,29 +306,68 @@
                 <div class="h-full rounded-full bg-emerald-500" style="width: {{ org_leader_dashboard.qualified_rate }}%"></div>
             </div>
             <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-slate-500">{{ org_leader_dashboard.unqualified_workers_count }} ta ruxsatsiz</span>
-                <a href="{% url 'org-workers-status' 'not-qualified' %}" class="font-bold text-emerald-600 hover:text-emerald-700">Nazorat <i class="bi bi-arrow-right"></i></a>
+                <a href="{% if org_leader_dashboard.is_department_view %}{% url 'department-workers' %}{% else %}{% url 'org-workers-status' 'not-qualified' %}{% endif %}" class="text-rose-600 font-semibold hover:underline" title="Ruxsatsiz ishchilar ro'yxati">
+                    {{ org_leader_dashboard.unqualified_workers_count }} ta ruxsatsiz
+                </a>
+                <a href="{% if org_leader_dashboard.is_department_view %}{% url 'department-workers' %}{% else %}{% url 'org-workers-status' 'not-qualified' %}{% endif %}" class="font-bold text-emerald-600 hover:text-emerald-700">Nazorat <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
 
-        <!-- 3. Yo‘riqnomalar Ijrosi -->
+        <!-- 3. Yo‘riqnomalar Ijrosi (Kirish, Ichki, Kasb) -->
         <div class="group rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] transition hover:-translate-y-1 hover:shadow-md">
             <div class="flex items-start justify-between">
                 <div>
                     <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Kirish Yo‘riqnomasi</div>
-                    <div class="mt-2 text-3xl font-black text-slate-900">{{ org_leader_dashboard.entry_rate }}%</div>
-                    <div class="mt-1 text-xs text-slate-500">{{ org_leader_dashboard.entry_accepted }}/{{ org_leader_dashboard.entry_total }} ta qabul qilindi</div>
+                    <div class="mt-1 flex items-baseline gap-2">
+                        <span class="text-2xl sm:text-3xl font-black text-slate-900">{{ org_leader_dashboard.entry_rate }}%</span>
+                        <span class="text-xs font-semibold text-slate-500">{{ org_leader_dashboard.entry_accepted }}/{{ org_leader_dashboard.entry_total }} ta</span>
+                    </div>
                 </div>
-                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-xl text-indigo-600 transition group-hover:scale-110">
+                <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-xl text-indigo-600 transition group-hover:scale-110 shrink-0">
                     <i class="bi bi-file-earmark-check"></i>
                 </div>
             </div>
-            <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-indigo-500" style="width: {{ org_leader_dashboard.entry_rate }}%"></div>
+            <div class="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-indigo-500 transition-all" style="width: {{ org_leader_dashboard.entry_rate }}%"></div>
             </div>
-            <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-slate-500">Ichki yo‘riqnoma: <strong>{{ org_leader_dashboard.internal_rate }}%</strong></span>
-                <a href="{% url 'org-entry-guidelines' %}" class="font-bold text-indigo-600 hover:text-indigo-700">Reestr <i class="bi bi-arrow-right"></i></a>
+
+            <!-- Clickable Kirish O'tgan / O'tmagan tugmalari -->
+            <div class="mt-2.5 flex items-center justify-between text-xs">
+                <button type="button" onclick="openGuidelineWorkersModal('entry', 'passed')" class="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700 hover:bg-emerald-100 transition" title="Kirish yo'riqnomasidan o'tganlar">
+                    <i class="bi bi-check-circle-fill text-emerald-500"></i> {{ org_leader_dashboard.entry_accepted }} o'tgan
+                </button>
+                <button type="button" onclick="openGuidelineWorkersModal('entry', 'pending')" class="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-0.5 font-bold text-rose-700 hover:bg-rose-100 transition" title="Kirish yo'riqnomasidan o'tmaganlar">
+                    <i class="bi bi-exclamation-circle-fill text-rose-500"></i> {{ org_leader_dashboard.entry_pending }} o'tmagan
+                </button>
+            </div>
+
+            <!-- Ichki & Kasb yo'riqnomalari qisqacha ko'rsatkichlari -->
+            <div class="mt-2.5 border-t border-slate-100 pt-2 space-y-1.5 text-[11px]">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-600 font-medium">Ichki yo‘riqnoma:</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-slate-800">{{ org_leader_dashboard.internal_accepted }}/{{ org_leader_dashboard.internal_total }} ta</span>
+                        <span class="font-bold text-indigo-600">({{ org_leader_dashboard.internal_rate }}%)</span>
+                        <button type="button" onclick="openGuidelineWorkersModal('internal', 'pending')" class="font-bold text-rose-600 hover:underline" title="Ichki yo'riqnomadan o'tmaganlar">
+                            ({{ org_leader_dashboard.internal_pending }} kutilmoqda)
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-600 font-medium">Kasb yo‘riqnomasi:</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-slate-800">{{ org_leader_dashboard.profession_accepted }}/{{ org_leader_dashboard.profession_total }} ta</span>
+                        <span class="font-bold text-indigo-600">({{ org_leader_dashboard.profession_rate }}%)</span>
+                        <button type="button" onclick="openGuidelineWorkersModal('profession', 'pending')" class="font-bold text-rose-600 hover:underline" title="Kasb yo'riqnomasidan o'tmaganlar">
+                            ({{ org_leader_dashboard.profession_pending }} kutilmoqda)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-2.5 border-t border-slate-100 pt-2 flex items-center justify-between text-xs">
+                <span class="text-slate-400">Jami yo'riqnomalar</span>
+                <a href="{% url 'guideline-analytics' %}" class="font-bold text-indigo-600 hover:text-indigo-700">Reestr <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
 
@@ -308,7 +377,9 @@
                 <div>
                     <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Qoidabuzarliklar</div>
                     <div class="mt-2 text-3xl font-black {% if org_leader_dashboard.active_violations_count > 0 %}text-rose-600{% else %}text-slate-900{% endif %}">
-                        {{ org_leader_dashboard.active_violations_count }}
+                        <a href="{% url 'violations:dashboard' %}?filter=active" class="hover:underline transition" title="Faol qoidabuzarlar ro'yxatini ko'rish">
+                            {{ org_leader_dashboard.active_violations_count }}
+                        </a>
                     </div>
                     <div class="mt-1 text-xs text-slate-500">faol qoidabuzarlik holati</div>
                 </div>
@@ -318,17 +389,82 @@
             </div>
             <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
                 {% if org_leader_dashboard.blocked_workers_count %}
-                <span class="font-bold text-rose-600"><i class="bi bi-person-x-fill mr-1"></i>{{ org_leader_dashboard.blocked_workers_count }} ta bloklangan</span>
+                <a href="{% url 'violations:dashboard' %}?filter=blocked" class="font-bold text-rose-600 hover:underline" title="Bloklangan xodimlarni ko'rish">
+                    <i class="bi bi-person-x-fill mr-1"></i>{{ org_leader_dashboard.blocked_workers_count }} ta bloklangan
+                </a>
                 {% else %}
                 <span class="text-emerald-600"><i class="bi bi-shield-fill-check mr-1"></i>Bloklanganlar yo‘q</span>
                 {% endif %}
-                <a href="{% url 'violations:dashboard' %}" class="font-bold text-rose-600 hover:text-rose-700">Tahlil <i class="bi bi-arrow-right"></i></a>
+                <a href="{% url 'violations:dashboard' %}?filter=active" class="font-bold text-rose-600 hover:text-rose-700">Tahlil <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
 
-    <!-- 3. Ikkinchi darajali operativ ko'rsatkichlar (IHV, Tibbiy ko'rik, Bilim baholash) -->
-    <div class="grid gap-4 md:grid-cols-3">
+    <!-- 3. Ikkinchi darajali operativ ko'rsatkichlar (Yo'riqnomalar, IHV, Tibbiy ko'rik, Bilim baholash) -->
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <!-- Yo'riqnomalar nazorati va jurnali -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><i class="bi bi-journal-bookmark-fill"></i></span>
+                    Yo'riqnomalar nazorati
+                </div>
+                <a href="{% url 'guideline-analytics' %}" class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition">{{ org_leader_dashboard.composite_guideline_rate|default:org_leader_dashboard.entry_rate }}% qamrov</a>
+            </div>
+            <div class="space-y-2 text-xs">
+                <!-- Kirish yo'riqnomasi -->
+                <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+                    <div class="flex justify-between items-center text-slate-600 mb-1">
+                        <span class="font-medium text-slate-700">Kirish yo'riqnomasi:</span>
+                        <span class="font-bold text-slate-900">{{ org_leader_dashboard.entry_accepted }}/{{ org_leader_dashboard.entry_total }} ta ({{ org_leader_dashboard.entry_rate }}%)</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
+                        <button type="button" onclick="openGuidelineWorkersModal('entry', 'passed')" class="font-bold text-emerald-600 hover:underline">
+                            <i class="bi bi-check2"></i> {{ org_leader_dashboard.entry_accepted }} ta o'tgan
+                        </button>
+                        <button type="button" onclick="openGuidelineWorkersModal('entry', 'pending')" class="font-bold text-rose-600 hover:underline">
+                            <i class="bi bi-x"></i> {{ org_leader_dashboard.entry_pending }} ta o'tmagan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ichki yo'riqnomalar -->
+                <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+                    <div class="flex justify-between items-center text-slate-600 mb-1">
+                        <span class="font-medium text-slate-700">Ichki yo'riqnomalar:</span>
+                        <span class="font-bold text-slate-900">{{ org_leader_dashboard.internal_accepted }}/{{ org_leader_dashboard.internal_total }} ta ({{ org_leader_dashboard.internal_rate }}%)</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
+                        <button type="button" onclick="openGuidelineWorkersModal('internal', 'passed')" class="font-bold text-emerald-600 hover:underline">
+                            <i class="bi bi-check2"></i> {{ org_leader_dashboard.internal_accepted }} ta o'tgan
+                        </button>
+                        <button type="button" onclick="openGuidelineWorkersModal('internal', 'pending')" class="font-bold text-rose-600 hover:underline">
+                            <i class="bi bi-x"></i> {{ org_leader_dashboard.internal_pending }} ta o'tmagan
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kasb yo'riqnomalari -->
+                <div class="rounded-xl border border-slate-100 bg-slate-50/70 p-2.5">
+                    <div class="flex justify-between items-center text-slate-600 mb-1">
+                        <span class="font-medium text-slate-700">Kasb yo'riqnomalari:</span>
+                        <span class="font-bold text-slate-900">{{ org_leader_dashboard.profession_accepted }}/{{ org_leader_dashboard.profession_total }} ta ({{ org_leader_dashboard.profession_rate }}%)</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
+                        <button type="button" onclick="openGuidelineWorkersModal('profession', 'passed')" class="font-bold text-emerald-600 hover:underline">
+                            <i class="bi bi-check2"></i> {{ org_leader_dashboard.profession_accepted }} ta o'tgan
+                        </button>
+                        <button type="button" onclick="openGuidelineWorkersModal('profession', 'pending')" class="font-bold text-rose-600 hover:underline">
+                            <i class="bi bi-x"></i> {{ org_leader_dashboard.profession_pending }} ta o'tmagan
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <a href="{% url 'guideline-analytics' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/50 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition">
+                Statistika va Jurnalni ko‘rish <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+
         <!-- IHV ta'minoti -->
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between mb-3">
@@ -336,16 +472,16 @@
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-600"><i class="bi bi-shield-shaded"></i></span>
                     IHV ta'minoti
                 </div>
-                <span class="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-bold text-teal-700">{{ org_leader_dashboard.ppe_rate }}%</span>
+                <a href="{% url 'ppe:dashboard' %}" class="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-bold text-teal-700 hover:bg-teal-100 transition">{{ org_leader_dashboard.ppe_rate }}%</a>
             </div>
             <div class="space-y-2 text-xs">
                 <div class="flex justify-between text-slate-600">
                     <span>Berilgan IHV:</span>
-                    <strong class="text-slate-900">{{ org_leader_dashboard.ppe_accepted }}/{{ org_leader_dashboard.ppe_total }} ta</strong>
+                    <a href="{% url 'ppe:dashboard' %}?status=accepted" class="font-bold text-slate-900 hover:text-teal-600">{{ org_leader_dashboard.ppe_accepted }}/{{ org_leader_dashboard.ppe_total }} ta</a>
                 </div>
                 <div class="flex justify-between text-slate-600">
                     <span>Qabul kutilmoqda:</span>
-                    <strong class="text-amber-600">{{ org_leader_dashboard.ppe_pending }} ta</strong>
+                    <a href="{% url 'ppe:dashboard' %}?status=pending" class="font-bold text-amber-600 hover:underline">{{ org_leader_dashboard.ppe_pending }} ta</a>
                 </div>
             </div>
             <a href="{% url 'ppe:dashboard' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50/50 py-2 text-xs font-bold text-teal-700 hover:bg-teal-100 transition">
@@ -360,22 +496,22 @@
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600"><i class="bi bi-heart-pulse"></i></span>
                     Tibbiy ko‘rik
                 </div>
-                <span class="rounded-full {% if org_leader_dashboard.med_danger %}bg-rose-100 text-rose-700{% else %}bg-emerald-50 text-emerald-700{% endif %} px-2.5 py-0.5 text-xs font-bold">
+                <a href="{% url 'medical-records' %}" class="rounded-full {% if org_leader_dashboard.med_danger %}bg-rose-100 text-rose-700{% else %}bg-emerald-50 text-emerald-700{% endif %} px-2.5 py-0.5 text-xs font-bold hover:opacity-90 transition">
                     {% if org_leader_dashboard.med_danger %}{{ org_leader_dashboard.med_danger }} ta muddati o‘tgan{% else %}Nazoratda{% endif %}
-                </span>
+                </a>
             </div>
             <div class="space-y-2 text-xs">
                 <div class="flex justify-between text-slate-600">
                     <span>Sog‘lom / Yaroqli:</span>
-                    <strong class="text-emerald-600">{{ org_leader_dashboard.med_ok }} ta</strong>
+                    <a href="{% url 'medical-records' %}" class="font-bold text-emerald-600 hover:underline">{{ org_leader_dashboard.med_ok }} ta</a>
                 </div>
                 <div class="flex justify-between text-slate-600">
                     <span>Muddati yaqinlashgan:</span>
-                    <strong class="text-amber-600">{{ org_leader_dashboard.med_warning }} ta</strong>
+                    <a href="{% url 'medical-records' %}" class="font-bold text-amber-600 hover:underline">{{ org_leader_dashboard.med_warning }} ta</a>
                 </div>
                 <div class="flex justify-between text-slate-600">
                     <span>Muddati o‘tib ketgan:</span>
-                    <strong class="text-rose-600">{{ org_leader_dashboard.med_danger }} ta</strong>
+                    <a href="{% url 'medical-records' %}" class="font-bold text-rose-600 hover:underline">{{ org_leader_dashboard.med_danger }} ta</a>
                 </div>
             </div>
             <a href="{% url 'medical-records' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/50 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">
@@ -412,10 +548,36 @@
         </div>
     </div>
 
-    <!-- 4. Tezkor Boshqaruv Tugmalari (Executive Quick Actions Bar) -->
+    <!-- 4. Tezkor Boshqaruv Tugmalari -->
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Tezkor amallar va boshqaruv</div>
         <div class="flex flex-wrap gap-2.5">
+            {% if org_leader_dashboard.is_department_view %}
+            <a href="{% url 'section-admins' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition">
+                <i class="bi bi-diagram-2 text-emerald-400"></i> Bo‘lim ochish
+            </a>
+            <a href="{% url 'department-workers' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-people text-indigo-600"></i> Xodimlar ro‘yxati
+            </a>
+            <a href="{% url 'entry-guidelines' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-file-earmark-check text-sky-600"></i> Kirish yo‘riqnomasi
+            </a>
+            <a href="{% url 'internal-guidelines' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-journal-text text-teal-600"></i> Bo‘lim yo‘riqnomalari
+            </a>
+            <a href="{% url 'assessment-create' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-plus-circle text-violet-600"></i> Yangi test yaratish
+            </a>
+            <a href="{% url 'violations:dashboard' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-exclamation-octagon text-rose-600"></i> Qoidabuzarliklar reestri
+            </a>
+            <a href="{% url 'ppe:dashboard' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-shield-shaded text-teal-600"></i> IHV hisoboti
+            </a>
+            <a href="{% url 'medical-records' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
+                <i class="bi bi-heart-pulse text-rose-600"></i> Tibbiy daftarlar
+            </a>
+            {% else %}
             <a href="{% url 'department-admins' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition">
                 <i class="bi bi-building-add text-emerald-400"></i> Boshqarma qo‘shish
             </a>
@@ -437,11 +599,98 @@
             <a href="{% url 'certificate-dashboard' %}" class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-200 transition">
                 <i class="bi bi-award text-amber-600"></i> Sertifikatlar
             </a>
+            {% endif %}
         </div>
     </div>
 
-    <!-- 5. Boshqarmalar faoliyati va Xavfsizlik ko'rsatkichlari (Department Performance & Safety Rating Table) -->
+    <!-- 5. Reyting Jadvali (Boshqarma nazoratchisi uchun: Bo'limlar kesimida; Tashkilot rahbari uchun: Boshqarmalar kesimida) -->
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {% if org_leader_dashboard.is_department_view %}
+        <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900">Bo‘limlar kesimida Mehnat Muhofazasi va Xavfsizlik Reytingi</h3>
+                <p class="text-xs text-slate-500">Boshqarmadagi barcha bo‘limlarning joriy ko‘rsatkichlari va tahlili</p>
+            </div>
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                <i class="bi bi-diagram-2"></i> {{ org_leader_dashboard.section_stats|length }} ta bo‘lim
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-100 text-xs">
+                <thead class="bg-slate-50/50 text-left font-semibold uppercase tracking-wider text-slate-500">
+                    <tr>
+                        <th class="px-5 py-3.5">Bo‘lim nomi</th>
+                        <th class="px-4 py-3.5">Nazoratchi</th>
+                        <th class="px-4 py-3.5 text-center">Ishchilar</th>
+                        <th class="px-4 py-3.5">Mehnatga ruxsat</th>
+                        <th class="px-4 py-3.5">Kirish yo‘riqnomasi</th>
+                        <th class="px-4 py-3.5 text-center">Qoidabuzarlik</th>
+                        <th class="px-4 py-3.5 text-center">Xavfsizlik darajasi</th>
+                        <th class="px-5 py-3.5 text-right">Amal</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for row in org_leader_dashboard.section_stats %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="px-5 py-3.5 font-bold text-slate-900">
+                            <div class="flex items-center gap-2">
+                                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-600 font-bold"><i class="bi bi-diagram-2"></i></span>
+                                {{ row.name }}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3.5 text-slate-600 font-medium">
+                            {{ row.supervisor_name }}
+                        </td>
+                        <td class="px-4 py-3.5 text-center font-bold text-slate-900">
+                            {{ row.workers_count }}
+                        </td>
+                        <td class="px-4 py-3.5">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold {% if row.qualified_rate >= 80 %}text-emerald-600{% elif row.qualified_rate >= 50 %}text-sky-600{% else %}text-rose-600{% endif %}">{{ row.qualified_rate }}%</span>
+                                <div class="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                                    <div class="h-full rounded-full {% if row.qualified_rate >= 80 %}bg-emerald-500{% elif row.qualified_rate >= 50 %}bg-sky-500{% else %}bg-rose-500{% endif %}" style="width: {{ row.qualified_rate }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3.5">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold {% if row.entry_rate >= 80 %}text-emerald-600{% elif row.entry_rate >= 50 %}text-sky-600{% else %}text-amber-600{% endif %}">{{ row.entry_rate }}%</span>
+                                <div class="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                                    <div class="h-full rounded-full {% if row.entry_rate >= 80 %}bg-emerald-500{% elif row.entry_rate >= 50 %}bg-sky-500{% else %}bg-amber-500{% endif %}" style="width: {{ row.entry_rate }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3.5 text-center">
+                            {% if row.active_violations > 0 %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 font-bold text-rose-700">
+                                <i class="bi bi-exclamation-circle-fill"></i> {{ row.active_violations }} faol
+                            </span>
+                            {% elif row.violations_count > 0 %}
+                            <span class="text-slate-500 font-semibold">{{ row.violations_count }} (hal qilingan)</span>
+                            {% else %}
+                            <span class="text-emerald-600 font-semibold"><i class="bi bi-check2"></i> 0</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5 text-center">
+                            <span class="inline-flex items-center gap-1 rounded-full {% if row.status_tone == 'emerald' %}bg-emerald-50 text-emerald-700 border border-emerald-200{% elif row.status_tone == 'sky' %}bg-sky-50 text-sky-700 border border-sky-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %} px-2.5 py-1 font-bold">
+                                {{ row.safety_score }} ball · {{ row.status_text }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-3.5 text-right">
+                            <a href="{% url 'section-detail' row.section.id %}" class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-200 transition">
+                                Bo'lim <i class="bi bi-chevron-right text-[10px]"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">Hozircha bo‘limlar kiritilmagan.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
         <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
                 <h3 class="text-sm font-bold text-slate-900">Boshqarmalar kesimida Mehnat Muhofazasi va Xavfsizlik Reytingi</h3>
@@ -530,6 +779,7 @@
                 </tbody>
             </table>
         </div>
+        {% endif %}
     </div>
 
     <!-- 6. Jonli Nazorat: So'nggi Qoidabuzarliklar & So'nggi Bilim Sinovlari -->
@@ -600,6 +850,185 @@
         </div>
     </div>
 </div>
+
+<!-- 7. Interaktiv Modal: Yo'riqnomadan O'tgan / O'tmagan xodimlar ro'yxati -->
+<div id="guidelineWorkersModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+        <!-- Header -->
+        <div id="gwModalHeader" class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-6 relative">
+            <button type="button" onclick="closeGuidelineWorkersModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 h-9 w-9 rounded-full flex items-center justify-center transition">
+                <i class="bi bi-x-lg text-lg"></i>
+            </button>
+            <div class="flex items-center gap-2 mb-1.5">
+                <span id="gwModalBadge" class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Yo'riqnoma
+                </span>
+                <span id="gwModalStatusText" class="text-xs text-slate-300 font-medium"></span>
+            </div>
+            <h2 id="gwModalTitle" class="text-lg sm:text-xl font-black text-white leading-snug"></h2>
+            <div class="mt-2 text-xs text-slate-300">
+                Jami topilgan xodimlar: <strong id="gwModalCount" class="text-white font-bold">0</strong> nafar
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="p-4 border-b border-slate-100 bg-slate-50/70">
+            <div class="relative">
+                <i class="bi bi-search absolute left-3.5 top-2.5 text-slate-400"></i>
+                <input type="text" id="gwModalSearch" placeholder="Xodim F.I.O yoki bo'lim bo'yicha qidirish..." oninput="filterGuidelineWorkers()"
+                       class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+            </div>
+        </div>
+
+        <!-- Body Table -->
+        <div class="p-4 sm:p-6 max-h-[55vh] overflow-y-auto">
+            <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-xs sm:text-sm">
+                    <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3 w-12 text-center">№</th>
+                            <th class="px-4 py-3">Xodim</th>
+                            <th class="px-4 py-3">Bo'lim / Kasb</th>
+                            <th class="px-4 py-3 text-center">Holat</th>
+                            <th class="px-4 py-3">Sana</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gwModalTableBody" class="divide-y divide-slate-100 bg-white">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <a href="{% url 'guideline-analytics' %}" class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700">
+                <i class="bi bi-journal-text"></i> To'liq tanishish jurnalini ko'rish &rarr;
+            </a>
+            <button type="button" onclick="closeGuidelineWorkersModal()" class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold transition">
+                Yopish
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Data Script -->
+{% if org_leader_dashboard.guideline_modal_data_json %}
+<script id="gw-modal-data" type="application/json">
+{{ org_leader_dashboard.guideline_modal_data_json|safe }}
+</script>
+<script>
+    let currentModalWorkers = [];
+
+    function openGuidelineWorkersModal(typeKey, statusKey) {
+        const rawDataEl = document.getElementById('gw-modal-data');
+        if (!rawDataEl) return;
+        let data = {};
+        try {
+            data = JSON.parse(rawDataEl.textContent);
+        } catch (e) {
+            console.error('Failed to parse guideline modal data:', e);
+            return;
+        }
+
+        const typeData = data[typeKey];
+        if (!typeData) return;
+
+        const isPassed = (statusKey === 'passed');
+        currentModalWorkers = isPassed ? (typeData.passed || []) : (typeData.pending || []);
+
+        const titlePrefix = typeData.title || "Yo'riqnoma";
+        const statusText = isPassed ? "O'tgan (Qabul qilgan) xodimlar" : "O'tmagan (Qabul qilmagan) xodimlar";
+
+        document.getElementById('gwModalTitle').innerText = `${titlePrefix}: ${statusText}`;
+        document.getElementById('gwModalStatusText').innerText = statusText;
+        document.getElementById('gwModalBadge').innerText = titlePrefix;
+        
+        const badgeEl = document.getElementById('gwModalBadge');
+        if (isPassed) {
+            badgeEl.className = "px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+        } else {
+            badgeEl.className = "px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        }
+
+        document.getElementById('gwModalCount').innerText = currentModalWorkers.length;
+        document.getElementById('gwModalSearch').value = '';
+
+        renderGuidelineWorkers(currentModalWorkers, isPassed);
+        document.getElementById('guidelineWorkersModal').classList.remove('hidden');
+    }
+
+    function renderGuidelineWorkers(workers, isPassed) {
+        const tbody = document.getElementById('gwModalTableBody');
+        tbody.innerHTML = '';
+
+        if (!workers || workers.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="px-4 py-8 text-center text-slate-400">
+                        <i class="bi bi-inbox text-2xl block mb-1"></i>
+                        Xodimlar topilmadi
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        workers.forEach((w, idx) => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 transition';
+
+            const statusBadge = w.is_acknowledged
+                ? `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800"><i class="bi bi-check-circle-fill"></i> O'tgan</span>`
+                : `<span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800"><i class="bi bi-hourglass-split"></i> O'tmagan</span>`;
+
+            tr.innerHTML = `
+                <td class="px-4 py-3 text-center text-slate-400 font-semibold">${idx + 1}</td>
+                <td class="px-4 py-3">
+                    <div class="font-bold text-slate-900">${w.full_name}</div>
+                    <div class="text-[11px] text-slate-400">${w.phone || ''}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="text-slate-700 font-medium">${w.section_name}</div>
+                    <div class="text-[11px] text-slate-400">${w.role_name}</div>
+                </td>
+                <td class="px-4 py-3 text-center">${statusBadge}</td>
+                <td class="px-4 py-3 text-slate-600 text-xs">${w.ack_at || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filterGuidelineWorkers() {
+        const query = (document.getElementById('gwModalSearch').value || '').toLowerCase().trim();
+        if (!query) {
+            renderGuidelineWorkers(currentModalWorkers, true);
+            document.getElementById('gwModalCount').innerText = currentModalWorkers.length;
+            return;
+        }
+
+        const filtered = currentModalWorkers.filter(w => {
+            const nameMatch = (w.full_name || '').toLowerCase().includes(query);
+            const secMatch = (w.section_name || '').toLowerCase().includes(query);
+            const phoneMatch = (w.phone || '').toLowerCase().includes(query);
+            return nameMatch || secMatch || phoneMatch;
+        });
+
+        document.getElementById('gwModalCount').innerText = filtered.length;
+        renderGuidelineWorkers(filtered, true);
+    }
+
+    function closeGuidelineWorkersModal() {
+        document.getElementById('guidelineWorkersModal').classList.add('hidden');
+    }
+
+    document.getElementById('guidelineWorkersModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeGuidelineWorkersModal();
+        }
+    });
+</script>
+{% endif %}
 {% elif dashboard_overview %}
 <div class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
     <div class="border-b border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-5">
@@ -768,6 +1197,9 @@
                     <div class="mt-1 text-xs text-slate-400">{{ dashboard_overview.guideline_donut.internal_pending }} ta o‘tmagan</div>
                 </div>
             </div>
+            <a href="{% url 'guideline-analytics' %}" class="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50/60 py-2 text-xs font-bold text-violet-700 hover:bg-violet-100 transition">
+                Yo'riqnomalar statistikasi va jurnali <i class="bi bi-arrow-right"></i>
+            </a>
         </div>
 
         <div class="rounded-xl border border-slate-200 p-4">

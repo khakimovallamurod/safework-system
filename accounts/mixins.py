@@ -266,11 +266,17 @@ class SectionAdminRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleCon
     login_url = 'login'
 
     def test_func(self):
-        return self.get_role_context().get('is_section_admin', False)
+        ctx = self.get_role_context()
+        return (
+            ctx.get('is_section_admin', False)
+            or ctx.get('is_department_admin', False)
+            or ctx.get('is_org_leader', False)
+            or ctx.get('is_super_admin', False)
+        )
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:
-            messages.error(self.request, "Bu sahifa faqat bo‘lim nazoratchilari uchun.")
+            messages.error(self.request, "Sizda ushbu amalni bajarish huquqi yo‘q.")
             return redirect('dashboard')
         return redirect('login')
 

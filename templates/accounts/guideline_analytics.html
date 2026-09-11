@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm">
+        <div class="flex items-center gap-3.5">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-sm">
+                <i class="bi bi-journal-bookmark-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+                    Yo'riqnomalar Statistikasi va Tanishish Jurnali
+                </h1>
+                <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Har bir yo'riqnoma bo'yicha xodimlarning qabul qilish holati va necha marotaba tanishganlik sanalari jurnali</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-3">
+            <a href="{% url 'dashboard' %}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-sm">
+                <i class="bi bi-arrow-left"></i> Boshqaruv paneli
+            </a>
+            <button onclick="window.location.reload()" class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm transition">
+                <i class="bi bi-arrow-repeat"></i> Yangilash
+            </button>
+        </div>
+    </div>
+
+    <!-- Overview Stats Grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Jami Yo'riqnomalar</div>
+            <div class="text-2xl sm:text-3xl font-black text-slate-900">{{ total_guidelines }} ta</div>
+            <div class="mt-2 text-xs text-slate-500">Boshqarma va bo'lim yo'riqnomalari</div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Umumiy Qamrov</div>
+            <div class="text-2xl sm:text-3xl font-black text-indigo-600">{{ overall_percent }}%</div>
+            <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-indigo-600" style="width: {{ overall_percent }}%"></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Tanishgan Xodimlar</div>
+            <div class="text-2xl sm:text-3xl font-black text-emerald-600">{{ total_acknowledged_all }} ta</div>
+            <div class="mt-2 text-xs text-slate-500">Tizimda rasmiy tasdiqlagan</div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Kutilmoqda (O'tmagan)</div>
+            <div class="text-2xl sm:text-3xl font-black text-rose-600">{{ total_pending_all }} ta</div>
+            <div class="mt-2 text-xs text-slate-500">Hali tanishib tasdiqlamagan</div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="?type=all{% if selected_department %}&department={{ selected_department }}{% endif %}" 
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition {% if selected_type == 'all' or not selected_type %}bg-slate-900 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                <i class="bi bi-grid-fill"></i> Barcha yo'riqnomalar
+            </a>
+            <a href="?type=entry{% if selected_department %}&department={{ selected_department }}{% endif %}" 
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition {% if selected_type == 'entry' %}bg-emerald-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                <i class="bi bi-shield-check"></i> Kirish yo'riqnomalari
+            </a>
+            <a href="?type=internal{% if selected_department %}&department={{ selected_department }}{% endif %}" 
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition {% if selected_type == 'internal' %}bg-sky-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                <i class="bi bi-file-earmark-text"></i> Bo'lim ichki yo'riqnomalari
+            </a>
+            <a href="?type=profession{% if selected_department %}&department={{ selected_department }}{% endif %}" 
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition {% if selected_type == 'profession' %}bg-amber-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                <i class="bi bi-person-badge"></i> Kasb yo'riqnomalari
+            </a>
+            <a href="?type=mandatory{% if selected_department %}&department={{ selected_department }}{% endif %}" 
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition {% if selected_type == 'mandatory' %}bg-purple-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                <i class="bi bi-exclamation-diamond"></i> Majburiy yo'riqnomalar
+            </a>
+        </div>
+
+        {% if departments|length > 1 %}
+        <form method="get" class="flex items-center gap-2 m-0">
+            <input type="hidden" name="type" value="{{ selected_type|default:'all' }}">
+            <select name="department" onchange="this.form.submit()" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none">
+                <option value="">Barcha boshqarmalar</option>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {% if selected_department == d.id|stringformat:'s' %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Guidelines List -->
+    <div class="space-y-6">
+        {% for g in guidelines %}
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition hover:shadow-md">
+            <!-- Guideline Header Bar -->
+            <div class="p-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-start gap-3.5">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-white border border-slate-200 text-indigo-600 shadow-sm shrink-0">
+                        <i class="bi bi-file-earmark-pdf-fill text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border {{ g.badge_color }}">
+                                {{ g.type_display }}
+                            </span>
+                            <span class="text-xs font-semibold text-slate-500">
+                                <i class="bi bi-building mr-1"></i>{{ g.department_name }}{% if g.section_name %} / {{ g.section_name }}{% endif %}
+                            </span>
+                        </div>
+                        <h3 class="text-base sm:text-lg font-bold text-slate-900">{{ g.name }}</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Yaratildi: {{ g.created_at|date:"d.m.Y H:i" }} · Mas'ul: {{ g.created_by_name }}</p>
+                    </div>
+                </div>
+
+                <!-- Stats & Actions -->
+                <div class="flex flex-wrap items-center gap-4 sm:gap-6">
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400">Qabul holati</div>
+                        <div class="text-base sm:text-lg font-black text-slate-900">
+                            <button type="button" onclick="openWorkerGroup('workers-{{ g.id }}', 'accepted', this)" class="text-emerald-600 hover:underline font-black cursor-pointer" title="O'tganlarni ko'rish">
+                                {{ g.accepted_count }}
+                            </button>
+                            <span class="text-slate-300 mx-0.5">/</span>
+                            <button type="button" onclick="openWorkerGroup('workers-{{ g.id }}', 'pending', this)" class="text-rose-600 hover:underline font-black cursor-pointer" title="O'tmaganlarni ko'rish">
+                                {{ g.pending_count }}
+                            </button>
+                            <span class="text-xs font-semibold text-slate-400">({{ g.total_workers }} ta)</span>
+                            <span class="text-xs font-bold text-indigo-600 ml-1">({{ g.percent }}%)</span>
+                        </div>
+                        <div class="w-36 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1 ml-auto flex">
+                            <div class="h-full bg-emerald-500 rounded-full" style="width: {{ g.percent }}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        {% if g.pdf_url %}
+                        <a href="{{ g.pdf_url }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+                            <i class="bi bi-eye"></i> PDF ko'rish
+                        </a>
+                        {% endif %}
+                        <button type="button" onclick="toggleWorkers('workers-{{ g.id }}', this)" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition">
+                            <i class="bi bi-people-fill"></i> Xodimlar va Jurnal ({{ g.total_workers }})
+                            <i class="bi bi-chevron-down toggle-icon transition-transform"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workers Table (Collapsible) -->
+            <div id="workers-{{ g.id }}" class="p-4 sm:p-5 bg-white">
+                <div class="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <i class="bi bi-person-lines-fill mr-1"></i> Biriktirilgan xodimlar ro'yxati (Jurnalni ko'rish uchun xodim ustiga bosing)
+                    </div>
+                    <!-- Quick Filters -->
+                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0 self-start sm:self-auto">
+                        <button type="button" onclick="filterCardWorkers('workers-{{ g.id }}', 'all', this)" class="gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-xs transition">
+                            Barchasi ({{ g.total_workers }})
+                        </button>
+                        <button type="button" onclick="filterCardWorkers('workers-{{ g.id }}', 'accepted', this)" class="gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-700 hover:bg-white/60 transition">
+                            <i class="bi bi-check-circle-fill mr-0.5"></i> O'tganlar ({{ g.accepted_count }})
+                        </button>
+                        <button type="button" onclick="filterCardWorkers('workers-{{ g.id }}', 'pending', this)" class="gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold text-rose-700 hover:bg-white/60 transition">
+                            <i class="bi bi-hourglass-split mr-0.5"></i> O'tmaganlar ({{ g.pending_count }})
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="min-w-full divide-y divide-slate-200 text-xs sm:text-sm">
+                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3 w-12 text-center">№</th>
+                                <th class="px-4 py-3">Xodim F.I.O</th>
+                                <th class="px-4 py-3">Bo'lim / Lavozim</th>
+                                <th class="px-4 py-3 text-center">Holat</th>
+                                <th class="px-4 py-3 text-center">Tanishishlar soni</th>
+                                <th class="px-4 py-3">Oxirgi tanishgan sana</th>
+                                <th class="px-4 py-3 text-center">Tanishish jurnali</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for w in g.workers %}
+                            <tr data-status="{% if w.is_acknowledged %}accepted{% else %}pending{% endif %}"
+                                class="gw-worker-row hover:bg-indigo-50/40 transition cursor-pointer group" 
+                                onclick='openJournalModal("{{ w.full_name|escapejs }}", "{{ g.name|escapejs }}", "{{ g.type_display|escapejs }}", "{{ w.section_name|escapejs }}", "{{ w.role_display|escapejs }}", {{ w.acknowledgement_count }}, {{ w.history|safe }}, "{{ g.pdf_url|default:'' }}")'>
+                                
+                                <td class="px-4 py-3 text-center text-slate-400 font-semibold">{{ forloop.counter }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition">{{ w.full_name }}</div>
+                                    <div class="text-xs text-slate-400 font-normal">{{ w.phone }}</div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="text-slate-700 font-medium">{{ w.section_name }}</div>
+                                    <div class="text-xs text-slate-400">{{ w.role_display }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    {% if w.is_acknowledged %}
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-800">
+                                        <i class="bi bi-check-circle-fill"></i> Qabul qilgan
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-bold text-rose-800">
+                                        <i class="bi bi-hourglass-split"></i> Qabul qilmagan
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    {% if w.acknowledgement_count > 0 %}
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-100">
+                                        <i class="bi bi-repeat"></i> {{ w.acknowledgement_count }} marotaba
+                                    </span>
+                                    {% else %}
+                                    <span class="text-slate-400 text-xs">0 marotaba</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-slate-600">
+                                    {% if w.latest_ack_at %}
+                                    <span class="font-medium text-slate-800"><i class="bi bi-calendar3 mr-1 text-slate-400"></i>{{ w.latest_ack_at|date:"d.m.Y H:i" }}</span>
+                                    {% else %}
+                                    <span class="text-slate-400">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <button type="button" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 group-hover:border-indigo-300 group-hover:bg-indigo-600 group-hover:text-white text-slate-600 text-xs font-semibold shadow-sm transition">
+                                        <i class="bi bi-journal-text"></i> Jurnalni ochish
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="px-4 py-8 text-center text-slate-400">
+                                    <i class="bi bi-inbox text-2xl block mb-1"></i> Xodimlar biriktirilmagan
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 mb-4 shadow-sm">
+                <i class="bi bi-journal-x text-3xl"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-800">Yo'riqnomalar topilmadi</h3>
+            <p class="mt-1 text-sm text-slate-500">Tanlangan filter yoki boshqarma bo'yicha yo'riqnoma mavjud emas.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal: Tanishganlik Statistikasi JURNALI -->
+<div id="journalModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all">
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 relative">
+            <button type="button" onclick="closeJournalModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white bg-white/10 hover:bg-white/20 h-9 w-9 rounded-full flex items-center justify-center transition">
+                <i class="bi bi-x-lg text-lg"></i>
+            </button>
+            <div class="flex items-center gap-3 mb-2">
+                <span id="modalTypeBadge" class="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Kirish yo'riqnomasi
+                </span>
+                <span class="text-xs text-slate-300">Rasmiy tanishish jurnali</span>
+            </div>
+            <h2 id="modalGuidelineName" class="text-lg sm:text-xl font-black text-white leading-snug"></h2>
+            <div class="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+                <div>
+                    Xodim: <strong id="modalWorkerName" class="text-white font-bold"></strong>
+                    (<span id="modalWorkerSection"></span> · <span id="modalWorkerRole"></span>)
+                </div>
+                <div>
+                    Jami: <strong id="modalAckCount" class="text-emerald-400 font-bold">0</strong> marta tanishgan
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <i class="bi bi-clock-history mr-1"></i> Tanishishlar tarixi va vaqtlari qaydnomasi
+                </h3>
+                <div id="modalPdfBtnContainer"></div>
+            </div>
+
+            <!-- History Table -->
+            <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-xs sm:text-sm">
+                    <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3 w-14 text-center">T/r</th>
+                            <th class="px-4 py-3">Tanishgan sana va vaqt</th>
+                            <th class="px-4 py-3">Yuboruvchi mas'ul</th>
+                            <th class="px-4 py-3 text-center">Tasdiqlash holati</th>
+                        </tr>
+                    </thead>
+                    <tbody id="journalHistoryBody" class="divide-y divide-slate-100 bg-white">
+                        <!-- Dynamic content injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
+            <button type="button" onclick="closeJournalModal()" class="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-semibold transition">
+                Yopish
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleWorkers(id, btn) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const icon = btn ? btn.querySelector('.toggle-icon') : null;
+        if (el.classList.contains('hidden')) {
+            el.classList.remove('hidden');
+            if (icon) icon.classList.add('rotate-180');
+        } else {
+            el.classList.add('hidden');
+            if (icon) icon.classList.remove('rotate-180');
+        }
+    }
+
+    function openWorkerGroup(containerId, status, triggerBtn) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (container.classList.contains('hidden')) {
+            container.classList.remove('hidden');
+            // Also find toggle button icon if any
+            const card = container.closest('.rounded-2xl');
+            if (card) {
+                const icon = card.querySelector('.toggle-icon');
+                if (icon) icon.classList.add('rotate-180');
+            }
+        }
+        const filterBtns = container.querySelectorAll('.gw-filter-btn');
+        let targetBtn = filterBtns[0];
+        if (status === 'accepted' && filterBtns[1]) targetBtn = filterBtns[1];
+        if (status === 'pending' && filterBtns[2]) targetBtn = filterBtns[2];
+        filterCardWorkers(containerId, status, targetBtn);
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function filterCardWorkers(containerId, status, btn) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const btns = container.querySelectorAll('.gw-filter-btn');
+        btns.forEach(b => {
+            b.className = 'gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:bg-white/60 transition';
+        });
+
+        if (status === 'all') {
+            btn.className = 'gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-slate-800 shadow-xs transition';
+        } else if (status === 'accepted') {
+            btn.className = 'gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-xs transition';
+        } else if (status === 'pending') {
+            btn.className = 'gw-filter-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600 text-white shadow-xs transition';
+        }
+
+        const rows = container.querySelectorAll('.gw-worker-row');
+        rows.forEach(row => {
+            const rowStatus = row.getAttribute('data-status');
+            if (status === 'all' || rowStatus === status) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function openJournalModal(workerName, guidelineName, typeDisplay, sectionName, roleDisplay, ackCount, history, pdfUrl) {
+        document.getElementById('modalWorkerName').innerText = workerName;
+        document.getElementById('modalGuidelineName').innerText = guidelineName;
+        document.getElementById('modalTypeBadge').innerText = typeDisplay;
+        document.getElementById('modalWorkerSection').innerText = sectionName;
+        document.getElementById('modalWorkerRole').innerText = roleDisplay;
+        document.getElementById('modalAckCount').innerText = ackCount;
+
+        const pdfContainer = document.getElementById('modalPdfBtnContainer');
+        if (pdfUrl) {
+            pdfContainer.innerHTML = `<a href="${pdfUrl}" target="_blank" class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold transition"><i class="bi bi-file-earmark-pdf"></i> PDF yo'riqnoma</a>`;
+        } else {
+            pdfContainer.innerHTML = '';
+        }
+
+        const tbody = document.getElementById('journalHistoryBody');
+        tbody.innerHTML = '';
+
+        if (!history || history.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-rose-500">
+                        <i class="bi bi-exclamation-circle text-2xl block mb-1"></i>
+                        Xodim ushbu yo'riqnoma bilan hali tanishib tasdiqlamagan (Kutilmoqda).
+                    </td>
+                </tr>
+            `;
+        } else {
+            history.forEach((item, index) => {
+                const dateObj = new Date(item.date);
+                const formattedDate = dateObj.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + 
+                                      dateObj.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
+                
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-center font-bold text-slate-400">${item.number || (index + 1)}</td>
+                    <td class="px-4 py-3">
+                        <div class="font-bold text-slate-900"><i class="bi bi-clock mr-1 text-indigo-500"></i> ${formattedDate}</div>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600 font-medium">${item.sent_by || 'Mas\'ul nazoratchi'}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                            <i class="bi bi-check2-circle"></i> ${item.status || 'Tasdiqlangan'}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('journalModal').classList.remove('hidden');
+    }
+
+    function closeJournalModal() {
+        document.getElementById('journalModal').classList.add('hidden');
+    }
+
+    // Modal tashqarisiga bosganda yopish
+    document.getElementById('journalModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeJournalModal();
+        }
+    });
+</script>
+{% endblock %}

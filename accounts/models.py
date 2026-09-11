@@ -172,6 +172,8 @@ class SystemNotification(models.Model):
         ('guideline', "Yo'riqnoma"),
         ('test', "Test va baholash"),
         ('practice', "Ish amaliyoti"),
+        ('violation', "Qoidabuzarlik"),
+        ('permission', "Mehnatga ruxsat"),
         ('system', "Tizim xabari"),
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='system_notifications')

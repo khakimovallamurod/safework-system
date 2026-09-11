@@ -34,7 +34,7 @@
                 {% if section %}Bo'lim: <strong>{{ section.name }}</strong> — ma'sul xodimlar faqat shu bo'lim xodimlari{% elif can_monitor_work_practices %}Sizning bo'lim/boshqarmalaringizdagi barcha ish amaliyotlari ro'yxati{% else %}Sizga biriktirilgan yoki siz yaratgan ish amaliyotlari ro'yxati{% endif %}
             </p>
         </div>
-        {% if can_manage_work_practices and section %}
+        {% if can_manage_work_practices %}
         <div class="flex gap-2">
             <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 shadow-sm">
                 <i class="bi bi-plus-circle text-lg"></i> Amaliyot qo'shish
@@ -454,17 +454,28 @@
 {% endfor %}
 {% endif %}
 
-{% if can_manage_work_practices and section %}
+{% if can_manage_work_practices %}
 <div class="modal fade" id="practiceAddModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <form method="post" action="{% url 'work-practices' %}">
                 {% csrf_token %}
                 <div class="modal-header">
-                    <h5 class="modal-title">Yangi ish amaliyoti</h5>
+                    <h5 class="modal-title">Yangi ish amaliyoti (Stajirovka)</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body space-y-3">
+                    {% if available_sections %}
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'lim (Sex / Tuzilma)</label>
+                        <select name="section_id" class="form-control rounded-xl border border-slate-300 px-3 py-2 text-sm w-full" required>
+                            <option value="">Bo'limni tanlang</option>
+                            {% for sec in available_sections %}
+                            <option value="{{ sec.id }}" {% if section and section.id == sec.id %}selected{% endif %}>{{ sec.name }} ({{ sec.department.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
                         {{ form.name }}
@@ -480,16 +491,16 @@
                         </div>
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Mas'ul xodim (1 ta)</label>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Mas'ul xodim / Ustoz (1 ta)</label>
                         <select name="responsible_user" class="worker-select2 form-control" required>
                             <option value="">Mas'ulni tanlang</option>
                             {% for worker in section_workers %}
-                            <option value="{{ worker.pk }}">{{ worker.profile.full_name }} ({{ worker.username }})</option>
+                            <option value="{{ worker.pk }}">{{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · {{ worker.profile.position|default:worker.profile.get_role_display }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div>
-                        <p class="mt-1 text-xs text-slate-500 bg-blue-50 p-3 rounded-lg border border-blue-100"><i class="bi bi-info-circle text-blue-500 mr-1"></i>Amaliyot yaratilgach, quyidagi amallar ustunidan <strong>"Amaliyotchi biriktirish"</strong> (<i class="bi bi-person-plus text-sky-500"></i>) orqali xodimlarni biriktirasiz. Test qo'shish uchun esa yuqoridagi <strong>"Test qo'shish"</strong> (<i class="bi bi-journal-plus text-violet-500"></i>) tugmasini bosing.</p>
+                        <p class="mt-1 text-xs text-slate-500 bg-blue-50 p-3 rounded-lg border border-blue-100"><i class="bi bi-info-circle text-blue-500 mr-1"></i>Amaliyot yaratilgach, ro'yxatdagi <strong>"Amaliyotchi biriktirish"</strong> (<i class="bi bi-person-plus text-sky-500"></i>) orqali xodimlarni yoki yangi bo'lim boshliqlarini biriktirasiz. Test qo'shish uchun esa <strong>"Test biriktirish"</strong> (<i class="bi bi-journal-check text-violet-500"></i>) tugmasini bosing.</p>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-slate-700">Izoh</label>
@@ -499,7 +510,7 @@
                 <div class="modal-footer">
                     <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
                     <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
-                        <i class="bi bi-send"></i> Yuborish
+                        <i class="bi bi-send"></i> Yaratish
                     </button>
                 </div>
             </form>
@@ -518,11 +529,13 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <label class="mb-1.5 mt-3 block text-sm font-medium text-slate-700">Amaliyot o'tovchilar</label>
+                    <label class="mb-1.5 mt-3 block text-sm font-medium text-slate-700">Amaliyot o'tovchilar (Xodimlar va Bo'lim boshliqlari)</label>
                     <select name="workers" class="worker-select2 form-control" multiple data-selected-workers="{% for a in practice.assignees.all %}{{ a.user_id }}{% if not forloop.last %},{% endif %}{% endfor %}">
-                        {% for worker in section_workers %}
+                        {% for worker in practice.eligible_workers|default:section_workers %}
                         {% if worker.pk != practice.responsible_user_id %}
-                        <option value="{{ worker.pk }}"{% for a in practice.assignees.all %}{% if a.user_id == worker.pk %} selected{% endif %}{% endfor %}>{{ worker.profile.full_name }} ({{ worker.username }})</option>
+                        <option value="{{ worker.pk }}"{% for a in practice.assignees.all %}{% if a.user_id == worker.pk %} selected{% endif %}{% endfor %}>
+                            {{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · {{ worker.profile.position|default:worker.profile.get_role_display }}
+                        </option>
                         {% endif %}
                         {% endfor %}
                     </select>
@@ -548,7 +561,7 @@
                 <div class="modal-body space-y-3">
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'limdagi mavjud testlar</label>
                     <div class="space-y-2 max-h-60 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50">
-                        {% for test in section_tests %}
+                        {% for test in practice.eligible_tests|default:section_tests %}
                         <label class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
                             <input type="checkbox" name="test_ids" value="{{ test.id }}" class="w-4 h-4 text-violet-600 rounded border-slate-300"
                                    {% if test in practice.assigned_tests %}checked{% endif %} />

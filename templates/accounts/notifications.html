@@ -5,75 +5,135 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-sm">
         <div class="flex items-center gap-3">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
-                <i class="bi bi-bell-fill text-xl"></i>
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-sm">
+                <i class="bi bi-bell-fill text-2xl"></i>
             </div>
             <div>
-                <h1 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    Bildirishnomalar
+                <h1 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    Bildirishnomalar va Mas'ullar Harakatlari
                     {% if unread_notifications_count %}
-                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">{{ unread_notifications_count }}</span>
+                        <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-bold shadow-sm">{{ unread_notifications_count }} ta yangi</span>
                     {% endif %}
                 </h1>
+                <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Mas'ul xodimlarning bajargan amallari, ogohlantirishlar, testlar va ishga ruxsat berish holatlari</p>
             </div>
         </div>
         
-        <div class="flex items-center gap-3">
-            <button onclick="window.location.reload()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <button onclick="window.location.reload()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 transition">
                 <i class="bi bi-arrow-repeat"></i> Yangilash
             </button>
-            <button onclick="markAllAsRead()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 transition">
-                <i class="bi bi-check-all"></i> Hammasini o'qilgan deb belgilash
+            <button onclick="markAllAsRead()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition">
+                <i class="bi bi-check2-all text-base"></i> Barchasini o'qilgan qilish
             </button>
         </div>
     </div>
     
-    <!-- Filters (Optional, can be used later to filter by type via JS) -->
+    <!-- Filters -->
     <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        <button class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition whitespace-nowrap">Hammasi</button>
-        <button class="inline-flex items-center justify-center rounded-full bg-white px-4 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 transition whitespace-nowrap">Yo'riqnomalar</button>
-        <button class="inline-flex items-center justify-center rounded-full bg-white px-4 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50 transition whitespace-nowrap">Testlar</button>
+        <button type="button" onclick="filterNotifs('all', this)" class="filter-btn inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition whitespace-nowrap shadow-sm">
+            <i class="bi bi-grid-fill"></i> Hammasi (<span id="count-all">{{ notifications|length }}</span>)
+        </button>
+        <button type="button" onclick="filterNotifs('violation', this)" class="filter-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap">
+            <i class="bi bi-exclamation-triangle-fill text-rose-500"></i> Qoidabuzarliklar
+        </button>
+        <button type="button" onclick="filterNotifs('permission', this)" class="filter-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap">
+            <i class="bi bi-shield-check text-emerald-500"></i> Mehnatga ruxsat
+        </button>
+        <button type="button" onclick="filterNotifs('test', this)" class="filter-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap">
+            <i class="bi bi-card-checklist text-blue-500"></i> Testlar
+        </button>
+        <button type="button" onclick="filterNotifs('guideline', this)" class="filter-btn inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition whitespace-nowrap">
+            <i class="bi bi-file-earmark-text text-teal-500"></i> Yo'riqnomalar
+        </button>
     </div>
 
     <!-- Notification List -->
-    <div class="space-y-3">
+    <div class="space-y-3" id="notif-list-container">
         {% for notif in notifications %}
-            <div class="group relative flex flex-col sm:flex-row sm:items-center gap-4 bg-white p-5 rounded-2xl border {% if not notif.is_read %}border-blue-100 bg-blue-50/30{% else %}border-slate-200{% endif %} shadow-sm hover:shadow-md transition cursor-pointer"
+            <div data-type="{{ notif.type }}" class="notif-card group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border {% if not notif.is_read %}border-blue-200/80 bg-blue-50/20 shadow-sm ring-1 ring-blue-100{% else %}border-slate-200/90 hover:border-slate-300{% endif %} hover:shadow-md transition cursor-pointer"
                  onclick="markReadAndGo('{{ notif.id }}', '{{ notif.url }}')">
-                <div class="flex-shrink-0">
-                    <div class="flex h-10 w-10 items-center justify-center rounded-full {% if not notif.is_read %}bg-blue-100 text-blue-600{% else %}bg-slate-100 text-slate-500{% endif %}">
-                        <i class="bi {{ notif.icon|default:'bi-bell' }} text-lg"></i>
+                
+                <div class="flex items-start gap-3.5 sm:gap-4 flex-1 min-w-0">
+                    <!-- Icon Box -->
+                    <div class="flex-shrink-0 mt-0.5 sm:mt-0">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-xl {% if not notif.is_read %}bg-blue-100 text-blue-600{% else %}bg-slate-100 text-slate-500{% endif %} shadow-sm">
+                            <i class="bi {{ notif.icon|default:'bi-bell-fill' }} text-lg"></i>
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider {{ notif.badge_color|default:'bg-slate-100 text-slate-700' }}">
+                                {% if notif.type == 'violation' %}Qoidabuzarlik
+                                {% elif notif.type == 'permission' %}Mehnatga ruxsat
+                                {% elif notif.type == 'test' %}Test
+                                {% elif notif.type == 'guideline' %}Yo'riqnoma
+                                {% elif notif.type == 'practice' %}Amaliyot
+                                {% else %}Tizim xabari{% endif %}
+                            </span>
+                            <span class="text-xs font-bold {% if not notif.is_read %}text-slate-900{% else %}text-slate-700{% endif %}">
+                                {{ notif.title }}
+                            </span>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed break-words">
+                            {{ notif.message }}
+                        </p>
                     </div>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold {% if not notif.is_read %}text-slate-900{% else %}text-slate-700{% endif %}">
-                        {{ notif.title }}
-                    </p>
-                    <p class="mt-1 text-sm text-slate-500 line-clamp-2">
-                        {{ notif.message }}
-                    </p>
+
+                <!-- Right Meta & Action Button -->
+                <div class="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    <div class="text-right">
+                        <span class="text-[11px] font-medium text-slate-400 block whitespace-nowrap">
+                            <i class="bi bi-clock mr-1"></i>{{ notif.created_at|date:"d.m.Y H:i" }}
+                        </span>
+                    </div>
+
+                    <div class="inline-flex items-center gap-1 text-xs font-semibold {% if not notif.is_read %}text-blue-600{% else %}text-slate-500{% endif %} group-hover:translate-x-0.5 transition">
+                        <span>Holatni ko'rish</span>
+                        <i class="bi bi-arrow-right-short text-base"></i>
+                    </div>
+
+                    {% if not notif.is_read %}
+                    <div class="h-2 w-2 rounded-full bg-blue-600 ring-4 ring-blue-100"></div>
+                    {% endif %}
                 </div>
-                <div class="flex-shrink-0 text-right sm:text-left text-xs text-slate-400 mt-2 sm:mt-0">
-                    {{ notif.created_at|date:"d.m.Y H:i" }}
-                </div>
-                
-                {% if not notif.is_read %}
-                <div class="absolute top-4 right-4 sm:top-1/2 sm:-translate-y-1/2 h-2.5 w-2.5 rounded-full bg-blue-500 ring-4 ring-white sm:right-6"></div>
-                {% endif %}
             </div>
         {% empty %}
             <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
-                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-400 mb-4">
-                    <i class="bi bi-bell-slash text-2xl"></i>
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 mb-4 shadow-sm">
+                    <i class="bi bi-bell-slash text-3xl"></i>
                 </div>
-                <h3 class="text-sm font-medium text-slate-900">Sizda hozircha bildirishnomalar yo'q</h3>
-                <p class="mt-1 text-sm text-slate-500">Yangi xabarlar kelganda shu yerda ko'rinadi.</p>
+                <h3 class="text-base font-bold text-slate-800">Sizda hozircha bildirishnomalar yo'q</h3>
+                <p class="mt-1 text-sm text-slate-500">Mas'ul xodimlarning amallari yoki yangi xabarlar kelganda shu yerda ko'rinadi.</p>
             </div>
         {% endfor %}
     </div>
 </div>
 
 <script>
+    function filterNotifs(type, btn) {
+        // Toggle active button class
+        document.querySelectorAll('.filter-btn').forEach(b => {
+            b.classList.remove('bg-slate-900', 'text-white');
+            b.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+        });
+        btn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+        btn.classList.add('bg-slate-900', 'text-white');
+
+        const cards = document.querySelectorAll('.notif-card');
+        cards.forEach(card => {
+            const cardType = card.getAttribute('data-type');
+            if (type === 'all' || cardType === type) {
+                card.style.display = 'flex';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
     function markReadAndGo(id, url) {
         fetch("{% url 'notification-mark-read' %}", {
             method: 'POST',
@@ -97,13 +157,13 @@
 
     function markAllAsRead() {
         Swal.fire({
-            title: "Hammasini o'qilgan qilish?",
-            text: "Barcha xabarlarni o'qilgan deb belgilaysizmi?",
+            title: "Hammasini o'qilgan deb belgilaysizmi?",
+            text: "Barcha xabarnomalar o'qilgan holatga o'tkaziladi.",
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#059669',
             cancelButtonColor: '#94a3b8',
-            confirmButtonText: "Ha",
+            confirmButtonText: "Ha, belgilash",
             cancelButtonText: "Bekor qilish",
             borderRadius: '16px',
             customClass: { popup: 'rounded-2xl' }

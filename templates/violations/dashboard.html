@@ -55,9 +55,98 @@
         </div>
     </div>
 
+    <!-- 4 ta Interaktiv Statistik Kartalar (Bosganda shu xodimlar filtrlangan holda chiqadi) -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- 1. Jami qoidabuzarlar -->
+        <a href="?{% if selected_industry %}industry={{ selected_industry }}&{% endif %}filter=violators" 
+           class="group block p-4 rounded-2xl border transition shadow-sm {% if filter_type == 'violators' %}bg-rose-50 border-rose-400 ring-2 ring-rose-400{% else %}bg-white border-slate-200 hover:border-rose-300 hover:shadow-md{% endif %}">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Qoidabuzarlar</span>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 text-rose-600 text-lg group-hover:scale-110 transition">
+                    <i class="bi bi-people-fill"></i>
+                </span>
+            </div>
+            <div class="mt-2 text-2xl lg:text-3xl font-black text-rose-600">{{ total_violators }} <span class="text-xs font-medium text-slate-400">nafar</span></div>
+            <div class="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <span>Jami qoidabuzarliklar: <strong>{{ total_violations_count }} ta</strong></span>
+                <span class="text-rose-600 font-semibold group-hover:translate-x-0.5 transition">Ko'rish <i class="bi bi-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 2. Faol qoidabuzarliklar (so'nggi 30 kunda) -->
+        <a href="?{% if selected_industry %}industry={{ selected_industry }}&{% endif %}filter=active" 
+           class="group block p-4 rounded-2xl border transition shadow-sm {% if filter_type == 'active' %}bg-amber-50 border-amber-400 ring-2 ring-amber-400{% else %}bg-white border-slate-200 hover:border-amber-300 hover:shadow-md{% endif %}">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Faol (so'nggi oy)</span>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-700 text-lg group-hover:scale-110 transition">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </span>
+            </div>
+            <div class="mt-2 text-2xl lg:text-3xl font-black text-amber-700">{{ total_active_violators }} <span class="text-xs font-medium text-slate-400">nafar</span></div>
+            <div class="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <span>Ogohlantirish holatida</span>
+                <span class="text-amber-700 font-semibold group-hover:translate-x-0.5 transition">Ko'rish <i class="bi bi-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 3. Bloklangan xodimlar -->
+        <a href="?{% if selected_industry %}industry={{ selected_industry }}&{% endif %}filter=blocked" 
+           class="group block p-4 rounded-2xl border transition shadow-sm {% if filter_type == 'blocked' %}bg-red-100 border-red-500 ring-2 ring-red-500{% else %}bg-white border-slate-200 hover:border-red-400 hover:shadow-md{% endif %}">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Bloklanganlar</span>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500 text-white text-lg group-hover:scale-110 transition">
+                    <i class="bi bi-slash-circle-fill"></i>
+                </span>
+            </div>
+            <div class="mt-2 text-2xl lg:text-3xl font-black text-red-700">{{ total_blocked }} <span class="text-xs font-medium text-slate-400">nafar</span></div>
+            <div class="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <span>2 ta ogohlantirish olgan</span>
+                <span class="text-red-700 font-semibold group-hover:translate-x-0.5 transition">Ko'rish <i class="bi bi-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 4. Intizomli / Qoidabuzarligi yo'qlar -->
+        <a href="?{% if selected_industry %}industry={{ selected_industry }}&{% endif %}filter=clean" 
+           class="group block p-4 rounded-2xl border transition shadow-sm {% if filter_type == 'clean' %}bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400{% else %}bg-white border-slate-200 hover:border-emerald-300 hover:shadow-md{% endif %}">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Intizomli xodimlar</span>
+                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 text-lg group-hover:scale-110 transition">
+                    <i class="bi bi-shield-fill-check"></i>
+                </span>
+            </div>
+            <div class="mt-2 text-2xl lg:text-3xl font-black text-emerald-600">{{ total_clean }} <span class="text-xs font-medium text-slate-400">nafar</span></div>
+            <div class="mt-1 flex items-center justify-between text-xs text-slate-500">
+                <span>Qoidabuzarligi yo'q</span>
+                <span class="text-emerald-600 font-semibold group-hover:translate-x-0.5 transition">Ko'rish <i class="bi bi-arrow-right"></i></span>
+            </div>
+        </a>
+    </div>
+
+    <!-- Aktiv filter indikatori -->
+    {% if filter_type and filter_type != 'all' %}
+    <div class="mb-4 flex items-center justify-between rounded-xl bg-slate-100 px-4 py-2.5 text-xs text-slate-700">
+        <div class="flex items-center gap-2">
+            <i class="bi bi-funnel-fill text-brand-600"></i>
+            <span>Ko'rsatilmoqda: 
+                <strong>
+                    {% if filter_type == 'violators' %}Barcha qoidabuzarlar ro'yxati
+                    {% elif filter_type == 'active' %}Faol ogohlantirish olgan xodimlar (so'nggi oyda)
+                    {% elif filter_type == 'blocked' %}Bloklangan xodimlar
+                    {% elif filter_type == 'clean' %}Intizomli / Qoidabuzarligi yo'q xodimlar
+                    {% endif %}
+                </strong>
+            </span>
+        </div>
+        <a href="?{% if selected_industry %}industry={{ selected_industry }}{% endif %}" class="font-bold text-rose-600 hover:underline flex items-center gap-1">
+            <i class="bi bi-x-circle"></i> Barchasini ko'rsatish
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Controls -->
     <div class="flex justify-between items-center mb-4">
         <form method="get" class="flex gap-4" id="filterForm">
+            {% if filter_type and filter_type != 'all' %}<input type="hidden" name="filter" value="{{ filter_type }}">{% endif %}
             <select name="industry" onchange="document.getElementById('filterForm').submit()" class="form-select rounded-xl text-sm font-medium text-slate-700 bg-white border border-slate-300">
                 <option value="">Barcha sohalar</option>
                 {% for ind in industries %}

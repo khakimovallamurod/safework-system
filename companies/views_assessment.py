@@ -13,6 +13,7 @@ from django.views import View
 
 from accounts.forms import get_department_admin_department, get_section_admin_section
 from accounts.models import UserActivitySummary
+from accounts.notifications import send_action_notification
 from accounts.mixins import DepartmentAdminRequiredMixin, AuthenticatedRequiredMixin
 from companies.models import (
     Department,
@@ -437,9 +438,7 @@ class AssessmentCreateView(DepartmentAdminRequiredMixin, View):
             start_time=start_time, end_time=end_time,
         )
 
-        # Auto-populate questions without duplicates
-        random.shuffle(test_base_questions)
-        selected_questions = test_base_questions[:questions_count]
+        # Populate questions from all base questions
         questions_to_create = [
             DepartmentAssessmentQuestion(
                 assessment=assessment,
@@ -449,11 +448,11 @@ class AssessmentCreateView(DepartmentAdminRequiredMixin, View):
                 option_3=q.option_3,
                 correct_option=q.correct_option
             )
-            for q in selected_questions
+            for q in test_base_questions
         ]
         DepartmentAssessmentQuestion.objects.bulk_create(questions_to_create)
 
-        messages.success(request, f"'{name}' testi yaratildi va test bazasidan {questions_count} ta savol olindi.")
+        messages.success(request, f"'{name}' testi yaratildi va test bazasidan {len(questions_to_create)} ta savol yuklandi. Har bir urinishda {questions_count} ta tasodifiy savol beriladi.")
         return redirect('assessment-detail', pk=assessment.pk)
 
 
@@ -561,6 +560,16 @@ class AssessmentPublishView(DepartmentAdminRequiredMixin, View):
             for uid in user_ids if uid not in existing
         ]
         DepartmentAssessmentNotification.objects.bulk_create(new_notifs, ignore_conflicts=True)
+
+        publisher_profile = getattr(request.user, 'profile', None)
+        publisher_name = (publisher_profile.full_name if publisher_profile and publisher_profile.full_name else request.user.username)
+        send_action_notification(
+            title="Yangi bilim baholash testi joriy qilindi",
+            message=f"«{dept.name}» (Mehnat muhofazasi muhandisi {publisher_name}) yangi bilim baholash testini joriy qildi: «{assessment.name}» ({assessment.questions_count} ta savol, {assessment.duration} daqiqa).",
+            notif_type='test',
+            url=reverse('assessment-detail', kwargs={'pk': pk}),
+            department=dept
+        )
 
         messages.success(
             request,
@@ -1061,6 +1070,26 @@ class AssessmentTakeView(AuthenticatedRequiredMixin, View):
         attempt = DepartmentAssessmentAttempt.objects.create(
             assessment=assessment, user=request.user
         )
+
+        # Sync any missing questions from department test base
+        dept = assessment.department
+        if dept:
+            existing_texts = set(t.strip().lower() for t in assessment.questions.values_list('text', flat=True))
+            dept_questions = DepartmentTestBaseQuestion.objects.filter(department=dept)
+            missing_q = [
+                DepartmentAssessmentQuestion(
+                    assessment=assessment,
+                    text=dq.text,
+                    option_1=dq.option_1,
+                    option_2=dq.option_2,
+                    option_3=dq.option_3,
+                    correct_option=dq.correct_option
+                )
+                for dq in dept_questions if dq.text.strip().lower() not in existing_texts
+            ]
+            if missing_q:
+                DepartmentAssessmentQuestion.objects.bulk_create(missing_q)
+
         # Pick random questions
         all_q = list(assessment.questions.all())
         random.shuffle(all_q)

@@ -7,6 +7,7 @@ from django.db.models import Count, Q
 from django.contrib.auth import get_user_model
 from .models import Violation, ViolationType, ExplanationLetter
 from accounts.models import UserProfile, SystemNotification
+from accounts.notifications import send_action_notification
 from industries.models import Industry
 import datetime
 
@@ -15,7 +16,7 @@ User = get_user_model()
 def check_and_block_employee(employee):
     """
     Check if employee has 2 or more active violations in the last 30 days.
-    If so, block them.
+    If so, block them and notify Director, OTX, and Section Admin.
     """
     thirty_days_ago = timezone.now().date() - datetime.timedelta(days=30)
     active_violations_count = Violation.objects.filter(
@@ -29,11 +30,19 @@ def check_and_block_employee(employee):
         if active_violations_count >= 2 and not profile.is_blocked_by_violations:
             profile.is_blocked_by_violations = True
             profile.save()
-            SystemNotification.objects.create(
-                user=employee,
-                title="Tizimdan bloklandingiz",
-                message="Sizda so'nggi oyda 2 yoki undan ortiq qoidabuzarlik qayd etilganligi sababli tizimdan vaqtincha bloklandingiz.",
-                type='system'
+            emp_name = profile.full_name or employee.username
+            sec_name = profile.section.name if profile.section else (profile.department.name if profile.department else "")
+            sec_info = f" ({sec_name})" if sec_name else ""
+            detail_url = f"/violations/employee/{employee.id}/"
+
+            send_action_notification(
+                title="Diqqat: Xodim ishdan chetlashtirildi",
+                message=f"Xodim {emp_name}{sec_info} 2 marotaba ogohlantirish olgani sababli tizimda ishdan vaqtincha chetlashtirildi (bloklandi).",
+                notif_type='violation',
+                url=detail_url,
+                section=profile.section,
+                department=profile.department,
+                target_users=[employee]
             )
         elif active_violations_count < 2 and profile.is_blocked_by_violations:
             profile.is_blocked_by_violations = False
@@ -91,9 +100,28 @@ def violations_dashboard(request):
         }
         matrix.append(row)
 
+    # Summary statistics across all employees
+    total_violators = sum(1 for r in matrix if r['total_violations'] > 0)
+    total_active_violators = sum(1 for r in matrix if r['active_violations_last_30_days'] > 0)
+    total_blocked = sum(1 for r in matrix if r['is_blocked'])
+    total_clean = sum(1 for r in matrix if r['total_violations'] == 0)
+    total_violations_count = all_violations.count()
+
+    # Filter parameter
+    filter_type = request.GET.get('filter', 'all').strip().lower()
+    filtered_matrix = matrix
+    if filter_type == 'active':
+        filtered_matrix = [r for r in matrix if r['active_violations_last_30_days'] > 0]
+    elif filter_type == 'blocked':
+        filtered_matrix = [r for r in matrix if r['is_blocked']]
+    elif filter_type in ['violators', 'has_violations']:
+        filtered_matrix = [r for r in matrix if r['total_violations'] > 0]
+    elif filter_type == 'clean':
+        filtered_matrix = [r for r in matrix if r['total_violations'] == 0]
+
     # Group by department
     grouped_matrix = {}
-    for row in matrix:
+    for row in filtered_matrix:
         dept = row['employee'].department
         dept_name = dept.name if dept else "Boshqa xodimlar (Bo'limsiz)"
         if dept_name not in grouped_matrix:
@@ -106,6 +134,13 @@ def violations_dashboard(request):
 
     context = {
         'grouped_matrix': grouped_matrix,
+        'total_employees_count': len(matrix),
+        'total_violators': total_violators,
+        'total_active_violators': total_active_violators,
+        'total_blocked': total_blocked,
+        'total_clean': total_clean,
+        'total_violations_count': total_violations_count,
+        'filter_type': filter_type,
         'violation_types': violation_types,
         'industries': industries,
         'selected_industry': selected_industry,
@@ -139,13 +174,45 @@ def create_violation(request):
                 date=date_str if date_str else timezone.now().date(),
                 image=image
             )
-            SystemNotification.objects.create(
-                user=employee,
-                title="Yangi qoidabuzarlik",
-                message=f"Sizga yangi qoidabuzarlik yozildi: {v_type_obj.name}",
-                type='system',
-                url='/violations/'
+
+            # Nechanchi faol ogohlantirish ekanligini aniqlash
+            thirty_days_ago = timezone.now().date() - datetime.timedelta(days=30)
+            recent_count = Violation.objects.filter(
+                employee=employee,
+                date__gte=thirty_days_ago,
+                is_active=True
+            ).count()
+
+            issuer_profile = getattr(request.user, 'profile', None)
+            issuer_name = (issuer_profile.full_name if issuer_profile and issuer_profile.full_name else request.user.username)
+            if issuer_profile and issuer_profile.position:
+                issuer_title = issuer_profile.position
+            elif issuer_profile and issuer_profile.section:
+                issuer_title = f"{issuer_profile.section.name} mas'uli"
+            elif issuer_profile and issuer_profile.department:
+                issuer_title = f"{issuer_profile.department.name} nazoratchisi"
+            else:
+                issuer_title = "Mas'ul xodim"
+
+            emp_profile = getattr(employee, 'profile', None)
+            emp_name = (emp_profile.full_name if emp_profile and emp_profile.full_name else employee.username)
+            emp_section = getattr(emp_profile, 'section', None)
+            emp_dept = getattr(emp_profile, 'department', None)
+
+            detail_url = f"/violations/employee/{employee.id}/"
+            notif_title = f"Qoidabuzarlik: {recent_count}-ogohlantirish"
+            notif_msg = f"{issuer_title} ({issuer_name}) ishchi {emp_name}ga qoidabuzarlik bo‘yicha {recent_count}-ogohlantirish yubordi: «{v_type_obj.name}»."
+
+            send_action_notification(
+                title=notif_title,
+                message=notif_msg,
+                notif_type='violation',
+                url=detail_url,
+                section=emp_section,
+                department=emp_dept,
+                target_users=[employee]
             )
+
             messages.success(request, "Qoidabuzarlik muvaffaqiyatli saqlandi.")
             check_and_block_employee(employee)
         except Exception as e:
@@ -183,12 +250,21 @@ def unblock_employee(request, employee_id):
                 v.save()
                 
             check_and_block_employee(employee)
-            
-            SystemNotification.objects.create(
-                user=employee,
-                title="Tizimdan blokdan chiqarildingiz",
-                message="Sizning tushuntirish xatingiz qabul qilindi va tizimga kirishga ruxsat berildi.",
-                type='system'
+
+            unblocker_profile = getattr(request.user, 'profile', None)
+            unblocker_name = (unblocker_profile.full_name if unblocker_profile and unblocker_profile.full_name else request.user.username)
+            emp_profile = getattr(employee, 'profile', None)
+            emp_name = (emp_profile.full_name if emp_profile and emp_profile.full_name else employee.username)
+            detail_url = f"/violations/employee/{employee.id}/"
+
+            send_action_notification(
+                title="Mehnatga ruxsat berildi",
+                message=f"Mehnat muhofazasi va texnika xavfsizligi muhandisi ({unblocker_name}) xodim {emp_name}dan tushuntirish xatini olib, tizimda ishga ruxsat berdi.",
+                notif_type='permission',
+                url=detail_url,
+                section=getattr(emp_profile, 'section', None),
+                department=getattr(emp_profile, 'department', None),
+                target_users=[employee]
             )
             messages.success(request, "Xodim muvaffaqiyatli blokdan chiqarildi va tushuntirish xati saqlandi.")
         except Exception as e:

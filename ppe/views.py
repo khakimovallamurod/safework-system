@@ -52,16 +52,22 @@ def ppe_dashboard(request):
         elif profile.role != UserProfile.ROLE_SUPER_ADMIN:
             employees = employees.none()
 
+    # Filter parameter
+    status_filter = request.GET.get('status', request.GET.get('accept_status', '')).strip().lower()
+
     # Calculate stats
     now = timezone.now().date()
     seven_days_from_now = now + timezone.timedelta(days=7)
     
     all_issues = PPEIssue.objects.filter(employee__in=[e.user for e in employees])
+    total_issued_count = all_issues.count()
     expired_issues_count = all_issues.filter(expiration_date__lt=now).count()
     expiring_soon_count = all_issues.filter(expiration_date__gte=now, expiration_date__lte=seven_days_from_now).count()
+    accepted_issues_count = all_issues.filter(status='accepted', expiration_date__gte=now).count()
+    pending_issues_count = all_issues.filter(status='pending').count()
     
     total_required = employees.count() * ppe_types.count()
-    total_provided = all_issues.filter(expiration_date__gte=now).count()
+    total_provided = all_issues.filter(status='accepted', expiration_date__gte=now).count()
     
     provision_percentage = 0
     if total_required > 0:
@@ -77,10 +83,20 @@ def ppe_dashboard(request):
             emp_issues_dict[issue.employee_id] = []
         emp_issues_dict[issue.employee_id].append(issue)
 
-    # Matrix for template
-    matrix = []
+    # Full matrix for template and stats
+    full_matrix = []
     for emp in employees:
-        row = {'employee': emp, 'ppes': {}, 'has_pending': False, 'has_accepted': False}
+        row = {
+            'employee': emp,
+            'ppes': {},
+            'has_pending': False,
+            'has_accepted': False,
+            'has_expired': False,
+            'has_expiring': False,
+            'has_missing': False,
+            'has_issued': False,
+            'total_issued_for_emp': 0,
+        }
         emp_issues = emp_issues_dict.get(emp.user_id, [])
         for pt in ppe_types:
             pt_issues = [i for i in emp_issues if i.ppe_type_id == pt.id]
@@ -88,35 +104,55 @@ def ppe_dashboard(request):
             issue = pt_issues[0] if pt_issues else None
             
             if issue:
+                row['has_issued'] = True
+                row['total_issued_for_emp'] += 1
                 if issue.status != 'accepted':
                     status_class = 'pending'
+                    row['has_pending'] = True
                 elif issue.expiration_date < now:
                     status_class = 'expired'
+                    row['has_expired'] = True
                 elif issue.expiration_date <= seven_days_from_now:
                     status_class = 'expiring'
+                    row['has_expiring'] = True
+                    row['has_accepted'] = True
                 else:
                     status_class = 'active'
-                    
-                if issue.status == 'pending':
-                    row['has_pending'] = True
-                else:
                     row['has_accepted'] = True
                     
                 row['ppes'][pt.id] = {'issue': issue, 'status_class': status_class, 'accept_status': issue.status}
             else:
                 row['ppes'][pt.id] = None
+                row['has_missing'] = True
                 
-        # Filter logic for accept_status
-        if selected_accept_status == 'pending' and not row['has_pending']:
-            continue
-        if selected_accept_status == 'accepted' and not row['has_accepted']:
-            continue
-            
-        matrix.append(row)
+        full_matrix.append(row)
+
+    # Calculate employee counts for cards
+    emp_accepted_count = sum(1 for r in full_matrix if r['has_accepted'])
+    emp_pending_count = sum(1 for r in full_matrix if r['has_pending'])
+    emp_expired_count = sum(1 for r in full_matrix if r['has_expired'])
+    emp_expiring_count = sum(1 for r in full_matrix if r['has_expiring'])
+    emp_missing_count = sum(1 for r in full_matrix if r['has_missing'])
+    emp_issued_count = sum(1 for r in full_matrix if r['has_issued'])
+
+    # Apply filter
+    filtered_matrix = full_matrix
+    if status_filter == 'accepted':
+        filtered_matrix = [r for r in full_matrix if r['has_accepted']]
+    elif status_filter == 'pending':
+        filtered_matrix = [r for r in full_matrix if r['has_pending']]
+    elif status_filter == 'expired':
+        filtered_matrix = [r for r in full_matrix if r['has_expired']]
+    elif status_filter == 'expiring':
+        filtered_matrix = [r for r in full_matrix if r['has_expiring']]
+    elif status_filter == 'missing':
+        filtered_matrix = [r for r in full_matrix if r['has_missing']]
+    elif status_filter == 'issued':
+        filtered_matrix = [r for r in full_matrix if r['has_issued']]
 
     # Group by department
     grouped_matrix = {}
-    for row in matrix:
+    for row in filtered_matrix:
         dept = row['employee'].department
         dept_name = dept.name if dept else "Boshqa xodimlar (Bo'limsiz)"
         if dept_name not in grouped_matrix:
@@ -135,10 +171,20 @@ def ppe_dashboard(request):
         'industries': industries,
         'selected_industry': selected_industry,
         'selected_accept_status': selected_accept_status,
+        'status_filter': status_filter,
         'grouped_matrix': grouped_matrix,
         'provision_percentage': provision_percentage,
+        'total_issued_count': total_issued_count,
+        'accepted_issues_count': accepted_issues_count,
+        'pending_issues_count': pending_issues_count,
         'expired_issues_count': expired_issues_count,
         'expiring_soon_count': expiring_soon_count,
+        'emp_accepted_count': emp_accepted_count,
+        'emp_pending_count': emp_pending_count,
+        'emp_expired_count': emp_expired_count,
+        'emp_expiring_count': emp_expiring_count,
+        'emp_missing_count': emp_missing_count,
+        'emp_issued_count': emp_issued_count,
         'can_manage': can_manage,
         'pending_issues': pending_issues,
         'now': now,
