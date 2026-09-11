@@ -704,7 +704,26 @@
                       </div>
                     </div>
 
-                    <!-- 3. Bilimni baholash (Testlar) -->
+                    <!-- 3. Stajirovka va Amaliyot moduli -->
+                    <div class="mb-1">
+                      <button type="button" id="da-practice-toggle"
+                              onclick="toggleSidebarSubmenu('da-practice-submenu','da-practice-chevron')"
+                              class="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if 'work-practice' in request.resolver_match.url_name or 'amaliyot' in request.path or 'companies:test' in request.resolver_match.view_name %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}">
+                        <i class="bi bi-briefcase text-base flex-shrink-0"></i>
+                        <span class="flex-1 text-left">Stajirovka va Amaliyot</span>
+                        <i class="bi bi-chevron-down text-xs transition-transform" id="da-practice-chevron"></i>
+                      </button>
+                      <div id="da-practice-submenu" class="mt-1 ml-3 space-y-0.5 {% if 'work-practice' not in request.resolver_match.url_name and 'amaliyot' not in request.path and 'companies:test' not in request.resolver_match.view_name %}hidden{% endif %}">
+                        <a href="{% url 'work-practices' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if request.resolver_match.url_name == 'work-practices' %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                          <i class="bi bi-card-checklist text-xs"></i> Stajirovkalar ro'yxati
+                        </a>
+                        <a href="{% url 'companies:test_list' %}" class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition {% if 'companies:test' in request.resolver_match.view_name %}bg-white/15 text-white{% else %}text-slate-400 hover:bg-white/10 hover:text-white{% endif %}">
+                          <i class="bi bi-journal-check text-xs"></i> Amaliyot testlari
+                        </a>
+                      </div>
+                    </div>
+
+                    <!-- 4. Bilimni baholash (Testlar) -->
                     <div class="mb-1">
                       <button type="button" id="dept-assess-toggle"
                               onclick="toggleSidebarSubmenu('dept-assess-submenu','dept-assess-chevron')"
@@ -726,7 +745,7 @@
                       </div>
                     </div>
 
-                    <!-- 4. Kasblar -->
+                    <!-- 5. Kasblar -->
                     <a class="nav-link mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition {% if request.resolver_match.namespace == 'professions' %}bg-brand-500/30 text-white shadow-lg shadow-brand-900/20{% else %}text-slate-300 hover:bg-white/10 hover:text-white{% endif %}" href="{% url 'professions:list' %}">
                         <i class="bi bi-person-workspace text-base"></i> Kasblar
                     </a>

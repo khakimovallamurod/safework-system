@@ -16,6 +16,19 @@
         <form method="post" class="space-y-7">
             {% csrf_token %}
             
+            {% if sections and sections|length > 1 %}
+            <div class="space-y-2">
+                <label class="block text-sm font-semibold text-slate-700" for="section_id">
+                    Tegishli Bo'lim <span class="text-rose-500 ml-0.5">*</span>
+                </label>
+                <select name="section_id" id="section_id" required class="w-full h-[52px] px-4 rounded-[14px] border border-slate-200 bg-white text-slate-900 text-[15px] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 transition-all duration-200 hover:border-slate-300 outline-none shadow-sm">
+                    {% for sec in sections %}
+                    <option value="{{ sec.id }}" {% if test and test.section_id == sec.id %}selected{% endif %}>{{ sec.name }} ({{ sec.department.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
             <div class="space-y-2">
                 <label class="block text-sm font-semibold text-slate-700" for="{{ form.name.id_for_label }}">
                     Test nomi <span class="text-rose-500 ml-0.5">*</span>

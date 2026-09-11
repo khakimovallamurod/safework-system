@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 from django.utils import timezone
+from django.db.models import Q
 
 from accounts.mixins import SectionAdminRequiredMixin, AuthenticatedRequiredMixin, SectionMemberRequiredMixin
 from accounts.notifications import send_action_notification
@@ -21,17 +22,48 @@ from companies.models import (
     DepartmentTestBaseQuestion
 )
 
+def _get_sections_for_test_management(request):
+    if request.user.is_superuser:
+        return Section.objects.select_related('department').all()
+
+    profile = getattr(request.user, 'profile', None)
+    if not profile:
+        return Section.objects.none()
+
+    if profile.role == 'org_leader':
+        from accounts.views import _org_leader_departments
+        depts = _org_leader_departments(request.user)
+        return Section.objects.filter(department__in=depts).select_related('department')
+
+    if profile.role == 'department_admin':
+        from companies.models import Department
+        depts = Department.objects.filter(Q(supervisor=request.user) | Q(pk=profile.department_id if profile.department_id else None))
+        return Section.objects.filter(department__in=depts).select_related('department')
+
+    if profile.section_id:
+        return Section.objects.filter(id=profile.section_id).select_related('department')
+
+    return Section.objects.none()
+
+
 class TestListView(SectionAdminRequiredMixin, View):
     template_name = 'companies/tests/list.html'
 
     def get(self, request, *args, **kwargs):
-        section = request.user.profile.section
-        if not section:
-            messages.error(request, "Siz hech qaysi bo'limga biriktirilmagansiz.")
+        sections = _get_sections_for_test_management(request)
+        if not sections.exists():
+            messages.error(request, "Sizga biriktirilgan bo'limlar topilmadi.")
             return redirect('dashboard')
 
-        tests = list(WorkPracticeTest.objects.filter(section=section).prefetch_related('practice_permissions'))
-        practices = list(SectionWorkPractice.objects.filter(section=section).order_by('-start_time'))
+        selected_section_id = request.GET.get('section', '').strip()
+        if selected_section_id.isdigit():
+            filtered_sections = sections.filter(id=int(selected_section_id))
+            active_sections = filtered_sections if filtered_sections.exists() else sections
+        else:
+            active_sections = sections
+
+        tests = list(WorkPracticeTest.objects.filter(section__in=active_sections).select_related('section').prefetch_related('practice_permissions'))
+        practices = list(SectionWorkPractice.objects.filter(section__in=active_sections).select_related('section').order_by('-start_time'))
 
         # Attach assigned practice id set directly to each test object
         for test in tests:
@@ -41,15 +73,17 @@ class TestListView(SectionAdminRequiredMixin, View):
         context.update({
             'tests': tests,
             'practices': practices,
-            'section': section,
+            'section': sections.first() if sections.count() == 1 else None,
+            'sections': sections,
+            'selected_section_id': int(selected_section_id) if selected_section_id.isdigit() else None,
         })
         return render(request, self.template_name, context)
 
 
 class TestToggleStatusView(SectionAdminRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         test.is_active = not test.is_active
         test.save(update_fields=['is_active'])
         return JsonResponse({'is_active': test.is_active})
@@ -57,8 +91,8 @@ class TestToggleStatusView(SectionAdminRequiredMixin, View):
 
 class TestPracticePermissionsView(SectionAdminRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         selected_ids = set(map(int, request.POST.getlist('practice_ids')))
 
         # Remove permissions that are no longer selected
@@ -67,8 +101,23 @@ class TestPracticePermissionsView(SectionAdminRequiredMixin, View):
         # Add newly selected permissions
         existing_ids = set(test.practice_permissions.values_list('practice_id', flat=True))
         for pid in selected_ids - existing_ids:
-            practice = get_object_or_404(SectionWorkPractice, pk=pid, section=section)
+            practice = get_object_or_404(SectionWorkPractice, pk=pid, section__in=sections)
             WorkPracticeTestPermission.objects.create(test=test, practice=practice)
+
+        if selected_ids - existing_ids:
+            try:
+                creator_name = (request.user.profile.full_name if hasattr(request.user, 'profile') and request.user.profile and request.user.profile.full_name else request.user.username)
+                send_action_notification(
+                    title="Stajirovkaga test joriy qilindi",
+                    message=f"{creator_name} tomonidan «{test.name}» testi ish amaliyotiga biriktirildi va joriy qilindi.",
+                    notif_type='test',
+                    url='/ish-amaliyotlari/',
+                    section=test.section,
+                    department=test.section.department if test.section else None,
+                    exclude_users=[request.user]
+                )
+            except Exception:
+                pass
 
         messages.success(request, f"'{test.name}' uchun amaliyot ruxsatlari yangilandi.")
         return redirect('companies:test_list')
@@ -78,22 +127,40 @@ class TestCreateView(SectionAdminRequiredMixin, View):
     template_name = 'companies/tests/create.html'
     
     def get(self, request, *args, **kwargs):
+        sections = _get_sections_for_test_management(request)
+        if not sections.exists():
+            messages.error(request, "Sizga biriktirilgan bo'limlar topilmadi.")
+            return redirect('dashboard')
         form = WorkPracticeTestForm()
         context = self.get_role_context()
-        context.update({'form': form, 'title': 'Yangi test yaratish'})
+        context.update({'form': form, 'title': 'Yangi test yaratish', 'sections': sections})
         return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
+        sections = _get_sections_for_test_management(request)
+        if not sections.exists():
+            messages.error(request, "Sizga biriktirilgan bo'limlar topilmadi.")
+            return redirect('dashboard')
+
+        section_id = request.POST.get('section_id')
+        if section_id and str(section_id).isdigit():
+            section = sections.filter(pk=int(section_id)).first()
+        else:
+            section = sections.first()
+
+        if not section:
+            messages.error(request, "Test uchun bo'lim tanlanmadi.")
+            return redirect('companies:test_create')
+
         form = WorkPracticeTestForm(request.POST)
         if form.is_valid():
             test = form.save(commit=False)
-            section = request.user.profile.section
             test.section = section
 
             if test.start_time and test.end_time and test.start_time >= test.end_time:
                 messages.error(request, "Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak.")
                 context = self.get_role_context()
-                context.update({'form': form, 'title': 'Yangi test yaratish'})
+                context.update({'form': form, 'title': 'Yangi test yaratish', 'sections': sections})
                 return render(request, self.template_name, context)
             
             # Check if there are enough unique questions in the test base
@@ -113,7 +180,7 @@ class TestCreateView(SectionAdminRequiredMixin, View):
                     f"Boshqarma test bazasida yetarli noyob savol yo'q. Bazada {len(test_base_questions)} ta turli savol mavjud, lekin siz {test.questions_count} ta kiritdingiz."
                 )
                 context = self.get_role_context()
-                context.update({'form': form, 'title': 'Yangi test yaratish'})
+                context.update({'form': form, 'title': 'Yangi test yaratish', 'sections': sections})
                 return render(request, self.template_name, context)
 
             test.save()
@@ -147,7 +214,7 @@ class TestCreateView(SectionAdminRequiredMixin, View):
             return redirect('companies:test_list')
         
         context = self.get_role_context()
-        context.update({'form': form, 'title': 'Yangi test yaratish'})
+        context.update({'form': form, 'title': 'Yangi test yaratish', 'sections': sections})
         messages.error(request, "Test yaratishda xatolik yuz berdi.")
         return render(request, self.template_name, context)
 
@@ -156,30 +223,30 @@ class TestEditView(SectionAdminRequiredMixin, View):
     template_name = 'companies/tests/create.html'
 
     def get(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         form = WorkPracticeTestForm(instance=test)
         context = self.get_role_context()
-        context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash'})
+        context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash', 'sections': sections})
         return render(request, self.template_name, context)
 
     def post(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         form = WorkPracticeTestForm(request.POST, instance=test)
         if form.is_valid():
             test_obj = form.save(commit=False)
             if test_obj.start_time and test_obj.end_time and test_obj.start_time >= test_obj.end_time:
                 messages.error(request, "Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak.")
                 context = self.get_role_context()
-                context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash'})
+                context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash', 'sections': sections})
                 return render(request, self.template_name, context)
             test_obj.save()
             messages.success(request, "Test tahrirlandi.")
             return redirect('companies:test_list')
         
         context = self.get_role_context()
-        context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash'})
+        context.update({'form': form, 'test': test, 'title': 'Testni tahrirlash', 'sections': sections})
         messages.error(request, "Tahrirlashda xatolik bor.")
         return render(request, self.template_name, context)
 
@@ -188,8 +255,8 @@ class TestStopView(SectionAdminRequiredMixin, View):
     """Bo'lim testini muddatidan oldin to'xtatish."""
 
     def post(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         stop_reason = (request.POST.get('stop_reason') or '').strip()
         if not stop_reason:
             messages.error(request, "Testni to‘xtatish uchun izoh (sabab) kiritish shart!")
@@ -208,8 +275,8 @@ class TestStopView(SectionAdminRequiredMixin, View):
 
 class TestDeleteView(SectionAdminRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         test.delete()
         messages.success(request, "Test o'chirildi.")
         return redirect('companies:test_list')
@@ -219,8 +286,8 @@ class TestDetailView(SectionAdminRequiredMixin, View):
     template_name = 'companies/tests/detail.html'
 
     def get(self, request, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
         questions = test.questions.all()
         context = self.get_role_context()
         context.update({
@@ -234,16 +301,16 @@ class QuestionCreateView(SectionAdminRequiredMixin, View):
     template_name = 'companies/tests/question_form.html'
 
     def get(self, request, test_pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section__in=sections)
         form = WorkPracticeTestQuestionForm()
         context = self.get_role_context()
         context.update({'form': form, 'test': test})
         return render(request, self.template_name, context)
 
     def post(self, request, test_pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section__in=sections)
         form = WorkPracticeTestQuestionForm(request.POST)
         if form.is_valid():
             question = form.save(commit=False)
@@ -260,8 +327,8 @@ class QuestionCreateView(SectionAdminRequiredMixin, View):
 
 class QuestionDeleteView(SectionAdminRequiredMixin, View):
     def post(self, request, test_pk, pk, *args, **kwargs):
-        section = request.user.profile.section
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section=section)
+        sections = _get_sections_for_test_management(request)
+        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section__in=sections)
         question = get_object_or_404(WorkPracticeTestQuestion, pk=pk, test=test)
         question.delete()
         messages.success(request, "Savol o'chirildi.")
@@ -443,6 +510,28 @@ class QuizTakeView(SectionMemberRequiredMixin, View):
         # Cleanup session
         if f'quiz_attempt_{attempt.id}' in request.session:
             del request.session[f'quiz_attempt_{attempt.id}']
+
+        # Xabarnoma: test natijasi va ogohlantirish (Direktor va Boshqarma nazoratchisiga)
+        try:
+            worker_name = (request.user.profile.full_name if hasattr(request.user, 'profile') and request.user.profile and request.user.profile.full_name else request.user.username)
+            if final_score < 60:
+                notif_title = f"Ogohlantirish: Testdan o‘tmadi ({worker_name})"
+                notif_msg = f"{worker_name} «{attempt.practice.name}» stajirovkasi doirasidagi «{attempt.test.name}» testidan o‘ta olmadi (Natija: {final_score}%)."
+            else:
+                notif_title = f"Stajirovka testi topshirildi ({worker_name})"
+                notif_msg = f"{worker_name} «{attempt.practice.name}» stajirovkasi doirasidagi «{attempt.test.name}» testidan muvaffaqiyatli o‘tdi (Natija: {final_score}%)."
+
+            send_action_notification(
+                title=notif_title,
+                message=notif_msg,
+                notif_type='test',
+                url='/ish-amaliyotlari/',
+                section=attempt.practice.section,
+                department=attempt.practice.section.department if attempt.practice.section else None,
+                exclude_users=[request.user]
+            )
+        except Exception:
+            pass
 
         messages.success(request, f"Test yakunlandi. Natijangiz: {final_score}%")
         return redirect('companies:quiz_result', attempt_pk=attempt.id)

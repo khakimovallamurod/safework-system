@@ -25,174 +25,430 @@
 </style>
 
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
-    <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <!-- Header -->
+    <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-            <h2 class="text-lg font-semibold text-slate-900">
-                <i class="bi bi-briefcase mr-2 text-violet-600"></i>Ish amaliyotlari
-            </h2>
-            <p class="mt-1 text-sm text-slate-500">
-                {% if section %}Bo'lim: <strong>{{ section.name }}</strong> — ma'sul xodimlar faqat shu bo'lim xodimlari{% elif can_monitor_work_practices %}Sizning bo'lim/boshqarmalaringizdagi barcha ish amaliyotlari ro'yxati{% else %}Sizga biriktirilgan yoki siz yaratgan ish amaliyotlari ro'yxati{% endif %}
-            </p>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                    <i class="bi bi-mortarboard text-xl"></i>
+                </span>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Ish amaliyotlari (Stajirovka va Monitoring)</h2>
+                    <p class="text-xs text-slate-500">
+                        {% if section %}
+                            Bo'lim: <strong>{{ section.name }}</strong> ({{ section.department.name }})
+                        {% elif can_monitor_work_practices %}
+                            Boshqarma va bo'limlardagi barcha stajirovkalar, mas'ul ustozlar hamda test nazorati
+                        {% else %}
+                            Sizga biriktirilgan stajirovkalar va test sinovlari
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
         </div>
-        {% if can_manage_work_practices %}
-        <div class="flex gap-2">
-            <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-700 shadow-sm">
-                <i class="bi bi-plus-circle text-lg"></i> Amaliyot qo'shish
+
+        <div class="flex flex-wrap items-center gap-2">
+            {% if available_sections|length > 1 %}
+            <form method="get" action="" class="flex items-center gap-2">
+                <select name="section" onchange="this.form.submit()" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-violet-400 focus:border-violet-500 focus:outline-none">
+                    <option value="">Barcha bo'limlar ({{ available_sections|length }})</option>
+                    {% for sec in available_sections %}
+                    <option value="{{ sec.id }}" {% if selected_section_id == sec.id %}selected{% endif %}>{{ sec.name }} ({{ sec.department.name }})</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+
+            {% if can_manage_work_practices %}
+            <a href="{% url 'companies:test_list' %}" class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+                <i class="bi bi-card-checklist text-violet-600 text-sm"></i> Testlar boshqaruvi
+            </a>
+            <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-700">
+                <i class="bi bi-plus-circle text-sm"></i> Stajirovka yaratish
             </button>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
+    <!-- Metrics Dashboard -->
     {% if can_monitor_work_practices and practice_dashboard %}
-    <div class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <div class="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+    <div class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div class="rounded-2xl border border-violet-100 bg-violet-50/70 p-4 transition hover:bg-violet-50">
             <div class="text-2xl font-black text-violet-700">{{ practice_dashboard.total_practices }}</div>
-            <div class="text-xs font-semibold text-violet-700/70">Jami amaliyot</div>
+            <div class="text-xs font-semibold text-violet-800/70 mt-0.5">Jami amaliyotlar</div>
         </div>
-        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-slate-100/70">
             <div class="text-2xl font-black text-slate-800">{{ practice_dashboard.total_assignees }}</div>
-            <div class="text-xs font-semibold text-slate-500">Biriktirilganlar</div>
+            <div class="text-xs font-semibold text-slate-500 mt-0.5">Biriktirilganlar</div>
         </div>
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 transition hover:bg-emerald-50">
             <div class="text-2xl font-black text-emerald-700">{{ practice_dashboard.accepted_total }}</div>
-            <div class="text-xs font-semibold text-emerald-700/70">Mas’ul qabul qilgan</div>
+            <div class="text-xs font-semibold text-emerald-800/70 mt-0.5">Qabul qilingan</div>
         </div>
-        <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+        <div class="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 transition hover:bg-amber-50">
             <div class="text-2xl font-black text-amber-700">{{ practice_dashboard.pending_accept_total }}</div>
-            <div class="text-xs font-semibold text-amber-700/70">Rozilik kutilmoqda</div>
+            <div class="text-xs font-semibold text-amber-800/70 mt-0.5">Rozilik kutilmoqda</div>
         </div>
-        <div class="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 transition hover:bg-sky-50">
             <div class="text-2xl font-black text-sky-700">{{ practice_dashboard.completed_total }}</div>
-            <div class="text-xs font-semibold text-sky-700/70">Testdan o‘tganlar</div>
+            <div class="text-xs font-semibold text-sky-800/70 mt-0.5">Testdan o‘tganlar</div>
         </div>
-        <div class="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+        <div class="rounded-2xl border border-rose-100 bg-rose-50/70 p-4 transition hover:bg-rose-50">
             <div class="text-2xl font-black text-rose-700">{{ practice_dashboard.failed_tests_total }}</div>
-            <div class="text-xs font-semibold text-rose-700/70">Testdan o‘tolmagan</div>
+            <div class="text-xs font-semibold text-rose-800/70 mt-0.5">Testdan o‘tolmagan</div>
         </div>
     </div>
     {% endif %}
 
     {% if can_manage_work_practices or can_monitor_work_practices %}
-    <div class="overflow-x-auto rounded-xl border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                    <th class="px-4 py-3 w-14">#</th>
-                    <th class="px-4 py-3">Nomi</th>
-                    <th class="px-4 py-3">Boshlanish vaqti</th>
-                    <th class="px-4 py-3">Tugash vaqti</th>
-                    <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">Mas'ul</th>
-                    <th class="px-4 py-3">Amaliyot o'tovchilar</th>
-                    <th class="px-4 py-3">Izoh</th>
-                    <th class="px-4 py-3 text-right w-44">Amallar</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-                {% for practice in practices %}
-                <tr class="hover:bg-slate-50 align-top">
-                    <td class="px-4 py-3"><span class="inline-flex rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white">{{ forloop.counter }}</span></td>
-                    <td class="px-4 py-3 font-medium text-slate-900">{{ practice.name }}</td>
-                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ practice.start_time|date:"d.m.Y H:i" }}</td>
-                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ practice.end_time|date:"d.m.Y H:i" }}</td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-medium {{ practice.status_class }}">{{ practice.status_label }}</span>
-                    </td>
-                    <td class="px-4 py-3 text-slate-700">
-                        {% if practice.responsible_user %}
-                        <span class="inline-flex rounded-lg bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</span>
-                        {% else %}
-                        <span class="text-xs text-slate-400">Belgilanmagan</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-3 text-slate-700">
-                        {% for assignee in practice.assignees.all %}
-                        <span class="mb-1 mr-1 inline-flex rounded-lg px-2 py-0.5 text-xs font-medium {% if assignee.accepted_by_responsible %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
-                            {{ assignee.user.profile.full_name|default:assignee.user.username }} · {% if assignee.accepted_by_responsible %}qabul{% else %}kutilmoqda{% endif %}
-                        </span>
+    <!-- Modern Tabs Navigation -->
+    <div class="mb-4 border-b border-slate-200">
+        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="practiceTabs" role="tablist">
+            <li class="mr-2" role="presentation">
+                <button class="inline-flex items-center gap-2 p-3.5 border-b-2 rounded-t-lg border-violet-600 text-violet-700 font-bold active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-content" type="button" role="tab" aria-controls="active-content" aria-selected="true">
+                    <i class="bi bi-play-circle-fill text-emerald-500"></i>
+                    Jarayondagi amaliyotlar
+                    <span class="ml-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">{{ active_practices|length }}</span>
+                </button>
+            </li>
+            <li class="mr-2" role="presentation">
+                <button class="inline-flex items-center gap-2 p-3.5 border-b-2 rounded-t-lg border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-semibold" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-content" type="button" role="tab" aria-controls="history-content" aria-selected="false">
+                    <i class="bi bi-clock-history text-slate-400"></i>
+                    Stajirovka tarixi va arxiv
+                    <span class="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">{{ history_practices|length }}</span>
+                </button>
+            </li>
+            {% if practice_inbox %}
+            <li class="mr-2" role="presentation">
+                <button class="inline-flex items-center gap-2 p-3.5 border-b-2 rounded-t-lg border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-semibold" id="inbox-tab" data-bs-toggle="tab" data-bs-target="#inbox-content" type="button" role="tab" aria-controls="inbox-content" aria-selected="false">
+                    <i class="bi bi-chat-left-text text-sky-500"></i>
+                    Xabarlar jurnali
+                    <span class="ml-1.5 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-700">{{ practice_inbox|length }}</span>
+                </button>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+
+    <div class="tab-content" id="practiceTabsContent">
+        <!-- Tab 1: Active Practices -->
+        <div class="tab-pane fade show active" id="active-content" role="tabpanel" aria-labelledby="active-tab">
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3 w-12 text-center">#</th>
+                            <th class="px-4 py-3 min-w-[200px]">Stajirovka va Bo‘lim</th>
+                            <th class="px-4 py-3 min-w-[180px]">Yaratuvchi / Mas’ul ustoz</th>
+                            <th class="px-4 py-3 whitespace-nowrap">Muddat</th>
+                            <th class="px-4 py-3">Holat</th>
+                            <th class="px-4 py-3 min-w-[260px]">Amaliyotchilar va Testlar</th>
+                            <th class="px-4 py-3 text-center whitespace-nowrap">Natijalar</th>
+                            <th class="px-4 py-3 text-right w-44">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        {% for practice in active_practices %}
+                        <tr class="hover:bg-slate-50/80 align-top transition">
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-violet-600 text-xs font-bold text-white">{{ forloop.counter }}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="font-bold text-slate-900">{{ practice.name }}</div>
+                                <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                                    {% if practice.section %}
+                                    <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                        <i class="bi bi-building text-violet-500"></i>{{ practice.section.name }}
+                                    </span>
+                                    {% endif %}
+                                    <span class="text-[11px] text-slate-400">{{ practice.created_at|date:"d.m.Y" }}</span>
+                                </div>
+                                {% if practice.notes %}
+                                <div class="mt-1 text-xs text-slate-400 truncate max-w-xs">{{ practice.notes }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-xs">
+                                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Yaratuvchi:</div>
+                                    <div class="font-semibold text-slate-800">{{ practice.creator_name }}</div>
+                                    <span class="inline-flex rounded bg-slate-100 px-1.5 py-0.2 text-[10px] text-slate-600 font-medium">{{ practice.creator_role }}</span>
+                                </div>
+                                <div class="mt-2 border-t border-slate-100 pt-1.5 text-xs">
+                                    <div class="text-[11px] font-semibold text-sky-600 uppercase tracking-wider">Mas’ul ustoz:</div>
+                                    {% if practice.responsible_user %}
+                                    <div class="font-semibold text-sky-900">{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</div>
+                                    {% else %}
+                                    <span class="text-slate-400 italic">Belgilanmagan</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-xs font-medium text-slate-700">{{ practice.start_time|date:"d.m.Y" }} — {{ practice.end_time|date:"d.m.Y" }}</div>
+                                {% if practice.days_left is not None %}
+                                    {% if practice.is_last_day %}
+                                    <span class="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800"><i class="bi bi-clock-history"></i> Oxirgi kun!</span>
+                                    {% elif practice.days_left > 0 %}
+                                    <span class="mt-1 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">{{ practice.days_left }} kun qoldi</span>
+                                    {% else %}
+                                    <span class="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">Muddati tugagan</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold {{ practice.status_class }}">{{ practice.status_label }}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="space-y-1.5">
+                                    {% for item in practice.enriched_assignees %}
+                                    <div class="flex flex-wrap items-center justify-between gap-1.5 rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-1 text-xs">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="font-semibold text-slate-800">{{ item.user.profile.full_name|default:item.user.username }}</span>
+                                            {% if item.is_section_admin %}
+                                            <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.2 text-[10px] font-bold text-amber-800">Bo‘lim boshlig‘i</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            {% if item.accepted_by_responsible %}
+                                            <span class="inline-flex rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700" title="Qabul qilingan"><i class="bi bi-check2"></i> Qabul</span>
+                                            {% else %}
+                                            <span class="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700" title="Rozilik kutilmoqda">Kutilmoqda</span>
+                                            {% endif %}
+
+                                            {% if item.best_attempt %}
+                                                {% if item.has_passed %}
+                                                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-black text-emerald-700 border border-emerald-200" title="Muvaffaqiyatli o'tgan">
+                                                    <i class="bi bi-check-circle-fill text-emerald-500 mr-1"></i>{{ item.best_attempt.score }}%
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-black text-rose-700 border border-rose-200" title="Yetarli ball to'plamagan">
+                                                    <i class="bi bi-exclamation-triangle-fill text-rose-500 mr-1"></i>{{ item.best_attempt.score }}%
+                                                </span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-[10px] text-slate-400 italic">Topshirmagan</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <span class="text-xs text-slate-400 italic">Amaliyotchi biriktirilmagan</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                <div class="text-xs font-bold">
+                                    <span class="text-emerald-600">{{ practice.passed_count }} o‘tdi</span>
+                                    <span class="text-slate-300 mx-0.5">/</span>
+                                    <span class="text-rose-600">{{ practice.failed_count }} o‘tmadi</span>
+                                </div>
+                                <button type="button" data-bs-toggle="modal" data-bs-target="#practiceTestResultsModal{{ practice.id }}" class="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700 hover:bg-violet-100 transition">
+                                    <i class="bi bi-bar-chart-fill"></i> Natijalar ({{ practice.all_attempts|length }})
+                                </button>
+                            </td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                {% if can_manage_work_practices %}
+                                <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-300 text-sky-600 transition hover:bg-sky-50" data-bs-toggle="modal" data-bs-target="#practiceAssignModal{{ practice.id }}" title="Amaliyotchi biriktirish">
+                                    <i class="bi bi-person-plus"></i>
+                                </button>
+                                <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-300 text-violet-600 transition hover:bg-violet-50" data-bs-toggle="modal" data-bs-target="#practiceTestModal{{ practice.id }}" title="Testlarni biriktirish">
+                                    <i class="bi bi-journal-check"></i>
+                                </button>
+                                <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#practiceEditModal{{ practice.id }}" title="Tahrirlash">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <form method="post" action="{% url 'work-practice-finish' practice.id %}" class="mr-1 inline-block" onsubmit="return confirm('Stajirovkani yakunlashni tasdiqlaysizmi?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-300 text-emerald-700 transition hover:bg-emerald-50" title="Tugatish">
+                                        <i class="bi bi-check2-circle"></i>
+                                    </button>
+                                </form>
+                                <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#practiceDeleteModal{{ practice.id }}" title="O'chirish">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% else %}
+                                <button type="button" data-bs-toggle="modal" data-bs-target="#practiceTestResultsModal{{ practice.id }}" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    <i class="bi bi-eye"></i> Ko‘rish
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
                         {% empty %}
-                        <span class="text-xs text-slate-400">—</span>
+                        <tr>
+                            <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+                                <i class="bi bi-inbox text-3xl mb-2 block"></i>Hozirda faol jarayondagi ish amaliyotlari yo‘q.
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </td>
-                    <td class="px-4 py-3 text-slate-500 max-w-xs">{{ practice.notes|default:'—'|truncatechars:80 }}</td>
-                    <td class="px-4 py-3 text-right whitespace-nowrap">
-                        {% if can_manage_work_practices %}
-                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-300 text-sky-600 transition hover:bg-sky-50" data-bs-toggle="modal" data-bs-target="#practiceAssignModal{{ practice.id }}" title="Amaliyotchi biriktirish">
-                            <i class="bi bi-person-plus"></i>
-                        </button>
-                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-300 text-violet-600 transition hover:bg-violet-50" data-bs-toggle="modal" data-bs-target="#practiceTestModal{{ practice.id }}" title="Testlarni biriktirish">
-                            <i class="bi bi-journal-check"></i>
-                        </button>
-                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 transition hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#practiceEditModal{{ practice.id }}" title="Tahrirlash">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
-                        {% if practice.status_label == 'Jarayonda' %}
-                        <form method="post" action="{% url 'work-practice-finish' practice.id %}" class="mr-1 inline-block">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 2: History & Archive -->
+        <div class="tab-pane fade" id="history-content" role="tabpanel" aria-labelledby="history-tab">
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3 w-12 text-center">#</th>
+                            <th class="px-4 py-3 min-w-[200px]">Stajirovka va Bo‘lim</th>
+                            <th class="px-4 py-3 min-w-[180px]">Yaratuvchi / Mas’ul ustoz</th>
+                            <th class="px-4 py-3 whitespace-nowrap">Muddat & Yopilgan</th>
+                            <th class="px-4 py-3">Holat</th>
+                            <th class="px-4 py-3 min-w-[260px]">Amaliyotchilar va Test natijalari</th>
+                            <th class="px-4 py-3 text-center whitespace-nowrap">Statistika</th>
+                            <th class="px-4 py-3 text-right w-36">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        {% for practice in history_practices %}
+                        <tr class="hover:bg-slate-50/80 align-top transition bg-slate-50/30">
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-slate-500 text-xs font-bold text-white">{{ forloop.counter }}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="font-bold text-slate-900">{{ practice.name }}</div>
+                                <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                                    {% if practice.section %}
+                                    <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                        <i class="bi bi-building"></i>{{ practice.section.name }}
+                                    </span>
+                                    {% endif %}
+                                    <span class="text-[11px] text-slate-400">{{ practice.created_at|date:"d.m.Y" }}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="text-xs">
+                                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Yaratuvchi:</div>
+                                    <div class="font-semibold text-slate-800">{{ practice.creator_name }} ({{ practice.creator_role }})</div>
+                                </div>
+                                <div class="mt-2 border-t border-slate-100 pt-1.5 text-xs">
+                                    <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Mas’ul ustoz:</div>
+                                    {% if practice.responsible_user %}
+                                    <div class="font-semibold text-slate-700">{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</div>
+                                    {% else %}
+                                    <span class="text-slate-400 italic">Belgilanmagan</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-xs font-medium text-slate-600">{{ practice.start_time|date:"d.m.Y" }} — {{ practice.end_time|date:"d.m.Y" }}</div>
+                                {% if practice.closed_at %}
+                                <div class="mt-1 text-[11px] font-semibold text-slate-500"><i class="bi bi-check-all text-emerald-500 mr-1"></i>Yopilgan: {{ practice.closed_at|date:"d.m.Y H:i" }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold {{ practice.status_class }}">{{ practice.status_label }}</span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="space-y-1.5">
+                                    {% for item in practice.enriched_assignees %}
+                                    <div class="flex flex-wrap items-center justify-between gap-1.5 rounded-lg border border-slate-100 bg-white px-2.5 py-1 text-xs">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="font-semibold text-slate-800">{{ item.user.profile.full_name|default:item.user.username }}</span>
+                                            {% if item.is_section_admin %}
+                                            <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.2 text-[10px] font-bold text-amber-800">Bo‘lim boshlig‘i</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            {% if item.accepted_by_responsible %}
+                                            <span class="inline-flex rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700"><i class="bi bi-check2"></i> Qabul qilingan</span>
+                                            {% else %}
+                                            <span class="inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">Qabul qilinmagan</span>
+                                            {% endif %}
+
+                                            {% if item.best_attempt %}
+                                                {% if item.has_passed %}
+                                                <span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
+                                                    <i class="bi bi-check-circle-fill text-emerald-500 mr-1"></i>{{ item.best_attempt.score }}% (O‘tdi)
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700 border border-rose-200">
+                                                    <i class="bi bi-exclamation-triangle-fill text-rose-500 mr-1"></i>{{ item.best_attempt.score }}% (O‘tmadi)
+                                                </span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-[10px] text-slate-400 italic">Topshirmagan</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% empty %}
+                                    <span class="text-xs text-slate-400 italic">—</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center whitespace-nowrap">
+                                <div class="text-xs font-bold">
+                                    <span class="text-emerald-600">{{ practice.passed_count }} o‘tdi</span> / <span class="text-rose-600">{{ practice.failed_count }} o‘tmadi</span>
+                                </div>
+                                <button type="button" data-bs-toggle="modal" data-bs-target="#practiceTestResultsModal{{ practice.id }}" class="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition">
+                                    <i class="bi bi-bar-chart"></i> Natijalar ({{ practice.all_attempts|length }})
+                                </button>
+                            </td>
+                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                <button type="button" data-bs-toggle="modal" data-bs-target="#practiceTestResultsModal{{ practice.id }}" class="mr-1 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    <i class="bi bi-eye"></i> Ko‘rish
+                                </button>
+                                {% if can_manage_work_practices %}
+                                <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#practiceDeleteModal{{ practice.id }}" title="O'chirish">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+                                <i class="bi bi-archive text-3xl mb-2 block"></i>Arxivda yakunlangan stajirovkalar mavjud emas.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 3: Inbox Messages -->
+        {% if practice_inbox %}
+        <div class="tab-pane fade" id="inbox-content" role="tabpanel" aria-labelledby="inbox-tab">
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <div class="space-y-3">
+                    {% for item in practice_inbox %}
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition hover:bg-slate-50">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="text-sm font-bold text-slate-900">{{ item.message.title }}</div>
+                            <span class="inline-flex rounded-lg px-2.5 py-0.5 text-xs font-semibold {% if item.is_read %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                                {% if item.is_read %}O‘qildi{% else %}Yangi xabar{% endif %}
+                            </span>
+                        </div>
+                        <p class="mt-2 text-sm text-slate-600">{{ item.message.body }}</p>
+                        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 border-t border-slate-200/60 pt-2">
+                            <div>Amaliyot: <strong>{{ item.message.practice.name }}</strong> · Yuboruvchi: <strong>{{ item.message.sender.profile.full_name|default:item.message.sender.username }}</strong></div>
+                            <div>{{ item.message.created_at|date:"d.m.Y H:i" }}</div>
+                        </div>
+                        {% if not item.is_read %}
+                        <form method="post" action="{% url 'work-practice-message-read' item.id %}" class="mt-3">
                             {% csrf_token %}
-                            <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-300 text-emerald-700 transition hover:bg-emerald-50" title="Tugatish">
-                                <i class="bi bi-check2-circle"></i>
-                            </button>
+                            <button type="submit" class="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition">O‘qiganimni tasdiqlash</button>
                         </form>
                         {% endif %}
-                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 transition hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#practiceDeleteModal{{ practice.id }}" title="O'chirish">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        {% else %}
-                        <span class="text-xs text-slate-400">—</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="9" class="px-4 py-10 text-center text-slate-400">
-                        <i class="bi bi-inbox mb-2 block text-2xl"></i>Hozircha ish amaliyotlari yo'q
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
-
-    {% if can_monitor_work_practices and practice_dashboard.rows %}
-    <div class="mt-5 overflow-x-auto rounded-xl border border-slate-200">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                    <th class="px-4 py-3">Amaliyot</th>
-                    <th class="px-4 py-3">Bo‘lim</th>
-                    <th class="px-4 py-3 text-center">Muddat</th>
-                    <th class="px-4 py-3 text-center">Qabul</th>
-                    <th class="px-4 py-3 text-center">O‘tdi</th>
-                    <th class="px-4 py-3 text-center">O‘tmadi</th>
-                    <th class="px-4 py-3 text-center">Bosqich</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-                {% for row in practice_dashboard.rows %}
-                <tr class="hover:bg-slate-50">
-                    <td class="px-4 py-3 font-semibold text-slate-800">{{ row.practice.name }}</td>
-                    <td class="px-4 py-3 text-slate-600">{{ row.practice.section.name }}</td>
-                    <td class="px-4 py-3 text-center text-slate-600">{{ row.duration_days }} kun</td>
-                    <td class="px-4 py-3 text-center"><span class="font-bold text-emerald-600">{{ row.accepted_count }}</span><span class="text-slate-400">/{{ row.assignee_count }}</span></td>
-                    <td class="px-4 py-3 text-center font-bold text-sky-600">{{ row.passed_count }}</td>
-                    <td class="px-4 py-3 text-center font-bold text-rose-600">{{ row.failed_count }}</td>
-                    <td class="px-4 py-3 text-center"><span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">{{ row.stage }}</span></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 </div>
 
+<!-- Participant View for Workers -->
 {% if not can_manage_work_practices and not can_monitor_work_practices %}
 
 {% if participant_practices %}
 <div class="mt-6">
   <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
     <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-violet-600 text-xs"><i class="bi bi-person-workspace"></i></span>
-    Amaliyot o'tovchi sifatida
+    Amaliyot o‘tovchi sifatida biriktirilgan stajirovkalar
   </h3>
   <div class="space-y-4">
     {% for practice in participant_practices %}
@@ -212,7 +468,7 @@
             <span><i class="bi bi-play-circle mr-0.5 text-emerald-400"></i>{{ practice.start_time|date:"d.m.Y" }}</span>
             <span><i class="bi bi-stop-circle mr-0.5 text-rose-400"></i>{{ practice.end_time|date:"d.m.Y" }}</span>
             {% if practice.responsible_user %}
-            <span><i class="bi bi-person-check mr-0.5 text-sky-400"></i>Mas'ul: {{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</span>
+            <span><i class="bi bi-person-check mr-0.5 text-sky-400"></i>Ustoz: {{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</span>
             {% endif %}
           </div>
         </div>
@@ -238,7 +494,7 @@
 
       {% if practice.available_tests %}
       <div class="border-t border-amber-200 bg-amber-50 px-5 py-3">
-        <p class="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2"><i class="bi bi-journal-check mr-1"></i>Testlar</p>
+        <p class="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2"><i class="bi bi-journal-check mr-1"></i>Amaliyot yakuniy testlari</p>
         <div class="space-y-2">
           {% for test in practice.available_tests %}
           <div class="flex items-center justify-between gap-3 rounded-xl bg-white border border-amber-200 px-4 py-3">
@@ -247,8 +503,8 @@
               <p class="text-xs text-slate-400">{{ test.duration }} daq · {{ test.attempts_allowed }} urinish · {{ test.questions_count }} savol</p>
             </div>
             <a href="{% url 'companies:quiz_start' practice_pk=practice.id test_pk=test.id %}"
-               class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition whitespace-nowrap">
-              <i class="bi bi-play-fill"></i> Boshlash
+               class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition whitespace-nowrap">
+              <i class="bi bi-play-fill"></i> Testni boshlash
             </a>
           </div>
           {% endfor %}
@@ -262,7 +518,7 @@
 
       {% if practice.my_attempts %}
       <div class="border-t border-slate-100 px-5 py-3">
-        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2"><i class="bi bi-clock-history mr-1"></i>O'tilgan testlar</p>
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2"><i class="bi bi-clock-history mr-1"></i>Topshirilgan testlar</p>
         <div class="space-y-1.5">
           {% for att in practice.my_attempts %}
           <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
@@ -321,8 +577,8 @@
               <th class="px-4 py-2">Amaliyotchi</th>
               <th class="px-4 py-2">Login</th>
               <th class="px-4 py-2 text-center">Jami xabar</th>
-              <th class="px-4 py-2 text-center">O'qilgan</th>
-              <th class="px-4 py-2 text-center">O'qilmagan</th>
+              <th class="px-4 py-2 text-center">O‘qilgan</th>
+              <th class="px-4 py-2 text-center">O‘qilmagan</th>
               <th class="px-4 py-2 text-center">Rozilik</th>
             </tr>
           </thead>
@@ -360,7 +616,7 @@
           <div class="mt-2 flex flex-wrap gap-1.5">
             {% for r in msg.receipts.all %}
             <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] {% if r.is_read %}bg-emerald-100 text-emerald-700{% else %}bg-rose-100 text-rose-600{% endif %}">
-              {{ r.user.profile.full_name|default:r.user.username }}: {% if r.is_read %}o'qidi{% else %}o'qimadi{% endif %}
+              {{ r.user.profile.full_name|default:r.user.username }}: {% if r.is_read %}o‘qidi{% else %}o‘qimadi{% endif %}
             </span>
             {% endfor %}
           </div>
@@ -376,63 +632,404 @@
 
 {% endif %}
 
-{% if practice_inbox %}
-<div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4">
-    <h3 class="mb-3 text-sm font-semibold text-slate-900">Menga yuborilgan amaliyot xabarlari</h3>
-    <div class="space-y-2">
-        {% for item in practice_inbox %}
-        <div class="rounded-xl border border-slate-200 bg-white p-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="text-sm font-semibold text-slate-900">{{ item.message.title }}</div>
-                <span class="inline-flex rounded-lg px-2 py-0.5 text-xs {% if item.is_read %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
-                    {% if item.is_read %}O'qildi{% else %}Yangi{% endif %}
-                </span>
-            </div>
-            <p class="mt-1 text-sm text-slate-600">{{ item.message.body }}</p>
-            <div class="mt-2 text-xs text-slate-500">
-                Amaliyot: {{ item.message.practice.name }} | Yuboruvchi: {{ item.message.sender.profile.full_name|default:item.message.sender.username }} | {{ item.message.created_at|date:"d.m.Y H:i" }}
-            </div>
-            {% if not item.is_read %}
-            <form method="post" action="{% url 'work-practice-message-read' item.id %}" class="mt-2">
+<!-- MODALS -->
+
+<!-- Modal: Create Practice -->
+{% if can_manage_work_practices %}
+<div class="modal fade" id="practiceAddModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl">
+            <form method="post" action="{% url 'work-practices' %}">
                 {% csrf_token %}
-                <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">O'qiganimni tasdiqlash</button>
+                <div class="modal-header border-b border-slate-100 px-6 py-4">
+                    <h5 class="modal-title font-bold text-slate-900 flex items-center gap-2">
+                        <i class="bi bi-mortarboard text-violet-600"></i> Yangi ish amaliyoti (Stajirovka)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-6 py-4 space-y-4">
+                    {% if available_sections %}
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Amaliyot o‘taladigan Bo‘lim / Sex</label>
+                        <select name="section_id" class="form-control rounded-xl border border-slate-300 px-3 py-2 text-sm w-full" required>
+                            <option value="">Bo‘limni tanlang</option>
+                            {% for sec in available_sections %}
+                            <option value="{{ sec.id }}" {% if section and section.id == sec.id %}selected{% endif %}>{{ sec.name }} ({{ sec.department.name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Stajirovka nomi</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Boshlanish vaqti</label>
+                            {{ form.start_time }}
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Tugash vaqti</label>
+                            {{ form.end_time }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Mas’ul xodim / Ustoz (1 ta)</label>
+                        <select name="responsible_user" class="worker-select2 form-control" required>
+                            <option value="">Ustozni tanlang</option>
+                            {% for worker in section_workers %}
+                            <option value="{{ worker.pk }}">
+                                {{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · {{ worker.profile.position|default:worker.profile.get_role_display }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="rounded-xl border border-sky-100 bg-sky-50/70 p-3 text-xs text-sky-800">
+                        <i class="bi bi-info-circle-fill text-sky-600 mr-1.5"></i>
+                        Stajirovka yaratilgach, <strong>"Amaliyotchi biriktirish"</strong> (<i class="bi bi-person-plus text-sky-600"></i>) orqali xodimlarni yoki yangi bo‘lim boshliqlarini amaliyotchi sifatida biriktirasiz.
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Izoh va dastur yo‘nalishi</label>
+                        {{ form.notes }}
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-100 px-6 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2 text-xs font-bold text-white hover:bg-violet-700 transition shadow-sm">
+                        <i class="bi bi-check-lg"></i> Yaratish va Saqlash
+                    </button>
+                </div>
             </form>
-            {% endif %}
         </div>
-        {% endfor %}
     </div>
 </div>
 {% endif %}
 
-{% if practices %}
+<!-- Per Practice Modals (Assign, Tests, Edit, Delete, Test Results, Messages) -->
 {% for practice in practices %}
+
+<!-- Modal: Assign Trainees -->
+<div class="modal fade" id="practiceAssignModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl">
+            <form method="post" action="{% url 'work-practice-assign-workers' practice.id %}">
+                {% csrf_token %}
+                <div class="modal-header border-b border-slate-100 px-6 py-4">
+                    <h5 class="modal-title font-bold text-slate-900 flex items-center gap-2">
+                        <i class="bi bi-people text-sky-600"></i> Amaliyotchi biriktirish: {{ practice.name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-6 py-4 space-y-3">
+                    <p class="text-xs text-slate-500">
+                        Ushbu stajirovkada o‘qitiladigan ishchilar yoki bo‘lim boshliqlarini tanlang:
+                    </p>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">Amaliyotchilar ro‘yxati</label>
+                    <select name="workers" class="worker-select2 form-control" multiple data-selected-workers="{% for a in practice.assignees.all %}{{ a.user_id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+                        {% for worker in practice.eligible_workers|default:section_workers %}
+                        {% if worker.pk != practice.responsible_user_id %}
+                        <option value="{{ worker.pk }}"{% for a in practice.assignees.all %}{% if a.user_id == worker.pk %} selected{% endif %}{% endfor %}>
+                            {{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · [{{ worker.profile.get_role_display }}]
+                        </option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer border-t border-slate-100 px-6 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-sky-600 px-5 py-2 text-xs font-bold text-white hover:bg-sky-700 transition shadow-sm">Biriktirishni saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Assign Tests -->
+<div class="modal fade" id="practiceTestModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl">
+            <form method="post" action="{% url 'work-practice-assign-tests' practice.id %}">
+                {% csrf_token %}
+                <div class="modal-header border-b border-slate-100 px-6 py-4">
+                    <h5 class="modal-title font-bold text-slate-900 flex items-center gap-2">
+                        <i class="bi bi-journal-check text-violet-600"></i> Testlarni biriktirish: {{ practice.name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-6 py-4 space-y-3">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600">Ushbu bo‘limdagi mavjud nazorat testlari</label>
+                    <div class="space-y-2 max-h-60 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50">
+                        {% for test in practice.eligible_tests|default:section_tests %}
+                        <label class="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-200 cursor-pointer hover:bg-violet-50/40 transition">
+                            <input type="checkbox" name="test_ids" value="{{ test.id }}" class="w-4 h-4 text-violet-600 rounded border-slate-300"
+                                   {% if test in practice.assigned_tests %}checked{% endif %} />
+                            <div class="min-w-0">
+                                <div class="text-sm font-semibold text-slate-800">{{ test.name }}</div>
+                                <div class="text-xs text-slate-400">{{ test.questions_count }} ta savol · {{ test.duration }} daqiqa</div>
+                            </div>
+                        </label>
+                        {% empty %}
+                        <div class="text-xs text-slate-500 py-3 text-center">
+                            Bo‘limda testlar mavjud emas. <br>
+                            <a href="{% url 'companies:test_list' %}" class="text-violet-600 font-bold hover:underline mt-1 inline-block">Testlar boshqaruvi</a> orqali yangi test yarating.
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-100 px-6 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-violet-600 px-5 py-2 text-xs font-bold text-white hover:bg-violet-700 transition shadow-sm">Biriktirish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Practice Test Results (Detailed view of attempts and trainee progress) -->
+<div class="modal fade" id="practiceTestResultsModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl overflow-hidden">
+            <div class="modal-header bg-slate-50 border-b border-slate-200 px-6 py-4">
+                <div>
+                    <h5 class="modal-title font-bold text-slate-900 flex items-center gap-2">
+                        <i class="bi bi-bar-chart-line text-violet-600"></i> {{ practice.name }} — Test natijalari va monitoring
+                    </h5>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Bo‘lim: <strong>{{ practice.section.name }}</strong> | Mas’ul ustoz: <strong>{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</strong>
+                    </p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-6 space-y-5">
+                <!-- Summary bar -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
+                        <div class="text-xs font-semibold text-slate-500 uppercase">Jami amaliyotchi</div>
+                        <div class="text-xl font-black text-slate-800">{{ practice.assignee_count }}</div>
+                    </div>
+                    <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                        <div class="text-xs font-semibold text-emerald-700 uppercase">Qabul qilingan</div>
+                        <div class="text-xl font-black text-emerald-700">{{ practice.accepted_assignee_count }}</div>
+                    </div>
+                    <div class="rounded-xl border border-sky-100 bg-sky-50 p-3 text-center">
+                        <div class="text-xs font-semibold text-sky-700 uppercase">Testdan o‘tgan</div>
+                        <div class="text-xl font-black text-sky-700">{{ practice.passed_count }}</div>
+                    </div>
+                    <div class="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center">
+                        <div class="text-xs font-semibold text-rose-700 uppercase">Testdan o‘tolmagan</div>
+                        <div class="text-xl font-black text-rose-700">{{ practice.failed_count }}</div>
+                    </div>
+                </div>
+
+                <!-- Assigned tests list -->
+                <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5">
+                        <i class="bi bi-card-checklist text-violet-600"></i> Amaliyotga biriktirilgan nazorat testlari:
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for test in practice.assigned_tests %}
+                        <span class="inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 px-3 py-1 text-xs font-medium text-slate-800 shadow-sm">
+                            <i class="bi bi-check2 text-emerald-600"></i> {{ test.name }} ({{ test.duration }} daq / {{ test.questions_count }} savol)
+                        </span>
+                        {% empty %}
+                        <span class="text-xs text-slate-400 italic">Test biriktirilmagan</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Per Trainee breakdown table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3">Amaliyotchi</th>
+                                <th class="px-4 py-3">Lavozimi / Roli</th>
+                                <th class="px-4 py-3 text-center">Ustoz tasdig‘i</th>
+                                <th class="px-4 py-3 text-center">Eng yaxshi natija</th>
+                                <th class="px-4 py-3">Barcha urinishlar</th>
+                                <th class="px-4 py-3 text-center">Holati</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            {% for item in practice.enriched_assignees %}
+                            <tr class="hover:bg-slate-50/80 align-top">
+                                <td class="px-4 py-3 font-semibold text-slate-900">
+                                    {{ item.user.profile.full_name|default:item.user.username }}
+                                    <div class="text-xs text-slate-400 font-normal">@{{ item.user.username }}</div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    {% if item.is_section_admin %}
+                                    <span class="inline-flex rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">Bo‘lim boshlig‘i</span>
+                                    {% else %}
+                                    <span class="inline-flex rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Xodim</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    {% if item.accepted_by_responsible %}
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                                        <i class="bi bi-check2-circle"></i> Qabul qilingan
+                                    </span>
+                                    {% else %}
+                                    <form method="post" action="{% url 'work-practice-assignee-accept' item.id %}" class="inline-block">
+                                        {% csrf_token %}
+                                        <button type="submit" class="rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-amber-600 transition shadow-sm">
+                                            Qabul qilish
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    {% if item.best_attempt %}
+                                    <div class="text-base font-black {% if item.has_passed %}text-emerald-600{% else %}text-rose-600{% endif %}">
+                                        {{ item.best_attempt.score }}%
+                                    </div>
+                                    <div class="text-[10px] text-slate-400">{{ item.best_attempt.finished_at|date:"d.m.Y H:i" }}</div>
+                                    {% else %}
+                                    <span class="text-xs text-slate-400 italic">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {% if item.attempts %}
+                                    <div class="space-y-1">
+                                        {% for att in item.attempts %}
+                                        <div class="flex items-center justify-between gap-2 text-xs rounded bg-slate-50 px-2 py-1 border border-slate-100">
+                                            <span class="font-medium text-slate-700 truncate max-w-[150px]">{{ att.test.name }}</span>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-bold {% if att.score >= 60 %}text-emerald-600{% else %}text-rose-600{% endif %}">{{ att.score }}%</span>
+                                                <span class="text-[10px] text-slate-400">{{ att.started_at|date:"d.m H:i" }}</span>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-xs text-slate-400 italic">Urinishlar yo‘q</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    {% if item.has_passed %}
+                                    <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-800">
+                                        <i class="bi bi-shield-check mr-1 text-emerald-600"></i> O‘tdi
+                                    </span>
+                                    {% elif item.best_attempt %}
+                                    <span class="inline-flex rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-800">
+                                        <i class="bi bi-shield-x mr-1 text-rose-600"></i> O‘tmadi
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+                                        Kutilmoqda
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="px-4 py-6 text-center text-slate-400 italic">Amaliyotchi biriktirilmagan</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-slate-50 border-t border-slate-200 px-6 py-4">
+                <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-white" data-bs-dismiss="modal">Yopish</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Practice -->
+<div class="modal fade" id="practiceEditModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl">
+            <form method="post" action="{% url 'work-practice-edit' practice.id %}">
+                {% csrf_token %}
+                <div class="modal-header border-b border-slate-100 px-6 py-4">
+                    <h5 class="modal-title font-bold text-slate-900 flex items-center gap-2">
+                        <i class="bi bi-pencil-square text-amber-500"></i> Tahrirlash: {{ practice.name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-6 py-4 space-y-3">
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Nomi</label>
+                        <input type="text" name="name" value="{{ practice.name }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Boshlanish vaqti</label>
+                            <input type="datetime-local" name="start_time" value="{{ practice.start_time|date:"Y-m-d" }}T{{ practice.start_time|date:"H:i" }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Tugash vaqti</label>
+                            <input type="datetime-local" name="end_time" value="{{ practice.end_time|date:"Y-m-d" }}T{{ practice.end_time|date:"H:i" }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Izoh</label>
+                        <textarea name="notes" rows="3" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">{{ practice.notes }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-100 px-6 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-amber-500 px-5 py-2 text-xs font-bold text-white hover:bg-amber-600 transition shadow-sm">Yangilash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Delete Practice -->
+<div class="modal fade" id="practiceDeleteModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl">
+            <div class="modal-header border-b border-slate-100 px-6 py-4">
+                <h5 class="modal-title font-bold text-slate-900">O‘chirishni tasdiqlash</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-6 py-4 text-sm text-slate-700">
+                <strong>{{ practice.name }}</strong> stajirovkasi va unga tegishli barcha biriktiruvlar tizimdan o‘chirilsinmi?
+            </div>
+            <div class="modal-footer border-t border-slate-100 px-6 py-4">
+                <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                <form method="post" action="{% url 'work-practice-delete' practice.id %}" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white hover:bg-rose-700 transition shadow-sm">Ha, o‘chirish</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Send Message -->
 {% if practice.is_responsible %}
 <div class="modal fade" id="practiceMsgModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
+        <div class="modal-content border-0 rounded-2xl shadow-2xl">
             <form method="post" action="{% url 'work-practice-send-message' practice.id %}">
                 {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Xabar yuborish: {{ practice.name }}</h5>
+                <div class="modal-header border-b border-slate-100 px-6 py-4">
+                    <h5 class="modal-title font-bold text-slate-900 flex items-center gap-2">
+                        <i class="bi bi-chat-left-dots text-sky-600"></i> Xabar yuborish: {{ practice.name }}
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body space-y-3">
+                <div class="modal-body px-6 py-4 space-y-4">
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Xabar</label>
-                        <textarea name="body" rows="4" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required></textarea>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Xabar matni</label>
+                        <textarea name="body" rows="4" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Topshiriq yoki ko‘rsatmalarni yozing..." required></textarea>
                     </div>
                     <div class="grid gap-2 sm:grid-cols-2">
-                        <label class="inline-flex items-center gap-2 text-sm">
-                            <input type="radio" name="recipient_scope" value="all" checked />
-                            Hammasiga yuborish
+                        <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="radio" name="recipient_scope" value="all" checked class="text-sky-600" />
+                            Barcha amaliyotchilarga yuborish
                         </label>
-                        <label class="inline-flex items-center gap-2 text-sm">
-                            <input type="radio" name="recipient_scope" value="selected" />
+                        <label class="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="radio" name="recipient_scope" value="selected" class="text-sky-600" />
                             Tanlanganlarga yuborish
                         </label>
                     </div>
                     <div class="recipient-select-wrap hidden">
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Amaliyotchilar</label>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Amaliyotchilar</label>
                         <select name="recipient_ids" class="worker-select2 form-control" multiple>
                             {% for trainee in practice.assignees.all %}
                             {% if trainee.accepted_by_responsible %}
@@ -442,200 +1039,17 @@
                         </select>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
-                    <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">Yuborish</button>
+                <div class="modal-footer border-t border-slate-100 px-6 py-4">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-sky-600 px-5 py-2 text-xs font-bold text-white hover:bg-sky-700 transition shadow-sm">Yuborish</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 {% endif %}
+
 {% endfor %}
-{% endif %}
-
-{% if can_manage_work_practices %}
-<div class="modal fade" id="practiceAddModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <form method="post" action="{% url 'work-practices' %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Yangi ish amaliyoti (Stajirovka)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body space-y-3">
-                    {% if available_sections %}
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'lim (Sex / Tuzilma)</label>
-                        <select name="section_id" class="form-control rounded-xl border border-slate-300 px-3 py-2 text-sm w-full" required>
-                            <option value="">Bo'limni tanlang</option>
-                            {% for sec in available_sections %}
-                            <option value="{{ sec.id }}" {% if section and section.id == sec.id %}selected{% endif %}>{{ sec.name }} ({{ sec.department.name }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% endif %}
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
-                        {{ form.name }}
-                    </div>
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish vaqti</label>
-                            {{ form.start_time }}
-                        </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Tugash vaqti</label>
-                            {{ form.end_time }}
-                        </div>
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Mas'ul xodim / Ustoz (1 ta)</label>
-                        <select name="responsible_user" class="worker-select2 form-control" required>
-                            <option value="">Mas'ulni tanlang</option>
-                            {% for worker in section_workers %}
-                            <option value="{{ worker.pk }}">{{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · {{ worker.profile.position|default:worker.profile.get_role_display }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <p class="mt-1 text-xs text-slate-500 bg-blue-50 p-3 rounded-lg border border-blue-100"><i class="bi bi-info-circle text-blue-500 mr-1"></i>Amaliyot yaratilgach, ro'yxatdagi <strong>"Amaliyotchi biriktirish"</strong> (<i class="bi bi-person-plus text-sky-500"></i>) orqali xodimlarni yoki yangi bo'lim boshliqlarini biriktirasiz. Test qo'shish uchun esa <strong>"Test biriktirish"</strong> (<i class="bi bi-journal-check text-violet-500"></i>) tugmasini bosing.</p>
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Izoh</label>
-                        {{ form.notes }}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
-                    <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
-                        <i class="bi bi-send"></i> Yaratish
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-{% for practice in practices %}
-<div class="modal fade" id="practiceAssignModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <form method="post" action="{% url 'work-practice-assign-workers' practice.id %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Amaliyotchi biriktirish: {{ practice.name }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <label class="mb-1.5 mt-3 block text-sm font-medium text-slate-700">Amaliyot o'tovchilar (Xodimlar va Bo'lim boshliqlari)</label>
-                    <select name="workers" class="worker-select2 form-control" multiple data-selected-workers="{% for a in practice.assignees.all %}{{ a.user_id }}{% if not forloop.last %},{% endif %}{% endfor %}">
-                        {% for worker in practice.eligible_workers|default:section_workers %}
-                        {% if worker.pk != practice.responsible_user_id %}
-                        <option value="{{ worker.pk }}"{% for a in practice.assignees.all %}{% if a.user_id == worker.pk %} selected{% endif %}{% endfor %}>
-                            {{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · {{ worker.profile.position|default:worker.profile.get_role_display }}
-                        </option>
-                        {% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
-                    <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">Saqlash</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="practiceTestModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" action="{% url 'work-practice-assign-tests' practice.id %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Testlarni biriktirish: {{ practice.name }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body space-y-3">
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Bo'limdagi mavjud testlar</label>
-                    <div class="space-y-2 max-h-60 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50">
-                        {% for test in practice.eligible_tests|default:section_tests %}
-                        <label class="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-50 transition">
-                            <input type="checkbox" name="test_ids" value="{{ test.id }}" class="w-4 h-4 text-violet-600 rounded border-slate-300"
-                                   {% if test in practice.assigned_tests %}checked{% endif %} />
-                            <div class="text-sm font-medium text-slate-800">{{ test.name }}</div>
-                        </label>
-                        {% empty %}
-                        <div class="text-xs text-slate-500">Bo'limda testlar mavjud emas. Avval <a href="{% url 'companies:test_list' %}" class="text-violet-600 font-bold">Test boshqaruvi</a> orqali test yarating.</div>
-                        {% endfor %}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
-                    <button type="submit" class="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">Saqlash</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="practiceEditModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <form method="post" action="{% url 'work-practice-edit' practice.id %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title">Tahrirlash: {{ practice.name }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body space-y-3">
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Nomi</label>
-                        <input type="text" name="name" value="{{ practice.name }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
-                    </div>
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish vaqti</label>
-                            <input type="datetime-local" name="start_time" value="{{ practice.start_time|date:"Y-m-d" }}T{{ practice.start_time|date:"H:i" }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
-                        </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium text-slate-700">Tugash vaqti</label>
-                            <input type="datetime-local" name="end_time" value="{{ practice.end_time|date:"Y-m-d" }}T{{ practice.end_time|date:"H:i" }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
-                        </div>
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Izoh</label>
-                        <textarea name="notes" rows="3" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">{{ practice.notes }}</textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
-                    <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white">Yangilash</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="practiceDeleteModal{{ practice.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">O'chirish</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-            <div class="modal-body text-sm text-slate-700"><strong>{{ practice.name }}</strong> o'chirilsinmi?</div>
-            <div class="modal-footer">
-                <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-sm" data-bs-dismiss="modal">Bekor</button>
-                <form method="post" action="{% url 'work-practice-delete' practice.id %}" class="m-0">
-                    {% csrf_token %}
-                    <button type="submit" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white">Ha, o'chirish</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
-{% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
@@ -651,7 +1065,7 @@
                 const modal = $el.closest('.modal');
                 $el.select2({
                     width: '100%',
-                    placeholder: 'Xodimlarni qidiring va tanlang',
+                    placeholder: 'Qidiring va tanlang...',
                     allowClear: true,
                     closeOnSelect: false,
                     dropdownParent: modal.length ? modal : jQuery('body'),
