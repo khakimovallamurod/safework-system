@@ -49,6 +49,30 @@ def check_and_block_employee(employee):
             profile.save()
 
 
+def get_allowed_employees_for_user(user):
+    """
+    Foydalanuvchi o'ziga qarashli tashkilot, boshqarma yoki bo'lim xodimlarinigina boshqara oladi.
+    Begona tashkilot xodimlari ustidan amallar bajarish taqiqlanadi (IDOR himoyasi).
+    """
+    if user.is_superuser:
+        return User.objects.all()
+
+    profile = getattr(user, 'profile', None)
+    if not profile:
+        return User.objects.none()
+
+    if profile.role == UserProfile.ROLE_ORG_LEADER:
+        return User.objects.filter(
+            Q(profile__organization_id=profile.id) | Q(profile__organization=profile) | Q(id=user.id)
+        )
+    elif profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN and profile.department_id:
+        return User.objects.filter(profile__department_id=profile.department_id)
+    elif profile.role == UserProfile.ROLE_SECTION_ADMIN and profile.section_id:
+        return User.objects.filter(profile__section_id=profile.section_id)
+
+    return User.objects.none()
+
+
 @login_required
 def violations_dashboard(request):
     profile = getattr(request.user, 'profile', None)
@@ -64,13 +88,19 @@ def violations_dashboard(request):
     selected_industry = request.GET.get('industry', '')
     
     # Filter based on roles
-    if profile:
-        if profile.role == UserProfile.ROLE_ORG_LEADER and profile.organization_id:
-            employees = employees.filter(organization_id=profile.organization_id)
+    if request.user.is_superuser:
+        pass
+    elif profile:
+        if profile.role == UserProfile.ROLE_ORG_LEADER:
+            employees = employees.filter(Q(organization_id=profile.id) | Q(id=profile.id))
         elif profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN and profile.department_id:
             employees = employees.filter(department_id=profile.department_id)
         elif profile.role == UserProfile.ROLE_SECTION_ADMIN and profile.section_id:
             employees = employees.filter(section_id=profile.section_id)
+        else:
+            employees = employees.none()
+    else:
+        employees = employees.none()
 
     if selected_industry:
         employees = employees.filter(industry_id=selected_industry)
@@ -157,31 +187,33 @@ def create_violation(request):
         return redirect('violations:dashboard')
 
     if request.method == 'POST':
-        employee_id = request.POST.get('employee_id')
+        employee_ids = request.POST.getlist('employee_ids')
+        if not employee_ids:
+            emp_id = request.POST.get('employee_id')
+            if emp_id:
+                employee_ids = [emp_id]
+
         v_type = request.POST.get('violation_type')
         reason = request.POST.get('reason')
         date_str = request.POST.get('date')
         image = request.FILES.get('image')
-        
-        try:
-            employee = User.objects.get(id=employee_id)
-            v_type_obj = ViolationType.objects.get(id=v_type)
-            v = Violation.objects.create(
-                employee=employee,
-                issued_by=request.user,
-                violation_type=v_type_obj,
-                reason=reason,
-                date=date_str if date_str else timezone.now().date(),
-                image=image
-            )
 
-            # Nechanchi faol ogohlantirish ekanligini aniqlash
-            thirty_days_ago = timezone.now().date() - datetime.timedelta(days=30)
-            recent_count = Violation.objects.filter(
-                employee=employee,
-                date__gte=thirty_days_ago,
-                is_active=True
-            ).count()
+        if not employee_ids:
+            messages.error(request, "Hech bo‘lmaganda bitta xodimni tanlang.")
+            return redirect('violations:dashboard')
+
+        try:
+            if image:
+                from core.validators import validate_file_security, validate_image_extension
+                validate_file_security(image)
+                validate_image_extension(image)
+
+            v_type_obj = ViolationType.objects.get(id=v_type)
+            allowed_users = get_allowed_employees_for_user(request.user)
+            employees = list(allowed_users.filter(id__in=employee_ids).select_related('profile', 'profile__section', 'profile__department'))
+            if not employees:
+                messages.error(request, "Tanlangan xodim(lar) sizning tashkilotingizga tegishli emas yoki topilmadi.")
+                return redirect('violations:dashboard')
 
             issuer_profile = getattr(request.user, 'profile', None)
             issuer_name = (issuer_profile.full_name if issuer_profile and issuer_profile.full_name else request.user.username)
@@ -194,30 +226,61 @@ def create_violation(request):
             else:
                 issuer_title = "Mas'ul xodim"
 
-            emp_profile = getattr(employee, 'profile', None)
-            emp_name = (emp_profile.full_name if emp_profile and emp_profile.full_name else employee.username)
-            emp_section = getattr(emp_profile, 'section', None)
-            emp_dept = getattr(emp_profile, 'department', None)
+            date_val = date_str if date_str else timezone.now().date()
+            saved_image = None
+            created_count = 0
 
-            detail_url = f"/violations/employee/{employee.id}/"
-            notif_title = f"Qoidabuzarlik: {recent_count}-ogohlantirish"
-            notif_msg = f"{issuer_title} ({issuer_name}) ishchi {emp_name}ga qoidabuzarlik bo‘yicha {recent_count}-ogohlantirish yubordi: «{v_type_obj.name}»."
+            for idx, employee in enumerate(employees):
+                v_image = image if idx == 0 else (saved_image if saved_image else None)
+                v = Violation.objects.create(
+                    employee=employee,
+                    issued_by=request.user,
+                    violation_type=v_type_obj,
+                    reason=reason,
+                    date=date_val,
+                    image=v_image
+                )
+                if idx == 0 and v.image:
+                    saved_image = v.image
 
-            send_action_notification(
-                title=notif_title,
-                message=notif_msg,
-                notif_type='violation',
-                url=detail_url,
-                section=emp_section,
-                department=emp_dept,
-                target_users=[employee]
-            )
+                created_count += 1
 
-            messages.success(request, "Qoidabuzarlik muvaffaqiyatli saqlandi.")
-            check_and_block_employee(employee)
+                # Nechanchi faol ogohlantirish ekanligini aniqlash
+                thirty_days_ago = timezone.now().date() - datetime.timedelta(days=30)
+                recent_count = Violation.objects.filter(
+                    employee=employee,
+                    date__gte=thirty_days_ago,
+                    is_active=True
+                ).count()
+
+                emp_profile = getattr(employee, 'profile', None)
+                emp_name = (emp_profile.full_name if emp_profile and emp_profile.full_name else employee.username)
+                emp_section = getattr(emp_profile, 'section', None)
+                emp_dept = getattr(emp_profile, 'department', None)
+
+                detail_url = f"/violations/employee/{employee.id}/"
+                notif_title = f"Qoidabuzarlik: {recent_count}-ogohlantirish"
+                notif_msg = f"{issuer_title} ({issuer_name}) ishchi {emp_name}ga qoidabuzarlik bo‘yicha {recent_count}-ogohlantirish yubordi: «{v_type_obj.name}»."
+
+                send_action_notification(
+                    title=notif_title,
+                    message=notif_msg,
+                    notif_type='violation',
+                    url=detail_url,
+                    section=emp_section,
+                    department=emp_dept,
+                    target_users=[employee]
+                )
+                check_and_block_employee(employee)
+
+            if created_count == 1:
+                messages.success(request, f"{employees[0].profile.full_name or employees[0].username} uchun qoidabuzarlik muvaffaqiyatli saqlandi.")
+            else:
+                messages.success(request, f"{created_count} nafar xodim uchun qoidabuzarlik muvaffaqiyatli saqlandi.")
+
         except Exception as e:
             messages.error(request, f"Xatolik yuz berdi: {str(e)}")
-            
+
     return redirect('violations:dashboard')
 
 
@@ -232,9 +295,15 @@ def unblock_employee(request, employee_id):
         explanation_text = request.POST.get('explanation_text')
         file = request.FILES.get('file')
         
-        employee = get_object_or_404(User, id=employee_id)
+        allowed_users = get_allowed_employees_for_user(request.user)
+        employee = get_object_or_404(allowed_users, id=employee_id)
         
         try:
+            if file:
+                from core.validators import validate_file_security, validate_document_extension
+                validate_file_security(file)
+                validate_document_extension(file)
+
             ExplanationLetter.objects.create(
                 employee=employee,
                 unblocked_by=request.user,
@@ -292,7 +361,8 @@ def employee_violations_detail(request, employee_id):
         messages.error(request, "Sizda bu sahifani ko'rish huquqi yo'q.")
         return redirect('violations:dashboard')
 
-    employee = get_object_or_404(User, id=employee_id)
+    allowed_users = get_allowed_employees_for_user(request.user)
+    employee = get_object_or_404(allowed_users, id=employee_id)
     violations = Violation.objects.filter(employee=employee).select_related('violation_type', 'issued_by').order_by('-date', '-created_at')
     letters = ExplanationLetter.objects.filter(employee=employee).select_related('unblocked_by').order_by('-created_at')
     

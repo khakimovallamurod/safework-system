@@ -22,7 +22,41 @@
     <!-- Favicon (Google qidiruv va brauzerlar uchun) -->
     <link rel="icon" href="{% static 'images/favicon.ico' %}" sizes="any" />
     <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon" />
-    <link rel="apple-touch-icon" href="{% static 'images/favicon.ico' %}" />
+    <!-- DevTools / Performance Live Metrics & Soft Navigation Compatibility Shield -->
+    <script>
+        (function() {
+            // 1. Prevent Chrome DevTools Live Metrics INP crash on Soft Navigations (where t.entries[0] is undefined)
+            try {
+                Object.defineProperty(window, 'devToolsReportSoftNavs', {
+                    configurable: true,
+                    enumerable: false,
+                    get: function () { return false; },
+                    set: function () {}
+                });
+            } catch (e) {}
+
+            // 2. Global guard to prevent unhandled TypeError from DevTools / web-vitals internal INP reporter
+            window.addEventListener('error', function (event) {
+                if (event && (
+                    (event.message && event.message.indexOf("reading 'startTime'") !== -1) ||
+                    (event.error && event.error.message && event.error.message.indexOf("reading 'startTime'") !== -1)
+                )) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    return true;
+                }
+            }, true);
+
+            // 3. Suppress Tailwind CDN production notice in console
+            var origWarn = console.warn;
+            console.warn = function () {
+                if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].indexOf('cdn.tailwindcss.com should not be used in production') !== -1) {
+                    return;
+                }
+                origWarn.apply(console, arguments);
+            };
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -172,15 +206,26 @@
         }
 
         .btn-close {
-            background: transparent;
-            border: 0;
+            box-sizing: content-box;
+            width: 1rem;
+            height: 1rem;
+            padding: 0.35rem;
             color: #64748b;
+            background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1rem auto no-repeat;
+            border: 0;
+            border-radius: 0.5rem;
+            opacity: 0.7;
             cursor: pointer;
-            font-size: 1rem;
-            line-height: 1;
+            transition: opacity .15s ease-in-out, transform .15s ease-in-out, background-color .15s ease;
         }
-
-        .btn-close::before { content: '✕'; }
+        .btn-close:hover {
+            opacity: 1;
+            background-color: #f1f5f9;
+        }
+        .btn-close:focus {
+            outline: 0;
+            opacity: 1;
+        }
 
         .modal-backdrop {
             position: fixed;
@@ -371,10 +416,6 @@
             body {
                 padding-bottom: calc(70px + env(safe-area-inset-bottom));
             }
-            
-            #mobile-menu-btn {
-                display: none !important;
-            }
         }
 
         /* Bottom Navigation */
@@ -421,10 +462,63 @@
             color: #10B981;
         }
 
+        /* Instant Navigation Progress Bar & Page Transitions */
+        #instant-page-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #059669, #3b82f6);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+            z-index: 999999;
+            pointer-events: none;
+            opacity: 0;
+            transition: width 0.22s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.2s ease;
+        }
+        #instant-page-progress.animating {
+            opacity: 1;
+        }
+
+        .instant-fade-in {
+            animation: instantFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes instantFadeIn {
+            from {
+                opacity: 0.88;
+                transform: translateY(2px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .spa-transition-out {
+            opacity: 0.15;
+            transition: opacity 0.1s ease-out;
+        }
+        .spa-transition-in {
+            animation: spaFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes spaFadeIn {
+            0% {
+                opacity: 0.2;
+                transform: translateY(4px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
     </style>
+    <!-- SPA_PAGE_HEAD_START -->
     {% block head %}{% endblock %}
+    <!-- SPA_PAGE_HEAD_END -->
 </head>
 <body class="overflow-hidden bg-slate-100 text-slate-900 antialiased{% if worker_entry_guideline_locked %} worker-entry-guideline-locked{% endif %}">
+<div id="instant-page-progress"></div>
 <div class="app-shell flex h-[100dvh] w-full overflow-hidden">
     <aside id="app-sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 -translate-x-full flex-col overflow-hidden border-r border-slate-700/40 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-100 shadow-xl lg:static lg:translate-x-0">
         <div class="flex items-center border-b border-slate-700/60 px-5 py-5">
@@ -978,25 +1072,28 @@
     <div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-slate-950/50 lg:hidden"></div>
 
     <div id="main-wrap" class="flex h-full min-w-0 flex-1 flex-col {% if request.resolver_match.url_name == 'section-member-messages' %}overflow-hidden pb-[60px] lg:pb-0{% else %}overflow-y-auto{% endif %} overflow-x-hidden relative">
-        <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:px-6">
-            <div class="flex items-center justify-between gap-3">
+        <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-3 py-2.5 sm:px-4 sm:py-3 backdrop-blur lg:px-6">
+            <div class="flex items-center justify-between gap-2 sm:gap-3">
                 <div class="flex min-w-0 items-center gap-2 lg:gap-3">
-                    <button class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-slate-100 lg:hidden" id="mobile-menu-btn" type="button">
-                        <i class="bi bi-list text-lg"></i>
+                    <button class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 lg:hidden" id="mobile-menu-btn" type="button" aria-label="Menyu">
+                        <i class="bi bi-list text-xl"></i>
                     </button>
-                    <button class="hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 transition hover:bg-slate-100 lg:inline-flex" id="desktop-menu-btn" type="button" title="Sidebarni yopish/ochish">
+                    <button class="hidden h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-100 lg:inline-flex" id="desktop-menu-btn" type="button" title="Sidebarni yopish/ochish">
                         <i id="desktop-menu-icon" class="bi bi-layout-sidebar-inset"></i>
                     </button>
                     <div class="min-w-0">
-                        <div class="truncate text-sm font-semibold text-slate-900 lg:text-base">Boshqaruv paneli</div>
+                        <div class="truncate text-xs sm:text-sm font-bold text-slate-900 lg:text-base">
+                            <span class="inline-block text-emerald-600 font-extrabold mr-1">SOPLINE</span>
+                            <span class="text-slate-500 font-normal hidden xs:inline">| Boshqaruv</span>
+                        </div>
                     </div>
                 </div>
 
                 {% if request.user.is_authenticated %}
-                <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
                     <!-- Notifications -->
-                    <a href="{% url 'notifications' %}" class="relative flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:bg-slate-50 hover:text-emerald-600">
-                        <i class="bi bi-bell text-lg"></i>
+                    <a href="{% url 'notifications' %}" class="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:bg-slate-50 hover:text-emerald-600">
+                        <i class="bi bi-bell text-base sm:text-lg"></i>
                         {% if unread_notifications_count %}
                         <span class="absolute -right-1 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
                             {{ unread_notifications_count }}
@@ -1006,26 +1103,26 @@
 
                     <!-- User Dropdown -->
                     <div class="relative" id="profile-dropdown-container">
-                        <button type="button" id="profile-dropdown-btn" onclick="toggleProfileDropdown()" class="header-user-strip flex shrink-0 items-stretch overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:bg-slate-50 transition">
-                            <div class="flex items-center gap-1.5 border-r border-slate-100 bg-slate-50/80 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 sm:px-3 hidden sm:flex">
+                        <button type="button" id="profile-dropdown-btn" onclick="toggleProfileDropdown()" class="header-user-strip flex shrink-0 items-center rounded-xl sm:rounded-2xl border border-slate-200/90 bg-white p-1 sm:p-0 shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-1.5 border-r border-slate-100 bg-slate-50/80 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 sm:px-3 hidden md:flex">
                                 <i class="bi bi-calendar3 shrink-0 text-slate-400"></i>
                                 <span class="whitespace-nowrap">{% now "d.m.Y" %}</span>
                             </div>
-                            <div class="flex items-center justify-center px-2 py-1 pl-3">
+                            <div class="flex items-center justify-center sm:px-2 sm:py-1 sm:pl-3">
                                 {% if profile_photo_url %}
-                                    <img src="{{ profile_photo_url }}" alt="" class="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-emerald-100 sm:h-9 sm:w-9" />
+                                    <img src="{{ profile_photo_url }}" alt="" class="h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-full object-cover ring-2 ring-emerald-100" />
                                 {% else %}
-                                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-xs font-bold text-white ring-2 ring-emerald-100 sm:h-9 sm:w-9 sm:text-sm">
+                                    <span class="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-[11px] sm:text-xs font-bold text-white ring-2 ring-emerald-100">
                                         {{ profile_display_name|default:request.user.username|slice:":1"|upper }}
                                     </span>
                                 {% endif %}
                             </div>
-                            <div class="flex min-w-0 max-w-[7.5rem] flex-col justify-center px-2.5 py-1 text-left sm:max-w-[10rem] sm:px-3">
-                                <p class="truncate text-[9px] font-semibold uppercase leading-tight tracking-wide text-emerald-600 sm:text-[10px]">{{ role_name|default:'Foydalanuvchi' }}</p>
-                                <p class="truncate text-xs font-semibold leading-snug text-slate-900 sm:text-sm">{{ profile_short_name|default:request.user.username }}</p>
+                            <div class="hidden sm:flex min-w-0 max-w-[8rem] md:max-w-[10rem] flex-col justify-center px-2 py-1 text-left">
+                                <p class="truncate text-[9px] font-semibold uppercase leading-tight tracking-wide text-emerald-600">{{ role_name|default:'Foydalanuvchi' }}</p>
+                                <p class="truncate text-xs font-semibold leading-snug text-slate-900">{{ profile_short_name|default:request.user.username }}</p>
                             </div>
-                            <div class="flex items-center justify-center pr-3 pl-1 text-slate-400">
-                                <i class="bi bi-chevron-down text-xs"></i>
+                            <div class="flex items-center justify-center px-1 sm:pr-3 sm:pl-1 text-slate-400">
+                                <i class="bi bi-chevron-down text-[10px] sm:text-xs"></i>
                             </div>
                         </button>
                         
@@ -1065,7 +1162,7 @@
         });
         </script>
 
-        <main class="w-full min-w-0 flex-1 min-h-0 {% if request.resolver_match.url_name == 'section-member-messages' %}p-0 flex flex-col overflow-hidden{% else %}overflow-x-hidden px-4 py-5 lg:px-6 lg:py-6{% endif %}">
+        <main class="w-full min-w-0 flex-1 min-h-0 instant-fade-in pb-24 lg:pb-6 {% if request.resolver_match.url_name == 'section-member-messages' %}p-0 flex flex-col overflow-hidden{% else %}overflow-x-hidden px-3.5 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6{% endif %}">
             {% if messages %}
                 <div id="django-messages" class="hidden">
                     {% for message in messages %}
@@ -1101,6 +1198,16 @@
     <a href="{% url 'entry-guidelines' %}" class="bottom-nav-item {% if 'entry-guideline' in request.resolver_match.url_name %}active{% endif %}">
         <i class="bi bi-book"></i>
         <span>Yo'riqnoma</span>
+    </a>
+    {% elif is_org_leader %}
+    <a href="{% url 'org-entry-guidelines' %}" class="bottom-nav-item {% if 'guideline' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="bi bi-book"></i>
+        <span>Yo'riqnoma</span>
+    </a>
+    {% elif is_super_admin %}
+    <a href="{% url 'super-admin-org-list' %}" class="bottom-nav-item {% if 'org' in request.resolver_match.url_name %}active{% endif %}">
+        <i class="bi bi-buildings"></i>
+        <span>Tashkilotlar</span>
     </a>
     {% endif %}
 
@@ -1175,6 +1282,7 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="{% static 'js/table_tools.js' %}"></script>
+<script src="{% static 'js/instant_nav.js' %}?v=3.0"></script>
 <script>
     // Sidebar toggle initialization
     (function () {

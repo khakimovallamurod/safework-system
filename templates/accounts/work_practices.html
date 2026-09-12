@@ -22,6 +22,8 @@
         box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
     }
     .select2-dropdown { border-color: #cbd5e1; border-radius: 0.75rem; overflow: hidden; }
+    .practice-tab-pane { display: none; }
+    .practice-tab-pane.active { display: block; }
 </style>
 
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
@@ -60,42 +62,44 @@
             {% endif %}
 
             {% if can_manage_work_practices %}
-            <a href="{% url 'companies:test_list' %}" class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
-                <i class="bi bi-card-checklist text-violet-600 text-sm"></i> Testlar boshqaruvi
-            </a>
-            <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-700">
-                <i class="bi bi-plus-circle text-sm"></i> Stajirovka yaratish
-            </button>
+            <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1">
+                <a href="{% url 'companies:test_list' %}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 whitespace-nowrap shrink-0">
+                    <i class="bi bi-card-checklist text-violet-600 text-sm"></i> Testlar boshqaruvi
+                </a>
+                <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAddModal" class="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-violet-700 whitespace-nowrap shrink-0">
+                    <i class="bi bi-plus-circle text-sm"></i> Stajirovka yaratish
+                </button>
+            </div>
             {% endif %}
         </div>
     </div>
 
     <!-- Metrics Dashboard -->
     {% if can_monitor_work_practices and practice_dashboard %}
-    <div class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <div class="rounded-2xl border border-violet-100 bg-violet-50/70 p-4 transition hover:bg-violet-50">
-            <div class="text-2xl font-black text-violet-700">{{ practice_dashboard.total_practices }}</div>
-            <div class="text-xs font-semibold text-violet-800/70 mt-0.5">Jami amaliyotlar</div>
+    <div class="mb-6 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+        <div class="rounded-2xl border border-violet-100 bg-violet-50/70 p-3 sm:p-4 transition hover:bg-violet-50">
+            <div class="text-xl sm:text-2xl font-black text-violet-700">{{ practice_dashboard.total_practices }}</div>
+            <div class="text-[11px] sm:text-xs font-semibold text-violet-800/70 mt-0.5">Jami amaliyotlar</div>
         </div>
-        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:bg-slate-100/70">
-            <div class="text-2xl font-black text-slate-800">{{ practice_dashboard.total_assignees }}</div>
-            <div class="text-xs font-semibold text-slate-500 mt-0.5">Biriktirilganlar</div>
+        <div class="rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:p-4 transition hover:bg-slate-100/70">
+            <div class="text-xl sm:text-2xl font-black text-slate-800">{{ practice_dashboard.total_assignees }}</div>
+            <div class="text-[11px] sm:text-xs font-semibold text-slate-500 mt-0.5">Biriktirilganlar</div>
         </div>
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 transition hover:bg-emerald-50">
-            <div class="text-2xl font-black text-emerald-700">{{ practice_dashboard.accepted_total }}</div>
-            <div class="text-xs font-semibold text-emerald-800/70 mt-0.5">Qabul qilingan</div>
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3 sm:p-4 transition hover:bg-emerald-50">
+            <div class="text-xl sm:text-2xl font-black text-emerald-700">{{ practice_dashboard.accepted_total }}</div>
+            <div class="text-[11px] sm:text-xs font-semibold text-emerald-800/70 mt-0.5">Qabul qilingan</div>
         </div>
-        <div class="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 transition hover:bg-amber-50">
-            <div class="text-2xl font-black text-amber-700">{{ practice_dashboard.pending_accept_total }}</div>
-            <div class="text-xs font-semibold text-amber-800/70 mt-0.5">Rozilik kutilmoqda</div>
+        <div class="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 sm:p-4 transition hover:bg-amber-50">
+            <div class="text-xl sm:text-2xl font-black text-amber-700">{{ practice_dashboard.pending_accept_total }}</div>
+            <div class="text-[11px] sm:text-xs font-semibold text-amber-800/70 mt-0.5">Rozilik kutilmoqda</div>
         </div>
-        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 p-4 transition hover:bg-sky-50">
-            <div class="text-2xl font-black text-sky-700">{{ practice_dashboard.completed_total }}</div>
-            <div class="text-xs font-semibold text-sky-800/70 mt-0.5">Testdan o‘tganlar</div>
+        <div class="rounded-2xl border border-sky-100 bg-sky-50/70 p-3 sm:p-4 transition hover:bg-sky-50">
+            <div class="text-xl sm:text-2xl font-black text-sky-700">{{ practice_dashboard.completed_total }}</div>
+            <div class="text-[11px] sm:text-xs font-semibold text-sky-800/70 mt-0.5">Testdan o‘tganlar</div>
         </div>
-        <div class="rounded-2xl border border-rose-100 bg-rose-50/70 p-4 transition hover:bg-rose-50">
-            <div class="text-2xl font-black text-rose-700">{{ practice_dashboard.failed_tests_total }}</div>
-            <div class="text-xs font-semibold text-rose-800/70 mt-0.5">Testdan o‘tolmagan</div>
+        <div class="rounded-2xl border border-rose-100 bg-rose-50/70 p-3 sm:p-4 transition hover:bg-rose-50">
+            <div class="text-xl sm:text-2xl font-black text-rose-700">{{ practice_dashboard.failed_tests_total }}</div>
+            <div class="text-[11px] sm:text-xs font-semibold text-rose-800/70 mt-0.5">Testdan o‘tolmagan</div>
         </div>
     </div>
     {% endif %}
@@ -103,24 +107,24 @@
     {% if can_manage_work_practices or can_monitor_work_practices %}
     <!-- Modern Tabs Navigation -->
     <div class="mb-4 border-b border-slate-200">
-        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="practiceTabs" role="tablist">
-            <li class="mr-2" role="presentation">
-                <button class="inline-flex items-center gap-2 p-3.5 border-b-2 rounded-t-lg border-violet-600 text-violet-700 font-bold active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-content" type="button" role="tab" aria-controls="active-content" aria-selected="true">
+        <ul class="flex items-center gap-1 overflow-x-auto pb-1 -mb-px text-xs sm:text-sm font-medium text-center" id="practiceTabs">
+            <li class="shrink-0">
+                <button type="button" onclick="switchPracticeTab('active')" id="practice-tab-active" class="practice-tab-btn inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:p-3.5 border-b-2 rounded-t-lg border-violet-600 text-violet-700 font-bold active whitespace-nowrap">
                     <i class="bi bi-play-circle-fill text-emerald-500"></i>
                     Jarayondagi amaliyotlar
                     <span class="ml-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">{{ active_practices|length }}</span>
                 </button>
             </li>
-            <li class="mr-2" role="presentation">
-                <button class="inline-flex items-center gap-2 p-3.5 border-b-2 rounded-t-lg border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-semibold" id="history-tab" data-bs-toggle="tab" data-bs-target="#history-content" type="button" role="tab" aria-controls="history-content" aria-selected="false">
+            <li class="shrink-0">
+                <button type="button" onclick="switchPracticeTab('history')" id="practice-tab-history" class="practice-tab-btn inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:p-3.5 border-b-2 rounded-t-lg border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-semibold whitespace-nowrap">
                     <i class="bi bi-clock-history text-slate-400"></i>
                     Stajirovka tarixi va arxiv
                     <span class="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">{{ history_practices|length }}</span>
                 </button>
             </li>
             {% if practice_inbox %}
-            <li class="mr-2" role="presentation">
-                <button class="inline-flex items-center gap-2 p-3.5 border-b-2 rounded-t-lg border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-semibold" id="inbox-tab" data-bs-toggle="tab" data-bs-target="#inbox-content" type="button" role="tab" aria-controls="inbox-content" aria-selected="false">
+            <li class="shrink-0">
+                <button type="button" onclick="switchPracticeTab('inbox')" id="practice-tab-inbox" class="practice-tab-btn inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:p-3.5 border-b-2 rounded-t-lg border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-semibold whitespace-nowrap">
                     <i class="bi bi-chat-left-text text-sky-500"></i>
                     Xabarlar jurnali
                     <span class="ml-1.5 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-700">{{ practice_inbox|length }}</span>
@@ -132,7 +136,7 @@
 
     <div class="tab-content" id="practiceTabsContent">
         <!-- Tab 1: Active Practices -->
-        <div class="tab-pane fade show active" id="active-content" role="tabpanel" aria-labelledby="active-tab">
+        <div class="practice-tab-pane active" id="active-content" style="display: block;">
             <div class="overflow-x-auto rounded-xl border border-slate-200">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -284,7 +288,7 @@
         </div>
 
         <!-- Tab 2: History & Archive -->
-        <div class="tab-pane fade" id="history-content" role="tabpanel" aria-labelledby="history-tab">
+        <div class="practice-tab-pane" id="history-content" style="display: none;">
             <div class="overflow-x-auto rounded-xl border border-slate-200">
                 <table class="min-w-full divide-y divide-slate-200 text-sm">
                     <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -409,7 +413,7 @@
 
         <!-- Tab 3: Inbox Messages -->
         {% if practice_inbox %}
-        <div class="tab-pane fade" id="inbox-content" role="tabpanel" aria-labelledby="inbox-tab">
+        <div class="practice-tab-pane" id="inbox-content" style="display: none;">
             <div class="rounded-xl border border-slate-200 bg-white p-4">
                 <div class="space-y-3">
                     {% for item in practice_inbox %}
@@ -1112,5 +1116,44 @@
             });
         });
     });
+
+    // Explicit Tab Switcher for Work Practices
+    function switchPracticeTab(tabName) {
+        var tabs = ['active', 'history', 'inbox'];
+        tabs.forEach(function (name) {
+            var pane = document.getElementById(name + '-content');
+            var btn = document.getElementById('practice-tab-' + name);
+            if (!pane || !btn) return;
+
+            if (name === tabName) {
+                pane.style.display = 'block';
+                pane.classList.add('active');
+                btn.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300', 'font-semibold');
+                btn.classList.add('border-violet-600', 'text-violet-700', 'font-bold', 'active');
+            } else {
+                pane.style.display = 'none';
+                pane.classList.remove('active');
+                btn.classList.remove('border-violet-600', 'text-violet-700', 'font-bold', 'active');
+                btn.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300', 'font-semibold');
+            }
+        });
+
+        try {
+            if (history.replaceState) {
+                history.replaceState(null, '', '#' + tabName);
+            }
+        } catch (e) {}
+    }
+    window.switchPracticeTab = switchPracticeTab;
+
+    // Check hash on load
+    (function () {
+        if (window.location.hash) {
+            var hash = window.location.hash.replace('#', '');
+            if (hash === 'history' || hash === 'inbox' || hash === 'active') {
+                switchPracticeTab(hash);
+            }
+        }
+    })();
 </script>
 {% endblock %}

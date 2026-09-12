@@ -2,10 +2,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
 from django.http import JsonResponse
-from core.views import robots_txt, sitemap_xml
+from core.views import robots_txt, sitemap_xml, secure_spa_gateway
 
 urlpatterns = [
     path('', include('accounts.urls')),
+    path('api/spa-gate/', secure_spa_gateway, name='secure-spa-gateway'),
     path('robots.txt', robots_txt, name='robots-txt'),
     path('sitemap.xml', sitemap_xml, name='sitemap'),
     path('roles/super-admin/', include('super_admin.urls')),

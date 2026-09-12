@@ -259,7 +259,25 @@ class AdminLoginView(LoginView):
     redirect_authenticated_user = False
     authentication_form = SoplineAuthenticationForm
 
+    def post(self, request, *args, **kwargs):
+        from accounts.security import check_login_rate_limit
+        username = request.POST.get('username', '').strip()
+        is_allowed, wait_seconds = check_login_rate_limit(request, username)
+        if not is_allowed:
+            wait_min = (wait_seconds // 60) + 1
+            messages.error(
+                request,
+                f"Xavfsizlik tizimi: Juda ko‘p noto‘g‘ri urinishlar tufayli kirish vaqtincha bloklandi. "
+                f"Iltimos, {wait_min} daqiqadan so‘ng qayta urinib ko‘ring."
+            )
+            return redirect('login')
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
+        from accounts.security import reset_login_rate_limit
+        username = self.request.POST.get('username', '').strip()
+        reset_login_rate_limit(self.request, username)
+
         response = super().form_valid(form)
         if self.request.user.is_superuser:
             messages.success(self.request, "Xush kelibsiz!")
@@ -278,7 +296,10 @@ class AdminLoginView(LoginView):
         return response
 
     def form_invalid(self, form):
+        from accounts.security import record_failed_login
         username = self.request.POST.get('username', '').strip()
+        record_failed_login(self.request, username)
+
         try:
             normalized_username = normalize_uz_phone(username)
         except Exception:

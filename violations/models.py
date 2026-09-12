@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from core.validators import validate_image_extension, validate_document_extension, validate_file_security
 
 User = get_user_model()
 
@@ -21,7 +22,13 @@ class Violation(models.Model):
     violation_type = models.ForeignKey(ViolationType, on_delete=models.CASCADE, verbose_name="Qoidabuzarlik turi")
     reason = models.TextField(verbose_name="Sabab (Izoh)")
     date = models.DateField(default=timezone.now, verbose_name="Sana")
-    image = models.ImageField(upload_to='violations/', null=True, blank=True, verbose_name="Qoidabuzarlik rasmi")
+    image = models.ImageField(
+        upload_to='violations/',
+        null=True,
+        blank=True,
+        verbose_name="Qoidabuzarlik rasmi",
+        validators=[validate_image_extension, validate_file_security]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True, verbose_name="Faolmi (Tushuntirish xati olinmagan)")
 
@@ -39,7 +46,11 @@ class ExplanationLetter(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='explanation_letters', verbose_name="Xodim")
     unblocked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='unblocked_employees', verbose_name="Blokdan chiqargan shaxs")
     explanation_text = models.TextField(verbose_name="Izoh (Tushuntirish)")
-    file = models.FileField(upload_to='explanation_letters/', verbose_name="Tushuntirish xati (PDF/Rasm)")
+    file = models.FileField(
+        upload_to='explanation_letters/',
+        verbose_name="Tushuntirish xati (PDF/Rasm)",
+        validators=[validate_document_extension, validate_file_security]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

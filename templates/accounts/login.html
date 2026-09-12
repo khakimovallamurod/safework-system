@@ -9,8 +9,38 @@
     <!-- Favicon -->
     <link rel="icon" href="{% static 'images/favicon.ico' %}" sizes="any" />
     <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon" />
-    <link rel="apple-touch-icon" href="{% static 'images/favicon.ico' %}" />
-    
+    <!-- DevTools / Performance Live Metrics & Soft Navigation Compatibility Shield -->
+    <script>
+        (function() {
+            try {
+                Object.defineProperty(window, 'devToolsReportSoftNavs', {
+                    configurable: true,
+                    enumerable: false,
+                    get: function () { return false; },
+                    set: function () {}
+                });
+            } catch (e) {}
+
+            window.addEventListener('error', function (event) {
+                if (event && (
+                    (event.message && event.message.indexOf("reading 'startTime'") !== -1) ||
+                    (event.error && event.error.message && event.error.message.indexOf("reading 'startTime'") !== -1)
+                )) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    return true;
+                }
+            }, true);
+
+            var origWarn = console.warn;
+            console.warn = function () {
+                if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].indexOf('cdn.tailwindcss.com should not be used in production') !== -1) {
+                    return;
+                }
+                origWarn.apply(console, arguments);
+            };
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />

@@ -18,6 +18,19 @@ def get_user_organization_id(profile):
         return profile.id
     return profile.organization_id
 
+def get_allowed_employees_for_profile(profile, user):
+    if user.is_superuser:
+        return User.objects.all()
+    if not profile:
+        return User.objects.none()
+    if profile.role == UserProfile.ROLE_ORG_LEADER:
+        return User.objects.filter(Q(profile__organization_id=profile.id) | Q(profile__organization=profile) | Q(id=user.id))
+    elif profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN and profile.department_id:
+        return User.objects.filter(profile__department_id=profile.department_id)
+    elif profile.role == UserProfile.ROLE_SECTION_ADMIN and profile.section_id:
+        return User.objects.filter(profile__section_id=profile.section_id)
+    return User.objects.none()
+
 def get_ppe_types_for_profile(profile):
     if not profile:
         return PPEType.objects.none()
@@ -40,17 +53,21 @@ def ppe_dashboard(request):
     selected_accept_status = request.GET.get('accept_status', '')
     
     # Filter based on roles
-    if profile:
+    if request.user.is_superuser:
+        pass
+    elif profile:
         if profile.role == UserProfile.ROLE_ORG_LEADER:
-            employees = employees.filter(organization_id=profile.id)
+            employees = employees.filter(Q(organization_id=profile.id) | Q(id=profile.id))
         elif profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN and profile.department_id:
             employees = employees.filter(department_id=profile.department_id)
         elif profile.role == UserProfile.ROLE_SECTION_ADMIN and profile.section_id:
             employees = employees.filter(section_id=profile.section_id)
         elif profile.role == UserProfile.ROLE_WORKER:
             employees = employees.filter(user=request.user)
-        elif profile.role != UserProfile.ROLE_SUPER_ADMIN:
+        else:
             employees = employees.none()
+    else:
+        employees = employees.none()
 
     # Filter parameter
     status_filter = request.GET.get('status', request.GET.get('accept_status', '')).strip().lower()
@@ -224,10 +241,15 @@ def issue_ppe(request):
         condition = request.POST.get('condition')
         
         try:
+            allowed_employees = get_allowed_employees_for_profile(profile, request.user)
+            valid_employees = list(allowed_employees.filter(id__in=employee_ids))
+            if not valid_employees:
+                messages.error(request, "Tanlangan xodimlar sizning tashkilotingizga tegishli emas.")
+                return redirect('ppe:dashboard')
+
             for ppe_type_id in ppe_type_ids:
                 ppe_type = get_object_or_404(get_ppe_types_for_profile(profile), id=ppe_type_id)
-                for emp_id in employee_ids:
-                    user = User.objects.get(id=emp_id)
+                for user in valid_employees:
                     issue = PPEIssue.objects.create(
                         employee=user,
                         ppe_type=ppe_type,

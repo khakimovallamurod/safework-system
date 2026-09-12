@@ -527,10 +527,20 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // 8. Jonli yangilanish (Live Polling har 3 soniyada yangi kelgan xabarlarni tekshiradi)
+  // 8. Jonli yangilanish (Live Polling faqat chat sahifasi ochiq turganda tekshiradi)
   async function pollNewMessages() {
+    // Agar foydalanuvchi chat sahifasida bo'lmasa, pollingni darhol to'xtatish
+    if (!document.getElementById('chatMessagesContainer')) {
+      if (window._chatPollInterval) {
+        clearInterval(window._chatPollInterval);
+        window._chatPollInterval = null;
+      }
+      return;
+    }
+
     try {
-      const url = `${window.location.pathname}?ajax=1&last_id=${lastMessageId}`;
+      const chatPath = chatForm ? (chatForm.getAttribute('action') || window.location.pathname) : window.location.pathname;
+      const url = `${chatPath}?ajax=1&last_id=${lastMessageId}`;
       const response = await fetch(url, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
@@ -538,7 +548,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = await response.json();
         if (data.status === 'ok' && Array.isArray(data.messages)) {
           data.messages.forEach(msg => {
-            // Agar allaqachon mavjud bo'lmasa
             const existing = document.querySelector(`[data-msg-id="${msg.id}"]`);
             if (!existing) {
               if (msg.is_me) {
@@ -555,8 +564,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Har 3.5 soniyada yangi xabarlarni tekshirish
-  setInterval(pollNewMessages, 3500);
+  // Har 3.5 soniyada faqat bitta faol interval bilan yangi xabarlarni tekshirish
+  if (window._chatPollInterval) {
+    clearInterval(window._chatPollInterval);
+  }
+  window._chatPollInterval = setInterval(pollNewMessages, 3500);
 });
 </script>
 {% endblock %}
