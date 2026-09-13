@@ -239,9 +239,9 @@
 
         .ai-assistant {
             position: fixed;
-            right: 1rem;
+            right: 1.5rem;
             bottom: 2rem;
-            z-index: 60;
+            z-index: 70;
             display: flex;
             flex-direction: column;
             align-items: flex-end;
@@ -255,46 +255,58 @@
         }
 
         .ai-assistant__panel {
-            width: min(24rem, calc(100vw - 1.5rem));
-            height: min(35rem, calc(100vh - 7rem));
-            border: 1px solid rgba(148, 163, 184, 0.35);
+            width: 440px;
+            max-width: calc(100vw - 2rem);
+            height: 640px;
+            max-height: calc(100vh - 4.5rem);
+            border: 1px solid rgba(226, 232, 240, 0.9);
             border-radius: 1.5rem;
-            background:
-                radial-gradient(circle at top, rgba(16, 185, 129, 0.16), transparent 38%),
-                linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
-            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.2);
-            backdrop-filter: blur(18px);
+            background: #ffffff;
+            box-shadow: 0 25px 65px -12px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(16, 185, 129, 0.12);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             transform-origin: bottom right;
-            transition: opacity .24s ease, transform .24s ease, visibility .24s ease;
+            transition: opacity .25s cubic-bezier(0.16, 1, 0.3, 1), transform .25s cubic-bezier(0.16, 1, 0.3, 1), visibility .25s ease;
         }
 
         .ai-assistant__panel.is-hidden {
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
-            transform: translateY(14px) scale(0.96);
+            transform: translateY(16px) scale(0.95);
         }
 
         .ai-assistant__toggle {
             display: inline-flex;
             align-items: center;
-            gap: 0.7rem;
+            gap: 0.85rem;
             border: 0;
             border-radius: 9999px;
-            background: linear-gradient(135deg, #0f172a, #16a34a);
+            background: linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #059669 100%);
             color: #fff;
-            padding: 0.95rem 1.1rem;
-            box-shadow: 0 14px 40px rgba(15, 23, 42, 0.28);
+            padding: 0.75rem 1.35rem 0.75rem 0.85rem;
+            box-shadow: 0 12px 35px -5px rgba(5, 150, 105, 0.45), 0 0 20px rgba(16, 185, 129, 0.35);
             cursor: pointer;
-            transition: transform .2s ease, box-shadow .2s ease;
+            transition: all .25s ease;
+            position: relative;
+            animation: aiFloatPulse 3.5s ease-in-out infinite;
+        }
+
+        @keyframes aiFloatPulse {
+            0%, 100% {
+                transform: translateY(0);
+                box-shadow: 0 12px 35px -5px rgba(5, 150, 105, 0.45), 0 0 18px rgba(16, 185, 129, 0.3);
+            }
+            50% {
+                transform: translateY(-4px);
+                box-shadow: 0 18px 42px -4px rgba(5, 150, 105, 0.6), 0 0 30px rgba(16, 185, 129, 0.55);
+            }
         }
 
         .ai-assistant__toggle:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.32);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 20px 45px -4px rgba(5, 150, 105, 0.65), 0 0 35px rgba(16, 185, 129, 0.6);
         }
 
         .ai-assistant__bubble {
@@ -304,61 +316,287 @@
             align-items: center;
             justify-content: center;
             border-radius: 9999px;
-            background: rgba(255, 255, 255, 0.18);
-            font-size: 1.1rem;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.08));
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            font-size: 1.25rem;
+            position: relative;
         }
 
+        .ai-assistant__bubble::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 9px;
+            height: 9px;
+            background: #22c55e;
+            border: 2px solid #064e3b;
+            border-radius: 50%;
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        /* Message List Area */
         .ai-assistant__messages {
             flex: 1 1 auto;
             min-height: 0;
             overflow-y: auto;
-            padding: 1rem;
+            padding: 1.15rem 1rem;
             display: flex;
             flex-direction: column;
-            gap: 0.8rem;
-            background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(241,245,249,0.72));
+            gap: 1.1rem;
+            background: #f8fafc;
+            scroll-behavior: smooth;
         }
 
-        .ai-assistant__message {
-            max-width: 88%;
-            border-radius: 1.1rem;
-            padding: 0.85rem 0.95rem;
-            font-size: 0.92rem;
-            line-height: 1.45;
-            white-space: pre-wrap;
+        .ai-assistant__messages::-webkit-scrollbar {
+            width: 5px;
+        }
+        .ai-assistant__messages::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
         }
 
-        .ai-assistant__message--bot {
+        /* Message Rows */
+        .ai-msg-row {
+            display: flex;
+            gap: 0.65rem;
+            align-items: flex-start;
+            max-width: 92%;
+            animation: aiFadeIn 0.25s ease-out;
+        }
+
+        @keyframes aiFadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .ai-msg-row--bot {
             align-self: flex-start;
-            background: #ffffff;
-            color: #0f172a;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
         }
 
-        .ai-assistant__message--user {
+        .ai-msg-row--user {
             align-self: flex-end;
-            background: linear-gradient(135deg, #16a34a, #0f766e);
+            flex-direction: row-reverse;
+        }
+
+        /* Avatars */
+        .ai-msg-avatar {
+            width: 2rem;
+            height: 2rem;
+            flex-shrink: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            margin-top: 2px;
+            overflow: hidden;
+        }
+
+        .ai-msg-avatar--bot {
+            background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
             color: #ffffff;
-            box-shadow: 0 10px 24px rgba(22, 163, 74, 0.24);
+            border: 1.5px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .ai-msg-avatar--user {
+            background: linear-gradient(135deg, #334155 0%, #0f172a 100%);
+            color: #ffffff;
+            border: 1.5px solid #475569;
+        }
+
+        /* Message Column & Header */
+        .ai-msg-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            min-width: 0;
+        }
+
+        .ai-msg-row--user .ai-msg-col {
+            align-items: flex-end;
+        }
+
+        .ai-msg-header {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.72rem;
+            color: #64748b;
+            padding: 0 0.25rem;
+        }
+
+        .ai-msg-author {
+            font-weight: 600;
+            color: #334155;
+        }
+
+        .ai-msg-badge {
+            font-size: 0.62rem;
+            font-weight: 600;
+            padding: 0.1rem 0.4rem;
+            border-radius: 9999px;
+            background: #d1fae5;
+            color: #065f46;
+            letter-spacing: 0.02em;
+        }
+
+        .ai-msg-time {
+            font-size: 0.68rem;
+            color: #94a3b8;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        /* Message Bubble Content */
+        .ai-msg-bubble {
+            border-radius: 1.15rem;
+            padding: 0.75rem 0.95rem;
+            font-size: 0.88rem;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+            user-select: text !important;
+            box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05);
+        }
+
+        .ai-msg-bubble--bot {
+            background: #ffffff;
+            color: #1e293b;
+            border: 1px solid #e2e8f0;
+            border-top-left-radius: 0.3rem;
+        }
+
+        .ai-msg-bubble--user {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: #ffffff;
+            border: 1px solid #059669;
+            border-top-right-radius: 0.3rem;
+            box-shadow: 0 4px 14px -2px rgba(5, 150, 105, 0.35);
+        }
+
+        /* Message Actions: Copy Button */
+        .ai-msg-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.15rem 0.25rem;
+        }
+
+        .ai-copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: #94a3b8;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.375rem;
+            transition: all 0.15s ease;
+        }
+
+        .ai-copy-btn:hover {
+            color: #059669;
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+        }
+
+        /* Quick Prompt Buttons */
+        .ai-quick-btn {
+            font-size: 0.75rem;
+            padding: 0.35rem 0.65rem;
+            border-radius: 9999px;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all .15s ease;
+            white-space: nowrap;
+        }
+        .ai-quick-btn:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+            border-color: #cbd5e1;
+        }
+
+        /* Loading Bubble */
+        .ai-msg-bubble--loading {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.15rem;
+            border-top-left-radius: 0.3rem;
+            padding: 0.65rem 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            white-space: normal;
+        }
+
+        .ai-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .ai-dots span {
+            width: 7px;
+            height: 7px;
+            background: #059669;
+            border-radius: 50%;
+            display: inline-block;
+            animation: aiDotBounce 1.3s infinite ease-in-out both;
+        }
+        .ai-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .ai-dots span:nth-child(2) { animation-delay: -0.16s; }
+        .ai-dots span:nth-child(3) { animation-delay: 0s; }
+
+        @keyframes aiDotBounce {
+            0%, 80%, 100% {
+                transform: translateY(0);
+                opacity: 0.35;
+            }
+            40% {
+                transform: translateY(-5px);
+                opacity: 1;
+                background: #10b981;
+            }
+        }
+
+        .ai-loading-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #64748b;
+            letter-spacing: 0.01em;
         }
 
         .ai-assistant__composer {
             flex: 0 0 auto;
-            padding: 0.9rem 1rem 1rem;
+            padding: 0.85rem 1rem 1rem;
             border-top: 1px solid rgba(226, 232, 240, 0.9);
-            background: rgba(255, 255, 255, 0.9);
+            background: #ffffff;
         }
 
         .ai-assistant__textarea {
             width: 100%;
-            min-height: 3rem;
-            max-height: 7rem;
+            min-height: 2.8rem;
+            max-height: 6.5rem;
             resize: none;
             border: 1px solid #cbd5e1;
             border-radius: 1rem;
-            padding: 0.85rem 0.95rem;
-            font-size: 0.92rem;
+            padding: 0.75rem 0.95rem;
+            font-size: 0.9rem;
             line-height: 1.4;
             color: #0f172a;
             background: #fff;
@@ -367,38 +605,55 @@
 
         .ai-assistant__textarea:focus {
             outline: 0;
-            border-color: #16a34a;
-            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
         }
 
+        /* Responsive Mobile Layout */
         @media (max-width: 640px) {
             .ai-assistant {
-                right: 1rem;
-                left: auto;
-                bottom: calc(1rem + 70px);
+                right: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 90 !important;
             }
 
             .ai-assistant__panel {
-                width: calc(100vw - 2rem);
-                height: min(34rem, calc(100vh - 8rem - 70px));
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 100% !important;
+                max-height: 100vh !important;
+                border-radius: 0 !important;
+                border: none !important;
             }
 
             .ai-assistant__toggle {
-                padding: 0.65rem;
-                border-radius: 50%;
-                width: auto;
-                justify-content: center;
+                position: fixed !important;
+                right: 1rem !important;
+                bottom: calc(1rem + 65px) !important;
+                padding: 0.65rem !important;
+                border-radius: 50% !important;
+                width: auto !important;
+                justify-content: center !important;
+                z-index: 60 !important;
             }
-            
+
             .ai-assistant__toggle .text-left {
-                display: none;
+                display: none !important;
             }
-            
+
             .ai-assistant__bubble {
                 height: 2.5rem;
                 width: 2.5rem;
                 background: transparent;
                 font-size: 1.25rem;
+            }
+
+            .ai-msg-row {
+                max-width: 96%;
             }
         }
 
@@ -1226,52 +1481,99 @@
 {% if request.user.is_authenticated and request.resolver_match.url_name == 'dashboard' %}
 <div class="ai-assistant">
     <div id="ai-assistant-panel" class="ai-assistant__panel is-hidden">
-        <div class="flex items-start justify-between gap-3 border-b border-slate-200/80 px-4 py-4">
-            <div class="min-w-0">
-                <div class="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                        <i class="bi bi-stars"></i>
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-slate-200/80 px-4 py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <div class="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-300 text-slate-950 shadow-md">
+                    <i class="bi bi-robot text-lg"></i>
+                    <span class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                     </span>
-                    Sopline AI
                 </div>
-                <p class="mt-1 text-xs text-slate-500">
-                    {{ role_name|default:'Foydalanuvchi' }} uchun loyiha bo'yicha yordamchi
-                </p>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 font-semibold text-sm tracking-wide">
+                        <span>Sopline AI Agent</span>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Pro</span>
+                    </div>
+                    <p class="text-[11px] text-slate-300 truncate">
+                        {{ role_name|default:'Foydalanuvchi' }} • Baza ma'lumotlari bilan
+                    </p>
+                </div>
             </div>
-            <button id="ai-assistant-close" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800">
-                <i class="bi bi-x-lg"></i>
+            <button id="ai-assistant-close" type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white">
+                <i class="bi bi-x-lg text-sm"></i>
             </button>
         </div>
 
+        <!-- Messages stream -->
         <div id="ai-assistant-messages" class="ai-assistant__messages">
-            <div class="ai-assistant__message ai-assistant__message--bot">
-            Salom. Men Sopline System yordamchisiman. Sizga aynan ushbu loyiha funksiyalari, rollar va sahifalar bo'yicha javob beraman.
+            <div class="ai-msg-row ai-msg-row--bot">
+                <div class="ai-msg-avatar ai-msg-avatar--bot" title="Sopline AI Agent">
+                    <i class="bi bi-robot"></i>
+                </div>
+                <div class="ai-msg-col">
+                    <div class="ai-msg-header">
+                        <span class="ai-msg-author">Sopline AI</span>
+                        <span class="ai-msg-badge">Agent</span>
+                        <span class="ai-msg-time"><i class="bi bi-clock text-[10px]"></i> Hozir</span>
+                    </div>
+                    <div class="ai-msg-bubble ai-msg-bubble--bot">Assalomu alaykum! Sopline tizimi ma'lumotlar bazasi hamda xavfsizlik me'yoriy hujjatlari bo'yicha savollaringizga rolingiz doirasida aniq javob bera olaman.</div>
+                    <div class="ai-msg-actions">
+                        <button type="button" class="ai-copy-btn" title="Nusxa olish" onclick="copyMessageText(this)">
+                            <i class="bi bi-clipboard"></i>
+                            <span>Nusxa olish</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Quick Prompts bar -->
+        <div class="px-3 pt-2 pb-1 bg-slate-50 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            <button type="button" class="ai-quick-btn" data-prompt="Yong'in sodir bo'lganda qanday harakat qilish kerak?">🔥 Yong'in qoidalari</button>
+            <button type="button" class="ai-quick-btn" data-prompt="Qon ketganda birinchi tibbiy yordam qanday ko'rsatiladi?">🩹 Birinchi yordam</button>
+            {% if is_org_leader or is_super_admin %}
+            <button type="button" class="ai-quick-btn" data-prompt="Tashkilotimizda xodimlar va boshqarmalar holati qanday?">🏢 Xodimlar statistikasi</button>
+            <button type="button" class="ai-quick-btn" data-prompt="Qoidabuzarliklar va bloklangan xodimlar bormi?">⚠️ Qoidabuzarliklar</button>
+            {% elif is_department_admin or is_section_admin %}
+            <button type="button" class="ai-quick-btn" data-prompt="Mening bo'limimda faol stajirovka va amaliyotlar holati qanday?">🎓 Stajirovkalar</button>
+            <button type="button" class="ai-quick-btn" data-prompt="Bo'limim xodimlarining qoidabuzarliklari bormi?">⚠️ Qoidabuzarliklar</button>
+            {% else %}
+            <button type="button" class="ai-quick-btn" data-prompt="Mening yo'riqnomalarim holati qanday?">📖 Yo'riqnomalarim</button>
+            <button type="button" class="ai-quick-btn" data-prompt="Menga berilgan IHV vositalari bormi?">🦺 Mening IHVlarim</button>
+            {% endif %}
+        </div>
+
+        <!-- Composer -->
         <div class="ai-assistant__composer">
-            <div class="mb-2 text-[11px] text-slate-500">
-                Misol: “Mening rolimda qaysi bo'limlar bor?” yoki “Kasb turini qanday qo'shaman?”
-            </div>
             <textarea
                 id="ai-assistant-input"
                 class="ai-assistant__textarea"
-                placeholder="Savolingizni yozing..."
+                placeholder="Savolingizni yozing (masalan: qoidabuzarlar soni nechtadir?)..."
             ></textarea>
-            <div class="mt-3 flex items-center justify-between gap-3">
-                <div id="ai-assistant-status" class="text-xs text-slate-400">Faqat loyiha doirasida javob beradi</div>
-                <button id="ai-assistant-send" type="button" class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600">
-                    <i class="bi bi-send"></i> Yuborish
+            <div class="mt-2.5 flex items-center justify-between gap-2">
+                <div id="ai-assistant-status" class="text-[11px] text-slate-400 truncate flex items-center gap-1.5">
+                    <i class="bi bi-shield-check text-emerald-500"></i> Faqat sizning rolingiz bo'yicha
+                </div>
+                <button id="ai-assistant-send" type="button" class="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-slate-900 to-emerald-900 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:from-emerald-700 hover:to-teal-700">
+                    <i class="bi bi-send-fill text-[11px]"></i> Yuborish
                 </button>
             </div>
         </div>
     </div>
 
-    <button id="ai-assistant-toggle" type="button" class="ai-assistant__toggle">
-        <span class="ai-assistant__bubble"><i class="bi bi-chat-dots-fill"></i></span>
-        <span class="text-left">
-            <span class="block text-sm font-semibold">AI yordamchi</span>
-            <span class="block text-[11px] text-white/75">Loyiha bo'yicha savol bering</span>
+    <!-- Toggle Button with animated robot badge -->
+    <button id="ai-assistant-toggle" type="button" class="ai-assistant__toggle group" title="Sopline AI Agent bilan muloqot">
+        <span class="ai-assistant__bubble">
+            <i class="bi bi-robot text-xl text-emerald-300 transition group-hover:scale-110"></i>
+        </span>
+        <span class="text-left pr-1">
+            <span class="flex items-center gap-1.5 text-sm font-semibold tracking-wide">
+                <span>AI Agent</span>
+                <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+            </span>
+            <span class="block text-[11px] text-emerald-100/80 font-normal">Savol bering & tahlil oling</span>
         </span>
     </button>
 </div>
@@ -1397,10 +1699,23 @@
             const input = document.getElementById('ai-assistant-input');
             const messages = document.getElementById('ai-assistant-messages');
             const status = document.getElementById('ai-assistant-status');
+            const quickButtons = document.querySelectorAll('.ai-quick-btn');
 
             if (!toggleBtn || !panel || !sendBtn || !input || !messages || !status) return;
 
             const endpoint = "{% url 'ai-assistant' %}";
+            const chatHistory = [];
+
+            const currentUserData = {
+                name: "{{ request.user.profile.full_name|default:request.user.get_full_name|default:request.user.username|escapejs }}",
+                photo: "{% if request.user.profile and request.user.profile.profile_photo %}{{ request.user.profile.profile_photo.url }}{% endif %}",
+                initial: "{{ request.user.profile.full_name|first|default:request.user.username|first|upper }}"
+            };
+
+            function getCurrentTime() {
+                const now = new Date();
+                return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
 
             function getCookie(name) {
                 const value = `; ${document.cookie}`;
@@ -1409,15 +1724,138 @@
                 return '';
             }
 
+            window.copyMessageText = function (btn) {
+                const col = btn.closest('.ai-msg-col');
+                const bubble = col ? col.querySelector('.ai-msg-bubble') : null;
+                if (!bubble) return;
+                const text = bubble.innerText.trim();
+
+                const showSuccess = () => {
+                    btn.classList.add('text-emerald-600');
+                    btn.innerHTML = '<i class="bi bi-check2 text-emerald-600"></i> <span class="text-emerald-600 font-medium">Nusxalandi!</span>';
+                    setTimeout(() => {
+                        btn.classList.remove('text-emerald-600');
+                        btn.innerHTML = '<i class="bi bi-clipboard"></i> <span>Nusxa olish</span>';
+                    }, 2000);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(showSuccess).catch(() => {
+                        fallbackCopy(text, showSuccess);
+                    });
+                } else {
+                    fallbackCopy(text, showSuccess);
+                }
+            };
+
+            function fallbackCopy(text, callback) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                } catch (_) {}
+                document.body.removeChild(ta);
+                if (callback) callback();
+            }
+
             function addMessage(text, type) {
-                const item = document.createElement('div');
-                item.className = `ai-assistant__message ai-assistant__message--${type}`;
-                item.textContent = String(text || '')
-                    .replace(/\*\*/g, '')
-                    .replace(/(^|\n)[*-]\s+/g, '$1')
-                    .replace(/`/g, '');
-                messages.appendChild(item);
+                const row = document.createElement('div');
+                row.className = `ai-msg-row ai-msg-row--${type}`;
+                const timeStr = getCurrentTime();
+
+                // Sarlavhalar va gorizontal chiziqlarni tozalash
+                let clean = String(text || '')
+                    .replace(/^#{1,6}\s*/gm, '')
+                    .replace(/^[-*_]{3,}\s*$/gm, '')
+                    .replace(/^(?:sarlavha|mavzu|title|javob)\s*:\s*/gim, '')
+                    .trim();
+
+                // Format basic bullet points or line breaks safely
+                const sanitized = clean
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+                // Preserve bold and formatted lists if returned by agent
+                const formatted = sanitized
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^\*\s(.*)$/gm, '• $1')
+                    .replace(/^-\s(.*)$/gm, '• $1');
+
+                if (type === 'bot') {
+                    row.innerHTML = `
+                        <div class="ai-msg-avatar ai-msg-avatar--bot" title="Sopline AI Agent">
+                            <i class="bi bi-robot"></i>
+                        </div>
+                        <div class="ai-msg-col">
+                            <div class="ai-msg-header">
+                                <span class="ai-msg-author">Sopline AI</span>
+                                <span class="ai-msg-badge">Agent</span>
+                                <span class="ai-msg-time"><i class="bi bi-clock text-[10px]"></i> ${timeStr}</span>
+                            </div>
+                            <div class="ai-msg-bubble ai-msg-bubble--bot">${formatted}</div>
+                            <div class="ai-msg-actions">
+                                <button type="button" class="ai-copy-btn" title="Nusxa olish" onclick="copyMessageText(this)">
+                                    <i class="bi bi-clipboard"></i>
+                                    <span>Nusxa olish</span>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const avatarContent = currentUserData.photo
+                        ? `<img src="${currentUserData.photo}" class="w-full h-full object-cover rounded-full" alt="${currentUserData.name}">`
+                        : currentUserData.initial;
+
+                    row.innerHTML = `
+                        <div class="ai-msg-avatar ai-msg-avatar--user" title="${currentUserData.name}">
+                            ${avatarContent}
+                        </div>
+                        <div class="ai-msg-col">
+                            <div class="ai-msg-header">
+                                <span class="ai-msg-time">${timeStr} <i class="bi bi-check2-all text-emerald-500"></i></span>
+                                <span class="ai-msg-author">Siz</span>
+                            </div>
+                            <div class="ai-msg-bubble ai-msg-bubble--user">${formatted}</div>
+                        </div>
+                    `;
+                }
+
+                messages.appendChild(row);
                 messages.scrollTop = messages.scrollHeight;
+                return row;
+            }
+
+            function addTypingIndicator() {
+                const row = document.createElement('div');
+                row.id = 'ai-typing-msg';
+                row.className = 'ai-msg-row ai-msg-row--bot';
+                row.innerHTML = `
+                    <div class="ai-msg-avatar ai-msg-avatar--bot">
+                        <i class="bi bi-robot"></i>
+                    </div>
+                    <div class="ai-msg-col">
+                        <div class="ai-msg-header">
+                            <span class="ai-msg-author">Sopline AI</span>
+                            <span class="ai-msg-time">hozir</span>
+                        </div>
+                        <div class="ai-msg-bubble--loading">
+                            <div class="ai-dots"><span></span><span></span><span></span></div>
+                            <span class="ai-loading-text">Javob tayyorlanmoqda...</span>
+                        </div>
+                    </div>
+                `;
+                messages.appendChild(row);
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+            function removeTypingIndicator() {
+                const el = document.getElementById('ai-typing-msg');
+                if (el) el.remove();
             }
 
             function setOpen(open) {
@@ -1428,15 +1866,20 @@
                 }
             }
 
-            async function sendMessage() {
-                const text = input.value.trim();
+            async function sendMessage(customText) {
+                const text = (customText || input.value).trim();
                 if (!text) return;
 
                 addMessage(text, 'user');
-                input.value = '';
-                input.style.height = 'auto';
+                chatHistory.push({ role: 'user', text: text });
+
+                if (!customText) {
+                    input.value = '';
+                    input.style.height = 'auto';
+                }
                 sendBtn.disabled = true;
-                status.textContent = 'Javob tayyorlanmoqda...';
+                addTypingIndicator();
+                status.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Baza tahlil qilinmoqda...`;
 
                 try {
                     const response = await fetch(endpoint, {
@@ -1445,20 +1888,29 @@
                             'Content-Type': 'application/json',
                             'X-CSRFToken': getCookie('csrftoken'),
                         },
-                        body: JSON.stringify({ message: text }),
+                        body: JSON.stringify({ 
+                            message: text,
+                            history: chatHistory.slice(-6)
+                        }),
                     });
+
+                    removeTypingIndicator();
                     let data = {};
                     try { data = await response.json(); } catch (_) {}
+
                     if (!response.ok) {
                         addMessage(data.message || "AI xizmati hozirda mavjud emas. Keyinroq urinib ko'ring.", 'bot');
-                        status.textContent = 'Xizmat mavjud emas';
+                        status.innerHTML = `<i class="bi bi-exclamation-triangle text-amber-500"></i> Xizmat vaqtincha band`;
                     } else {
-                        addMessage(data.message || "Javobni o'qib bo'lmadi.", 'bot');
-                        status.textContent = data.ok ? 'Tayyor' : (data.message || "Xatolik yuz berdi");
+                        const botReply = data.message || "Javobni o'qib bo'lmadi.";
+                        addMessage(botReply, 'bot');
+                        chatHistory.push({ role: 'model', text: botReply });
+                        status.innerHTML = `<i class="bi bi-shield-check text-emerald-500"></i> Tayyor`;
                     }
                 } catch (e) {
-                    addMessage("Xizmatga ulanib bo'lmadi. Keyinroq yana urinib ko'ring.", 'bot');
-                    status.textContent = 'Ulanish xatosi';
+                    removeTypingIndicator();
+                    addMessage("Tarmoqqa ulanishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", 'bot');
+                    status.innerHTML = `<i class="bi bi-wifi-off text-rose-500"></i> Ulanish xatosi`;
                 } finally {
                     sendBtn.disabled = false;
                 }
@@ -1466,10 +1918,25 @@
 
             toggleBtn.addEventListener('click', () => setOpen(true));
             if (closeBtn) closeBtn.addEventListener('click', () => setOpen(false));
-            sendBtn.addEventListener('click', sendMessage);
+            sendBtn.addEventListener('click', () => sendMessage());
+
+            // Escape tugmasi orqali yopish
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !panel.classList.contains('is-hidden')) {
+                    setOpen(false);
+                }
+            });
+
+            quickButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const prompt = btn.dataset.prompt;
+                    if (prompt) sendMessage(prompt);
+                });
+            });
+
             input.addEventListener('input', () => {
                 input.style.height = 'auto';
-                input.style.height = `${Math.min(input.scrollHeight, 112)}px`;
+                input.style.height = `${Math.min(input.scrollHeight, 105)}px`;
             });
             input.addEventListener('keydown', event => {
                 if (event.key === 'Enter' && !event.shiftKey) {

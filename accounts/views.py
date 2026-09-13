@@ -1029,11 +1029,11 @@ class AiAssistantView(AuthenticatedRequiredMixin, View):
     http_method_names = ['post']
 
     def post(self, request, *args, **kwargs):
-        if not settings.GEMINI_API_KEY:
+        if not getattr(settings, 'GEMINI_API_KEY', None):
             return JsonResponse(
                 {
                     'ok': False,
-                    'message': "AI yordamchi ishlashi uchun `GEMINI_API_KEY` sozlanmagan.",
+                    'message': "AI Agent ishlashi uchun `GEMINI_API_KEY` sozlanmagan. Iltimos, administratorga murojaat qiling.",
                 },
                 status=503,
             )
@@ -1044,35 +1044,18 @@ class AiAssistantView(AuthenticatedRequiredMixin, View):
             return JsonResponse({'ok': False, 'message': "So'rov formati noto'g'ri."}, status=400)
 
         question = (payload.get('message') or '').strip()
+        chat_history = payload.get('history') or []
         if not question:
             return JsonResponse({'ok': False, 'message': "Savol matnini kiriting."}, status=400)
 
         role_context = self.get_role_context()
-        context_text = _build_project_ai_context(request.user, role_context)
-        prompt = (
-            f"{context_text}\n\n"
-            f"Foydalanuvchi savoli: {question}\n\n"
-            "Endi shu savolga faqat Sopline System loyihasi doirasida javob bering."
-        )
 
         try:
-            answer = _ask_gemini(prompt)
-        except error.HTTPError as exc:
-            detail = exc.read().decode('utf-8', errors='ignore')
-            return JsonResponse(
-                {
-                    'ok': False,
-                    'message': _humanize_ai_http_error(detail, exc.code),
-                },
-                status=502,
-            )
-        except error.URLError:
-            return JsonResponse(
-                {'ok': False, 'message': "AI xizmatiga ulanib bo'lmadi. Tarmoqni tekshirib ko'ring."},
-                status=502,
-            )
+            from accounts.ai_agent.agent import SoplineAIAgent
+            agent = SoplineAIAgent(request.user, role_context)
+            answer = agent.answer_question(question, chat_history=chat_history)
         except Exception as exc:
-            return JsonResponse({'ok': False, 'message': str(exc)}, status=500)
+            return JsonResponse({'ok': False, 'message': f"Xatolik yuz berdi: {str(exc)}"}, status=500)
 
         return JsonResponse({'ok': True, 'message': answer})
 

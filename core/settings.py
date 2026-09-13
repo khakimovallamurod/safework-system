@@ -34,7 +34,39 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production.
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '*').split(',')
+# Production & Local Allowed Hosts
+ALLOWED_HOSTS = [
+    'sopline.uz',
+    '.sopline.uz',
+    'www.sopline.uz',
+    '127.0.0.1',
+    'localhost',
+    '0.0.0.0',
+]
+extra_hosts = os.getenv('DJANGO_ALLOWED_HOSTS', '')
+if extra_hosts:
+    for h in extra_hosts.split(','):
+        h_clean = h.strip().strip('"').strip("'")
+        if h_clean and h_clean not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(h_clean)
+if '*' in ALLOWED_HOSTS:
+    pass
+
+# CSRF Trusted Origins for HTTPS production
+CSRF_TRUSTED_ORIGINS = [
+    'https://sopline.uz',
+    'https://www.sopline.uz',
+    'http://sopline.uz',
+    'http://www.sopline.uz',
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
+]
+extra_csrf = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '')
+if extra_csrf:
+    for origin in extra_csrf.split(','):
+        o_clean = origin.strip().strip('"').strip("'")
+        if o_clean and o_clean not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(o_clean)
 
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -153,5 +185,5 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
 TELEGRAM_BOT_TOKEN = os.getenv('TOKEN', os.getenv('TELEGRAM_BOT_TOKEN', '')).strip()
