@@ -40,10 +40,9 @@ def _get_sections_for_test_management(request):
         depts = Department.objects.filter(Q(supervisor=request.user) | Q(pk=profile.department_id if profile.department_id else None))
         return Section.objects.filter(department__in=depts).select_related('department')
 
-    if profile.section_id:
-        return Section.objects.filter(id=profile.section_id).select_related('department')
-
-    return Section.objects.none()
+    return Section.objects.filter(
+        Q(id=profile.section_id) | Q(supervisor=request.user) | Q(memberships__user=request.user)
+    ).select_related('department').distinct()
 
 
 class TestListView(SectionAdminRequiredMixin, View):
@@ -340,16 +339,22 @@ class QuizStartView(SectionMemberRequiredMixin, View):
 
     def get(self, request, practice_pk, test_pk, *args, **kwargs):
         practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section=practice.section, is_active=True)
+        test = get_object_or_404(WorkPracticeTest, pk=test_pk, is_active=True)
+        if test.section_id != practice.section_id and not test.practice_permissions.filter(practice=practice).exists():
+            messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
+            return redirect('work-practices')
         
         # Verify user is assigned to this practice
         if not SectionWorkPracticeAssignee.objects.filter(practice=practice, user=request.user).exists():
             messages.error(request, "Siz ushbu amaliyotga biriktirilmagansiz.")
             return redirect('dashboard')
             
-        # Allow test on the last day or after practice ends (date-level check)
-        if practice.end_time.date() > timezone.now().date():
-            messages.error(request, "Test faqat amaliyotning oxirgi kuni yoki undan keyin topshirilishi mumkin.")
+        # Test activates once the practice start_time arrives
+        if practice.start_time and practice.start_time > timezone.now():
+            messages.warning(
+                request,
+                f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
+            )
             return redirect('work-practices')
 
         is_valid, msg = test.is_in_time_window
@@ -374,7 +379,18 @@ class QuizStartView(SectionMemberRequiredMixin, View):
         
     def post(self, request, practice_pk, test_pk, *args, **kwargs):
         practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, section=practice.section, is_active=True)
+        test = get_object_or_404(WorkPracticeTest, pk=test_pk, is_active=True)
+        if test.section_id != practice.section_id and not test.practice_permissions.filter(practice=practice).exists():
+            messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
+            return redirect('work-practices')
+
+        # Test activates once the practice start_time arrives
+        if practice.start_time and practice.start_time > timezone.now():
+            messages.warning(
+                request,
+                f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
+            )
+            return redirect('work-practices')
 
         is_valid, msg = test.is_in_time_window
         if not is_valid:

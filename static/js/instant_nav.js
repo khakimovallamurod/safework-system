@@ -218,14 +218,16 @@
     }
 
     // 4. Smart Prefetch (Warm Cache)
+    var isPrefetching = false;
     function prefetchUrl(urlStr) {
-        if (!urlStr || pageCache.has(urlStr)) return;
+        if (!urlStr || pageCache.has(urlStr) || isPrefetching || isNavigating) return;
         var connection = navigator.connection;
         if (connection && (connection.saveData || /2g/.test(connection.effectiveType || ''))) return;
 
+        isPrefetching = true;
         fetchPageSecurely(urlStr)
             .then(function (res) {
-                if (res.ok) {
+                if (res && res.ok) {
                     return res.text();
                 }
                 return null;
@@ -235,7 +237,10 @@
                     pageCache.set(urlStr, { html: html, time: Date.now() });
                 }
             })
-            .catch(function () {});
+            .catch(function () {})
+            .finally(function () {
+                isPrefetching = false;
+            });
     }
 
     // 4. Synchronize Page Head Styles & CSS Links ({% block head %})
@@ -287,6 +292,12 @@
     async function executeScripts(container) {
         var scripts = Array.from(container.querySelectorAll('script'));
         for (var oldScript of scripts) {
+            // Keep data scripts in the DOM untouched (JSON data, templates, etc.)
+            var scriptType = (oldScript.getAttribute('type') || '').trim().toLowerCase();
+            if (scriptType && !['text/javascript', 'application/javascript', 'module'].includes(scriptType)) {
+                continue;
+            }
+
             oldScript.remove(); // Remove original non-executed script tag
 
             var newScript = document.createElement('script');
@@ -296,7 +307,7 @@
 
             if (oldScript.src) {
                 var alreadyLoaded = Array.from(document.querySelectorAll('script[src]'))
-                    .some(function (s) { return s.src === oldScript.src; });
+                    .some(function (s) { return s.src === newScript.src; });
 
                 if (!alreadyLoaded) {
                     await new Promise(function (resolve) {
@@ -306,7 +317,7 @@
                     });
                 }
             } else {
-                newScript.textContent = oldScript.textContent;
+                var scriptContent = oldScript.textContent;
 
                 // Capture any DOMContentLoaded listener registered in this inline script
                 var originalAddEventListener = document.addEventListener;
@@ -321,8 +332,9 @@
                 };
 
                 try {
-                    document.body.appendChild(newScript);
-                    newScript.remove();
+                    // Safe execution via indirect eval in global scope so top-level let/const declarations
+                    // don't collide or throw SyntaxError across SPA navigations
+                    (0, eval)(scriptContent);
                 } catch (err) {
                     console.error('SPA script execution warning:', err);
                 } finally {
@@ -457,6 +469,22 @@
             // Synchronize page head styles ({% block head %})
             syncPageHead(htmlText, doc);
 
+            // Clean up any remaining modals, backdrops or modal state
+            document.querySelectorAll('body > .modal').forEach(function (m) {
+                var bsModal = (window.bootstrap && bootstrap.Modal) ? bootstrap.Modal.getInstance(m) : null;
+                if (bsModal) {
+                    try { bsModal.hide(); } catch (_) {}
+                    try { bsModal.dispose(); } catch (_) {}
+                }
+                m.remove();
+            });
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) {
+                b.remove();
+            });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+
             // Smoothly replace main content
             currentMain.className = newMain.className;
             currentMain.innerHTML = newMain.innerHTML;
@@ -467,6 +495,9 @@
             // Trigger smooth entrance animation
             currentMain.classList.remove('spa-transition-out');
             currentMain.classList.add('spa-transition-in');
+            setTimeout(function () {
+                currentMain.classList.remove('spa-transition-in');
+            }, 250);
 
             // Scroll to top
             currentMain.scrollTop = 0;
@@ -497,16 +528,27 @@
         }
     }
 
+    // 8. Global Modal Handler (Prevents Stacking Context / Dark Backdrop Overlay Trap)
+    document.addEventListener('show.bs.modal', function (event) {
+        var modal = event.target;
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+    });
+
     // 9. Event Listeners
-    // Hover / Touch intent prefetch
+    // Hover / Touch intent prefetch (300ms debounce to avoid spamming the backend)
     document.addEventListener('pointerover', function (e) {
+        if (isNavigating) return;
         var anchor = getValidAnchor(e.target);
         if (!anchor || !isSpaLink(anchor)) return;
 
         clearTimeout(hoverTimer);
         hoverTimer = setTimeout(function () {
-            prefetchUrl(anchor.href);
-        }, 65);
+            if (!isNavigating) {
+                prefetchUrl(anchor.href);
+            }
+        }, 300);
     }, { passive: true });
 
     document.addEventListener('pointerout', function () {
@@ -514,6 +556,7 @@
     });
 
     document.addEventListener('touchstart', function (e) {
+        if (isNavigating) return;
         var anchor = getValidAnchor(e.target);
         if (!anchor || !isSpaLink(anchor)) return;
         prefetchUrl(anchor.href);

@@ -918,7 +918,7 @@
 {{ org_leader_dashboard.guideline_modal_data_json|safe }}
 </script>
 <script>
-    let currentModalWorkers = [];
+    var currentModalWorkers = window.currentModalWorkers || [];
 
     function openGuidelineWorkersModal(typeKey, statusKey) {
         const rawDataEl = document.getElementById('gw-modal-data');

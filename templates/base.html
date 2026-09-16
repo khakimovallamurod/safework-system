@@ -741,30 +741,34 @@
         @keyframes instantFadeIn {
             from {
                 opacity: 0.88;
-                transform: translateY(2px);
             }
             to {
                 opacity: 1;
-                transform: translateY(0);
             }
         }
 
         .spa-transition-out {
-            opacity: 0.15;
+            opacity: 0.2;
             transition: opacity 0.1s ease-out;
         }
         .spa-transition-in {
-            animation: spaFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: spaFadeIn 0.18s ease-out;
         }
         @keyframes spaFadeIn {
             0% {
                 opacity: 0.2;
-                transform: translateY(4px);
             }
             100% {
                 opacity: 1;
-                transform: translateY(0);
             }
+        }
+
+        /* Ensure Bootstrap modals are never trapped by stacking context or hidden behind backdrops */
+        .modal {
+            z-index: 1065 !important;
+        }
+        .modal-backdrop {
+            z-index: 1055 !important;
         }
 
     </style>
