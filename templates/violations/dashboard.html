@@ -236,9 +236,14 @@
                                 <div class="text-xs text-slate-600 flex items-center gap-1.5" title="{{ v.reason }}">
                                     <span class="font-medium text-slate-800">{{ v.date|date:"d.m.Y" }}</span> - {{ v.violation_type.name }}
                                     {% if v.image %}
-                                    <a href="{{ v.image.url }}" target="_blank" class="inline-flex items-center text-indigo-600 hover:text-indigo-800" title="Rasmni ko'rish">
+                                    <button type="button" 
+                                            data-preview-image="{{ v.image.url }}" 
+                                            data-preview-title="Qoidabuzarlik fotosurati (dalil)" 
+                                            data-preview-subtitle="{{ row.employee.user.get_full_name|default:row.employee.user.username }} &bull; {{ v.violation_type.name }} &bull; {{ v.date|date:'d.m.Y' }}"
+                                            class="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition cursor-pointer p-0.5 rounded hover:bg-indigo-50" 
+                                            title="Rasmni ko'rish">
                                         <i class="bi bi-image"></i>
-                                    </a>
+                                    </button>
                                     {% endif %}
                                 </div>
                             {% endfor %}

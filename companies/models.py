@@ -650,6 +650,8 @@ class SectionWorkPractice(models.Model):
         blank=True,
         related_name='responsible_work_practices',
     )
+    responsible_accepted = models.BooleanField(default=False)
+    responsible_accepted_at = models.DateTimeField(null=True, blank=True)
     closed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         User,
@@ -690,6 +692,8 @@ class SectionWorkPracticeAssignee(models.Model):
     )
     accepted_by_responsible = models.BooleanField(default=False)
     accepted_at = models.DateTimeField(null=True, blank=True)
+    trainee_accepted = models.BooleanField(default=False)
+    trainee_accepted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'ish_amaliyot_azo'

@@ -1,58 +1,79 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto my-6">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8">
-        
-        <div class="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
-            <div>
-                <h2 class="text-xl font-bold text-slate-800">{{ test.name }}</h2>
-                <p class="text-sm text-slate-500 mt-1">Savollar soni: {{ questions|length }} ta</p>
+<div class="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+    <!-- Breadcrumb & Header -->
+    <div class="mb-5 flex items-center justify-between gap-4 flex-wrap">
+        <div>
+            <div class="text-xs text-slate-500 mb-1 font-medium flex items-center gap-1.5 flex-wrap">
+                <a href="{% url 'dashboard' %}" class="hover:text-brand-600 transition">Sopline</a>
+                <span>/</span>
+                <a href="{% url 'work-practices' %}" class="hover:text-brand-600 transition">Ish amaliyotlari</a>
+                <span>/</span>
+                <span class="text-slate-400">Test jarayoni</span>
             </div>
-            <div class="flex flex-col items-end">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Qolgan vaqt</span>
-                <div class="flex items-center gap-2 font-bold text-xl text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100" id="timer">
-                    <i class="bi bi-stopwatch"></i> 
-                    <span id="time-display">--:--</span>
-                </div>
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">{{ test.name }}</h1>
+        </div>
+    </div>
+
+    <!-- Sticky Timer and Progress Header -->
+    <div class="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-md p-4 sm:px-6 shadow-sm flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 text-lg border border-indigo-100">
+                <i class="bi bi-patch-question"></i>
+            </span>
+            <div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Savollar</div>
+                <div class="font-bold text-slate-800 text-sm sm:text-base">{{ questions|length }} ta savol</div>
             </div>
         </div>
-        
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:inline">Qolgan vaqt:</span>
+            <div class="flex items-center gap-2 font-mono font-bold text-lg sm:text-xl text-indigo-600 bg-indigo-50 px-3.5 py-1.5 rounded-xl border border-indigo-100 shadow-2xs" id="timer">
+                <i class="bi bi-stopwatch"></i> 
+                <span id="time-display">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-8">
         <form id="quizForm" method="post" action="{% url 'companies:quiz_take' attempt.id %}">
             {% csrf_token %}
             
-            <div class="space-y-10">
+            <div class="space-y-8 sm:space-y-10">
                 {% for question in questions %}
                 <div class="question-block" id="q-{{ question.id }}">
-                    <div class="flex items-start gap-4 mb-5">
-                        <span class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold shadow-sm mt-0.5">
+                    <div class="flex items-start gap-3 sm:gap-4 mb-4">
+                        <span class="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-sm mt-0.5">
                             {{ forloop.counter }}
                         </span>
-                        <h3 class="text-lg font-semibold text-slate-800 leading-relaxed">{{ question.text|safe }}</h3>
+                        <h3 class="text-base sm:text-lg font-semibold text-slate-800 leading-relaxed">{{ question.text|safe }}</h3>
                     </div>
                     
-                    <div class="space-y-3 ml-12">
+                    <div class="space-y-2.5 sm:space-y-3 sm:ml-12">
                         {% for opt in question.shuffled_options %}
-                        <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50">
-                            <input type="radio" name="question_{{ question.id }}" value="{{ opt.0 }}" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
-                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600">
+                        <label class="flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors [&:has(input:checked)]:border-indigo-500 [&:has(input:checked)]:bg-indigo-50/70 shadow-2xs">
+                            <input type="radio" name="question_{{ question.id }}" value="{{ opt.0 }}" class="form-radio h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300" required>
+                            <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-bold text-slate-600">
                                 {% if forloop.counter == 1 %}A{% elif forloop.counter == 2 %}B{% else %}C{% endif %}
                             </span>
-                            <span class="text-slate-700 font-medium select-none">{{ opt.1 }}</span>
+                            <span class="text-slate-700 text-sm font-medium select-none">{{ opt.1 }}</span>
                         </label>
                         {% endfor %}
                     </div>
                 </div>
                 
                 {% if not forloop.last %}
-                <hr class="border-slate-100 ml-12">
+                <hr class="border-slate-100 sm:ml-12">
                 {% endif %}
                 {% endfor %}
             </div>
             
-            <div class="mt-10 pt-6 border-t border-slate-200 flex justify-end">
-                <button type="submit" id="submitBtn" class="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3.5 text-base font-bold text-white transition hover:bg-emerald-700 shadow-md shadow-emerald-200">
-                    <i class="bi bi-check-circle"></i> Testni yakunlash
+            <div class="mt-10 pt-6 border-t border-slate-200 flex items-center justify-between gap-4 flex-wrap">
+                <span class="text-xs text-slate-400 italic">Barcha savollarga javob belgilanganligini tekshiring.</span>
+                <button type="submit" id="submitBtn" class="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 px-7 py-3.5 text-sm sm:text-base font-bold text-white transition hover:bg-emerald-700 shadow-md shadow-emerald-200 cursor-pointer">
+                    <i class="bi bi-check2-circle text-lg"></i> Testni yakunlash
                 </button>
             </div>
         </form>
@@ -84,14 +105,20 @@
         
         if (diff <= 0) {
             display.textContent = "00:00";
-            document.getElementById('timer').classList.replace('text-indigo-600', 'text-rose-600');
-            document.getElementById('timer').classList.replace('bg-indigo-50', 'bg-rose-50');
-            document.getElementById('timer').classList.replace('border-indigo-100', 'border-rose-200');
+            var timerBox = document.getElementById('timer');
+            if (timerBox) {
+                timerBox.classList.replace('text-indigo-600', 'text-rose-600');
+                timerBox.classList.replace('bg-indigo-50', 'bg-rose-50');
+                timerBox.classList.replace('border-indigo-100', 'border-rose-200');
+            }
             clearInterval(timerInterval);
             
             // Auto submit
-            document.getElementById('submitBtn').innerHTML = "Vaqt tugadi. Yuborilmoqda...";
-            document.getElementById('submitBtn').disabled = true;
+            var sBtn = document.getElementById('submitBtn');
+            if (sBtn) {
+                sBtn.innerHTML = "Vaqt tugadi. Yuborilmoqda...";
+                sBtn.disabled = true;
+            }
             form.submit();
             return;
         }
@@ -101,9 +128,12 @@
         display.textContent = `${m}:${s}`;
         
         if (diff < 60) {
-            document.getElementById('timer').classList.replace('text-indigo-600', 'text-amber-600');
-            document.getElementById('timer').classList.replace('bg-indigo-50', 'bg-amber-50');
-            document.getElementById('timer').classList.replace('border-indigo-100', 'border-amber-200');
+            var timerBox = document.getElementById('timer');
+            if (timerBox) {
+                timerBox.classList.replace('text-indigo-600', 'text-amber-600');
+                timerBox.classList.replace('bg-indigo-50', 'bg-amber-50');
+                timerBox.classList.replace('border-indigo-100', 'border-amber-200');
+            }
         }
     }
     

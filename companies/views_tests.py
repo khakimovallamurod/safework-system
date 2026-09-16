@@ -286,7 +286,21 @@ class TestDetailView(SectionAdminRequiredMixin, View):
 
     def get(self, request, pk, *args, **kwargs):
         sections = _get_sections_for_test_management(request)
-        test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
+        test = WorkPracticeTest.objects.filter(
+            Q(section__in=sections) |
+            Q(section__department__supervisor=request.user) |
+            Q(section__department_id=getattr(request.user.profile, 'department_id', None)) |
+            Q(practice_permissions__practice__responsible_user=request.user) |
+            Q(practice_permissions__practice__section__in=sections)
+        ).distinct().filter(pk=pk).first()
+
+        if not test:
+            if request.user.is_superuser:
+                test = get_object_or_404(WorkPracticeTest, pk=pk)
+            else:
+                messages.error(request, "Test topilmadi yoki ko'rish huquqi yo'q.")
+                return redirect('work-practices')
+
         questions = test.questions.all()
         context = self.get_role_context()
         context.update({
@@ -349,12 +363,24 @@ class QuizStartView(SectionMemberRequiredMixin, View):
             messages.error(request, "Siz ushbu amaliyotga biriktirilmagansiz.")
             return redirect('dashboard')
             
-        # Test activates once the practice start_time arrives
-        if practice.start_time and practice.start_time > timezone.now():
+        now = timezone.now()
+        # Test activates once the practice start_time arrives and before end_time
+        if practice.start_time and practice.start_time > now:
             messages.warning(
                 request,
                 f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
             )
+            return redirect('work-practices')
+
+        if practice.end_time and practice.end_time < now:
+            messages.warning(
+                request,
+                f"Ushbu stajirovka testi topshirish muddati tugagan (Tugash vaqti: {timezone.localtime(practice.end_time):%d.%m.%Y %H:%M})."
+            )
+            return redirect('work-practices')
+
+        if practice.closed_at:
+            messages.warning(request, "Ushbu stajirovka yakunlangan va yopilgan.")
             return redirect('work-practices')
 
         is_valid, msg = test.is_in_time_window
@@ -384,12 +410,24 @@ class QuizStartView(SectionMemberRequiredMixin, View):
             messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
             return redirect('work-practices')
 
-        # Test activates once the practice start_time arrives
-        if practice.start_time and practice.start_time > timezone.now():
+        now = timezone.now()
+        # Test activates once the practice start_time arrives and before end_time
+        if practice.start_time and practice.start_time > now:
             messages.warning(
                 request,
                 f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
             )
+            return redirect('work-practices')
+
+        if practice.end_time and practice.end_time < now:
+            messages.warning(
+                request,
+                f"Ushbu stajirovka testi topshirish muddati tugagan (Tugash vaqti: {timezone.localtime(practice.end_time):%d.%m.%Y %H:%M})."
+            )
+            return redirect('work-practices')
+
+        if practice.closed_at:
+            messages.warning(request, "Ushbu stajirovka yakunlangan va yopilgan.")
             return redirect('work-practices')
 
         is_valid, msg = test.is_in_time_window
