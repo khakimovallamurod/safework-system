@@ -4945,11 +4945,27 @@ def _work_practices_for_super_admin():
 def _sync_work_practice_assignees(practice, worker_ids, section):
     valid_ids = set(
         User.objects.filter(
-            Q(section_memberships__section=section) | Q(profile__section=section) | Q(supervised_sections=section),
-            profile__role__in=[UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN],
+            Q(section_memberships__section=section) | 
+            Q(profile__section=section) | 
+            Q(profile__department=section.department if section else None) |
+            Q(supervised_sections=section) |
+            Q(supervised_sections__department=section.department if section else None),
             is_superuser=False
         ).values_list('pk', flat=True)
     )
+    if practice.created_by:
+        c_prof = getattr(practice.created_by, 'profile', None)
+        if c_prof and c_prof.role == UserProfile.ROLE_ORG_LEADER:
+            org_profiles = _org_leader_worker_profiles(practice.created_by)
+            valid_ids.update(org_profiles.values_list('user_id', flat=True))
+            valid_ids.update(User.objects.filter(
+                Q(section_memberships__section__department__leader=c_prof) |
+                Q(profile__department__leader=c_prof),
+                is_superuser=False
+            ).values_list('pk', flat=True))
+        elif practice.created_by.is_superuser:
+            valid_ids.update(User.objects.filter(is_superuser=False).values_list('pk', flat=True))
+
     cleaned = [int(uid) for uid in worker_ids if str(uid).isdigit()]
     if practice.responsible_user_id:
         cleaned = [uid for uid in cleaned if uid != practice.responsible_user_id]
@@ -4970,24 +4986,14 @@ def _sync_work_practice_assignees(practice, worker_ids, section):
     return True
 
 
-def _set_work_practice_responsible(practice, responsible_id, section):
+def _set_work_practice_responsible(practice, responsible_id, section=None):
     if not responsible_id or not str(responsible_id).isdigit():
         return False
     rid = int(responsible_id)
-    valid_ids = set(
-        User.objects.filter(
-            Q(section_memberships__section=section) | 
-            Q(profile__section=section) | 
-            Q(profile__department=section.department) |
-            Q(supervised_sections=section) |
-            Q(supervised_sections__department=section.department) |
-            Q(pk=section.department.supervisor_id if section.department else None),
-            is_superuser=False
-        ).values_list('pk', flat=True)
-    )
-    if rid not in valid_ids:
+    target_user = User.objects.filter(pk=rid, is_active=True, is_superuser=False).first()
+    if not target_user:
         return False
-    practice.responsible_user_id = rid
+    practice.responsible_user = target_user
     practice.save(update_fields=['responsible_user'])
     return True
 
@@ -5203,9 +5209,29 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             .order_by('-start_time', '-created_at')
         )
 
-        # Personal mentor practices (Mas'ul ustoz sifatida biriktirilgan)
+        can_manage_work_practices = (
+            role.get('is_section_admin', False)
+            or role.get('is_department_admin', False)
+            or role.get('is_org_leader', False)
+            or role.get('is_super_admin', False)
+        )
+
+        # Personal mentor practices (Mas'ul ustoz sifatida biriktirilgan) & monitoring for managers
+        resp_filter = Q(responsible_user=self.request.user)
+        if can_manage_work_practices:
+            if role.get('is_super_admin'):
+                resp_filter = Q(responsible_user=self.request.user) | Q(responsible_user__isnull=False)
+            elif role.get('is_org_leader'):
+                org_depts = list(_org_leader_departments(self.request.user))
+                resp_filter = Q(responsible_user=self.request.user) | Q(section__department__in=org_depts, responsible_user__isnull=False)
+            elif role.get('is_department_admin'):
+                adm_depts = list(Department.objects.filter(
+                    Q(supervisor=self.request.user) | Q(pk=getattr(self.request.user.profile, 'department_id', None))
+                ).distinct())
+                resp_filter = Q(responsible_user=self.request.user) | Q(section__department__in=adm_depts, responsible_user__isnull=False)
+
         responsible_practices = list(
-            SectionWorkPractice.objects.filter(responsible_user=self.request.user)
+            SectionWorkPractice.objects.filter(resp_filter)
             .prefetch_related(
                 Prefetch('assignees', queryset=SectionWorkPracticeAssignee.objects.select_related('user', 'user__profile')),
                 Prefetch('test_permissions', queryset=WorkPracticeTestPermission.objects.select_related('test', 'test__section'))
@@ -5231,17 +5257,30 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             prof = getattr(u, 'profile', None)
             if not prof:
                 return 'Xodim'
-            if prof.role == UserProfile.ROLE_SECTION_ADMIN or (hasattr(u, 'supervised_sections') and u.supervised_sections.all()):
-                return 'Bo‘lim boshlig‘i'
-            if prof.role == UserProfile.ROLE_DEPARTMENT_ADMIN:
-                return 'Boshqarma nazoratchisi'
             if prof.role == UserProfile.ROLE_ORG_LEADER:
                 return 'Tashkilot rahbari'
-            return 'Xodim'
+            if prof.role == UserProfile.ROLE_DEPARTMENT_ADMIN:
+                return 'Boshqarma nazoratchisi'
+            if prof.role == UserProfile.ROLE_SECTION_ADMIN or (hasattr(u, 'supervised_sections') and u.supervised_sections.all()):
+                return 'Bo‘lim boshlig‘i'
+            return prof.get_role_display() or 'Xodim'
 
         # Default section_workers for practice create modal
         if role.get('is_super_admin'):
             section_workers = list(User.objects.filter(
+                is_superuser=False
+            ).select_related('profile', 'profile__section', 'profile__department').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
+        elif role.get('is_org_leader'):
+            org_depts = list(_org_leader_departments(self.request.user))
+            org_sections = list(_org_leader_sections(self.request.user))
+            section_workers = list(User.objects.filter(
+                Q(profile__in=_org_leader_worker_profiles(self.request.user)) |
+                Q(section_memberships__section__in=org_sections) |
+                Q(profile__section__in=org_sections) |
+                Q(profile__department__in=org_depts) |
+                Q(supervised_sections__in=org_sections) |
+                Q(supervised_sections__department__in=org_depts) |
+                Q(pk=self.request.user.pk),
                 is_superuser=False
             ).select_related('profile', 'profile__section', 'profile__department').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
         elif role.get('is_department_admin') and depts:
@@ -5261,11 +5300,11 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 is_superuser=False
             ).select_related('profile', 'profile__section', 'profile__department').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
         elif available_sections:
-            target_sec = available_sections[0]
             section_workers = list(User.objects.filter(
-                Q(section_memberships__section=target_sec) |
-                Q(profile__section=target_sec) |
-                Q(supervised_sections=target_sec),
+                Q(section_memberships__section__in=available_sections) |
+                Q(profile__section__in=available_sections) |
+                Q(supervised_sections__in=available_sections) |
+                Q(pk=self.request.user.pk),
                 is_superuser=False
             ).select_related('profile', 'profile__section', 'profile__department').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
         else:
@@ -5341,9 +5380,8 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             practice.failed_count = failed_count
             practice.enriched_assignees = assignee_items
 
-            if practice.is_responsible:
-                practice.responsible_messages = _work_practice_messages_for_responsible(practice)
-                practice.trainee_stats = _responsible_trainee_stats(practice, practice_attempts_by_user)
+            practice.responsible_messages = _work_practice_messages_for_responsible(practice)
+            practice.trainee_stats = _responsible_trainee_stats(practice, practice_attempts_by_user)
 
             # Days remaining counter (for participant cards)
             if practice.end_time:
@@ -5399,10 +5437,32 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
 
             # Pre-load eligible workers and tests for modals
             if practice.section:
-                practice.eligible_workers = list(User.objects.filter(
+                sec_filter = (
                     Q(section_memberships__section=practice.section) |
                     Q(profile__section=practice.section) |
-                    Q(supervised_sections=practice.section),
+                    Q(supervised_sections=practice.section)
+                )
+                if role.get('is_super_admin'):
+                    worker_filter = Q()
+                elif role.get('is_org_leader'):
+                    worker_filter = (
+                        Q(profile__in=_org_leader_worker_profiles(self.request.user)) |
+                        Q(section_memberships__section__department__leader=self.request.user.profile) |
+                        Q(profile__department__leader=self.request.user.profile) |
+                        sec_filter
+                    )
+                elif role.get('is_department_admin') and practice.section.department:
+                    worker_filter = (
+                        Q(section_memberships__section__department=practice.section.department) |
+                        Q(profile__department=practice.section.department) |
+                        Q(supervised_sections__department=practice.section.department) |
+                        sec_filter
+                    )
+                else:
+                    worker_filter = sec_filter
+
+                practice.eligible_workers = list(User.objects.filter(
+                    worker_filter,
                     is_superuser=False
                 ).select_related('profile').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
                 for ew in practice.eligible_workers:
@@ -5609,6 +5669,13 @@ class SectionWorkPracticeEditView(SectionAdminRequiredMixin, View):
         form = SectionWorkPracticeForm(request.POST, instance=practice)
         if form.is_valid():
             form.save()
+            resp_id = request.POST.get('responsible_user')
+            if resp_id is not None:
+                if resp_id and str(resp_id).isdigit():
+                    _set_work_practice_responsible(practice, resp_id, section)
+                elif resp_id == '':
+                    practice.responsible_user = None
+                    practice.save(update_fields=['responsible_user'])
             messages.success(request, 'Ish amaliyoti yangilandi.')
         else:
             messages.error(request, 'Tahrirlashda xatolik bor.')
@@ -5672,6 +5739,7 @@ class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
         user_prof = getattr(request.user, 'profile', None)
         is_self = assignment.user_id == request.user.id
         is_resp = assignment.practice.responsible_user_id == request.user.id
+        is_creator = assignment.practice.created_by_id == request.user.id
         is_section_head = (
             assignment.practice.section
             and (
@@ -5679,12 +5747,21 @@ class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
                 or (user_prof and user_prof.role == UserProfile.ROLE_SECTION_ADMIN and user_prof.section_id == assignment.practice.section_id)
             )
         )
+        is_dept_head = (
+            assignment.practice.section
+            and assignment.practice.section.department
+            and (
+                assignment.practice.section.department.supervisor_id == request.user.id
+                or (user_prof and user_prof.role == UserProfile.ROLE_DEPARTMENT_ADMIN and user_prof.department_id == assignment.practice.section.department_id)
+            )
+        )
+        is_org_leader = (user_prof and user_prof.role == UserProfile.ROLE_ORG_LEADER)
         is_superuser = request.user.is_superuser
 
-        if not (is_self or is_section_head or is_superuser):
+        if not (is_self or is_resp or is_creator or is_section_head or is_dept_head or is_org_leader or is_superuser):
             if is_ajax:
-                return JsonResponse({'ok': False, 'message': "Amaliyotni faqat amaliyotchining o‘zi qabul qilishi kerak."}, status=403)
-            messages.error(request, "Amaliyotni faqat amaliyotchining o‘zi qabul qilishi kerak.")
+                return JsonResponse({'ok': False, 'message': "Amaliyotni qabul qilish huquqi yo‘q."}, status=403)
+            messages.error(request, "Amaliyotni qabul qilish huquqi yo‘q.")
             return redirect('work-practices')
 
         if assignment.trainee_accepted:

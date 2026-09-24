@@ -3,25 +3,87 @@
 {% block content %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
-    .select2-container--default .select2-selection--single,
+    .select2-container {
+        width: 100% !important;
+    }
+    .select2-container--default .select2-selection--single {
+        min-height: 44px;
+        height: 44px;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.75rem;
+        padding: 6px 12px;
+        display: flex;
+        align-items: center;
+        background-color: #ffffff;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: normal;
+        padding-left: 0;
+        color: #1e293b;
+        font-size: 0.875rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: #94a3b8;
+        font-size: 0.875rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 42px;
+        right: 12px;
+    }
     .select2-container--default .select2-selection--multiple {
-        min-height: 42px;
+        min-height: 44px;
         border: 1px solid #cbd5e1;
         border-radius: 0.75rem;
         padding: 4px 8px;
+        background-color: #ffffff;
     }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 32px;
-        padding-left: 4px;
-        color: #1e293b;
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: #f5f3ff;
+        border: 1px solid #ddd6fe;
+        border-radius: 0.5rem;
+        padding: 3px 8px;
+        color: #6d28d9;
+        font-weight: 600;
+        font-size: 0.75rem;
+        margin-top: 4px;
+        margin-bottom: 2px;
     }
-    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 40px; }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        color: #7c3aed;
+        margin-right: 6px;
+        border-right: 1px solid #ddd6fe;
+        padding-right: 4px;
+    }
     .select2-container--default.select2-container--focus .select2-selection--single,
     .select2-container--default.select2-container--focus .select2-selection--multiple {
         border-color: #8b5cf6;
         box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
     }
-    .select2-dropdown { border-color: #cbd5e1; border-radius: 0.75rem; overflow: hidden; }
+    .select2-dropdown {
+        border-color: #cbd5e1;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        z-index: 1065 !important;
+    }
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+        border: 1px solid #cbd5e1;
+        border-radius: 0.5rem;
+        padding: 7px 12px;
+        font-size: 0.8125rem;
+    }
+    .select2-container--default .select2-search--dropdown .select2-search__field:focus {
+        border-color: #8b5cf6;
+        outline: none;
+    }
+    .select2-results__option {
+        font-size: 0.8125rem;
+        padding: 7px 12px;
+    }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #7c3aed !important;
+        color: #ffffff !important;
+    }
     .practice-tab-pane { display: none; }
     .practice-tab-pane.active { display: block; }
 </style>
@@ -298,28 +360,76 @@
         {% for practice in responsible_practices %}
         <div class="rounded-2xl border border-sky-200 bg-white shadow-sm overflow-hidden">
           <div class="px-5 py-3.5 bg-sky-50 border-b border-sky-100 flex flex-wrap items-center justify-between gap-2">
-            <div>
+            <div class="flex flex-wrap items-center gap-2">
               <span class="text-sm font-bold text-slate-800">{{ practice.name }}</span>
-              <span class="ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ practice.status_class }}">{{ practice.status_label }}</span>
+              <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ practice.status_class }}">{{ practice.status_label }}</span>
               {% if practice.section %}
-              <span class="ml-2 inline-flex items-center gap-1 rounded-md bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
+              <span class="inline-flex items-center gap-1 rounded-md bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
                 <i class="bi bi-building"></i> {{ practice.section.name }}
               </span>
               {% endif %}
+              {% if practice.responsible_user %}
+              <span class="inline-flex items-center gap-1 rounded-md bg-white border border-sky-200 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                <i class="bi bi-person-check text-sky-600"></i> Ustoz: {{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}
+              </span>
+              {% endif %}
               {% if practice.responsible_accepted %}
-              <span class="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                 <i class="bi bi-check-circle-fill text-emerald-600"></i> Mas’uliyat qabul qilingan
               </span>
               {% else %}
-              <span class="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-800">
-                <i class="bi bi-hourglass-split text-amber-600"></i> Mas’uliyatni qabul qilishingiz kutilmoqda
+              <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-xs font-bold text-amber-800">
+                <i class="bi bi-hourglass-split text-amber-600"></i> Mas’uliyat kutilmoqda
               </span>
               {% endif %}
             </div>
-            <button type="button" data-bs-toggle="modal" data-bs-target="#practiceMsgModal{{ practice.id }}"
-                    class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 transition">
-              <i class="bi bi-send"></i> Xabar yuborish
-            </button>
+            <div class="flex items-center gap-2">
+              {% if can_manage_work_practices %}
+              <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAssignModal{{ practice.id }}"
+                      class="inline-flex items-center gap-1.5 rounded-lg bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 px-3 py-1.5 text-xs font-bold shadow-sm transition">
+                <i class="bi bi-person-plus text-sky-600"></i> Amaliyotchi biriktirish
+              </button>
+              {% endif %}
+              <button type="button" data-bs-toggle="modal" data-bs-target="#practiceMsgModal{{ practice.id }}"
+                      class="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 transition shadow-sm">
+                <i class="bi bi-send"></i> Xabar yuborish
+              </button>
+            </div>
+          </div>
+
+          <!-- Practice Summary Statistics Badges -->
+          <div class="px-5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-3 text-slate-500">
+              <span><i class="bi bi-calendar3 mr-1 text-slate-400"></i>{{ practice.start_time|date:"d.m.Y" }} — {{ practice.end_time|date:"d.m.Y" }}</span>
+              {% if practice.days_left is not None %}
+                {% if practice.is_last_day %}
+                <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800"><i class="bi bi-clock-history"></i> Oxirgi kun!</span>
+                {% elif practice.days_left > 0 %}
+                <span class="text-slate-400">({{ practice.days_left }} kun qoldi)</span>
+                {% endif %}
+              {% endif %}
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1 rounded-lg bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm">
+                Jami: <span class="text-violet-700 font-extrabold">{{ practice.assignee_count }} ta</span>
+              </span>
+              <span class="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] font-bold text-emerald-800 shadow-sm">
+                <i class="bi bi-check-circle-fill text-emerald-500"></i> Qabul qilingan: {{ practice.accepted_assignee_count }}
+              </span>
+              {% if practice.pending_accept_count > 0 %}
+              <span class="inline-flex items-center gap-1 rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1 text-[11px] font-bold text-amber-800 shadow-sm">
+                <i class="bi bi-hourglass-split text-amber-500"></i> Kutilmoqda: {{ practice.pending_accept_count }}
+              </span>
+              {% endif %}
+              <span class="inline-flex items-center gap-1 rounded-lg bg-sky-50 border border-sky-200 px-2.5 py-1 text-[11px] font-bold text-sky-800 shadow-sm">
+                <i class="bi bi-award-fill text-sky-500"></i> O‘tgan: {{ practice.passed_count }}
+              </span>
+              {% if practice.failed_count %}
+              <span class="inline-flex items-center gap-1 rounded-lg bg-rose-50 border border-rose-200 px-2.5 py-1 text-[11px] font-bold text-rose-800 shadow-sm">
+                <i class="bi bi-x-circle-fill text-rose-500"></i> O‘tolmagan: {{ practice.failed_count }}
+              </span>
+              {% endif %}
+            </div>
           </div>
 
           {% if not practice.responsible_accepted %}
@@ -327,16 +437,24 @@
             <div class="flex items-center gap-2.5">
               <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-sky-600 text-white shadow-sm text-sm"><i class="bi bi-shield-check"></i></span>
               <div>
-                <p class="text-xs font-bold text-slate-800">Siz ushbu stajirovkaga mas’ul ustoz etib belgilangansiz.</p>
+                <p class="text-xs font-bold text-slate-800">
+                  {% if practice.responsible_user_id == user.id %}
+                  Siz ushbu stajirovkaga mas’ul ustoz etib belgilangansiz.
+                  {% else %}
+                  Mas’ul ustoz: <strong>{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}</strong>
+                  {% endif %}
+                </p>
                 <p class="text-[11px] text-slate-500">Quyidagi amaliyotchilar faoliyatini nazorat qilish va ustozlik mas’uliyatini tasdiqlang.</p>
               </div>
             </div>
+            {% if practice.responsible_user_id == user.id or can_manage_work_practices %}
             <form method="post" action="{% url 'work-practice-responsible-accept' practice.id %}">
               {% csrf_token %}
               <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition">
-                <i class="bi bi-check2-circle"></i> Mas’uliyatni qabul qilaman
+                <i class="bi bi-check2-circle"></i> Mas’uliyatni qabul qilish
               </button>
             </form>
+            {% endif %}
           </div>
           {% endif %}
 
@@ -385,20 +503,41 @@
                       <span class="text-slate-400 italic text-[11px]">Topshirmagan</span>
                     {% endif %}
                   </td>
-                  <td class="px-4 py-2 text-center">
+                  <td class="px-4 py-2 text-center whitespace-nowrap">
                     {% if trainee.accepted %}
                     <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
-                      <i class="bi bi-check-circle-fill text-emerald-600"></i> Qabul qilgan
+                      <i class="bi bi-check-circle-fill text-emerald-600"></i> Qabul qilingan
                     </span>
                     {% else %}
-                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700" title="Amaliyotchi o‘zi qabul qilishi kutilmoqda">
-                      <i class="bi bi-hourglass-split text-amber-500"></i> Kutilmoqda
-                    </span>
+                    <div class="inline-flex items-center gap-1.5">
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700" title="Qabul qilinishi kutilmoqda">
+                        <i class="bi bi-hourglass-split text-amber-500"></i> Kutilmoqda
+                      </span>
+                      <form method="post" action="{% url 'work-practice-assignee-accept' trainee.assignment.id %}" class="inline-block">
+                        {% csrf_token %}
+                        <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm transition" title="Amaliyotchi stajirovkasini tasdiqlash">
+                          <i class="bi bi-check2"></i> Qabul qilish
+                        </button>
+                      </form>
+                    </div>
                     {% endif %}
                   </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="px-4 py-4 text-center text-slate-400">Amaliyotchi biriktirilmagan</td></tr>
+                <tr>
+                  <td colspan="7" class="px-4 py-6 text-center text-slate-400">
+                    <div class="flex flex-col items-center justify-center gap-1.5">
+                      <i class="bi bi-people text-2xl text-slate-300"></i>
+                      <span class="text-xs">Amaliyotchi hali biriktirilmagan</span>
+                      {% if can_manage_work_practices %}
+                      <button type="button" data-bs-toggle="modal" data-bs-target="#practiceAssignModal{{ practice.id }}"
+                              class="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-sky-700 transition shadow-sm mt-1">
+                        <i class="bi bi-person-plus"></i> Amaliyotchi biriktirish
+                      </button>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -901,12 +1040,12 @@
                     {% if available_sections %}
                     <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Amaliyot o‘taladigan Bo‘lim / Sex (Bir yoki bir nechtasini tanlang)</label>
-                        <select name="section_ids" class="worker-select2 form-control w-full" multiple required data-placeholder="Bo‘lim(lar)ni tanlang...">
+                        <select name="section_ids" id="practice_section_ids" class="worker-select2 form-control w-full" multiple required data-placeholder="Bo‘lim(lar)ni tanlang...">
                             {% for sec in available_sections %}
                             <option value="{{ sec.id }}" {% if section and section.id == sec.id %}selected{% elif available_sections|length == 1 %}selected{% endif %}>{{ sec.name }} ({{ sec.department.name }})</option>
                             {% endfor %}
                         </select>
-                        <p class="mt-1 text-[11px] text-slate-400">Boshqarma nazoratchisi bir vaqtning o‘zida bir nechta bo‘limni tanlab, umumiy stajirovka joriy qilishi mumkin.</p>
+                        <p class="mt-1 text-[11px] text-slate-400">Boshqarma nazoratchisi yoki rahbar bir vaqtning o‘zida bir nechta bo‘limni tanlab, umumiy stajirovka joriy qilishi mumkin.</p>
                     </div>
                     {% endif %}
                     <div>
@@ -925,7 +1064,7 @@
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Mas’ul xodim / Ustoz (1 ta)</label>
-                        <select name="responsible_user" class="worker-select2 form-control" required>
+                        <select name="responsible_user" id="practice_responsible_user" class="worker-select2 form-control w-full" required data-placeholder="Mas’ul ustozni tanlang...">
                             <option value="">Ustozni tanlang</option>
                             {% for worker in section_workers %}
                             <option value="{{ worker.pk }}">
@@ -1216,6 +1355,17 @@
                         </div>
                     </div>
                     <div>
+                        <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Mas’ul xodim / Ustoz</label>
+                        <select name="responsible_user" class="worker-select2 form-control w-full" data-placeholder="Mas’ul ustozni tanlang...">
+                            <option value="">Ustozsiz qoldirish</option>
+                            {% for worker in practice.eligible_workers|default:section_workers %}
+                            <option value="{{ worker.pk }}" {% if practice.responsible_user_id == worker.pk %}selected{% endif %}>
+                                {{ worker.profile.full_name|default:worker.username }} ({{ worker.username }}) · [{{ worker.custom_role_label|default:"Xodim" }}]{% if worker.profile.position %} · {{ worker.profile.position }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
                         <label class="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Izoh</label>
                         <textarea name="notes" rows="3" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">{{ practice.notes }}</textarea>
                     </div>
@@ -1305,46 +1455,47 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        if (typeof jQuery === 'undefined' || !jQuery.fn.select2) return;
-
+    (function () {
         function initWorkerSelect2(root) {
-            const $root = root ? jQuery(root) : jQuery(document);
+            if (typeof jQuery === 'undefined' || !jQuery.fn.select2) return;
+            var $root = root ? jQuery(root) : jQuery(document);
             $root.find('.worker-select2').each(function () {
-                const $el = jQuery(this);
-                if ($el.hasClass('select2-hidden-accessible')) return;
-                const modal = $el.closest('.modal');
-                const isMultiple = $el.prop('multiple');
+                var $el = jQuery(this);
+                var modal = $el.closest('.modal');
+                var isMultiple = $el.prop('multiple');
+                var ph = $el.data('placeholder') || ($el.is('[name="section_ids"]') ? 'Bo‘lim(lar)ni tanlang...' : ($el.is('[name="responsible_user"]') ? 'Mas’ul ustozni tanlang...' : 'Qidiring va tanlang...'));
+
+                if ($el.data('select2')) {
+                    $el.select2('destroy');
+                }
+
                 $el.select2({
                     width: '100%',
-                    placeholder: 'Qidiring va tanlang...',
-                    allowClear: true,
+                    placeholder: ph,
+                    allowClear: !isMultiple,
                     closeOnSelect: !isMultiple,
                     dropdownParent: modal.length ? modal : jQuery('body'),
                 });
-            });
-        }
 
-        function syncWorkerSelect(modal) {
-            jQuery(modal).find('.worker-select2').each(function () {
-                const $el = jQuery(this);
-                const raw = this.dataset.selectedWorkers || '';
-                const ids = raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-                if (ids.length) {
-                    $el.val(ids).trigger('change');
+                var raw = this.dataset.selectedWorkers || '';
+                if (raw) {
+                    var ids = raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                    if (ids.length) {
+                        $el.val(ids).trigger('change.select2');
+                    }
                 }
             });
         }
 
         function bindRecipientScope(modal) {
-            const root = modal || document;
+            var root = modal || document;
             root.querySelectorAll('form[action*="send-message/"]').forEach(function (form) {
-                const wrap = form.querySelector('.recipient-select-wrap');
-                const allRadio = form.querySelector('input[name="recipient_scope"][value="all"]');
-                const selectedRadio = form.querySelector('input[name="recipient_scope"][value="selected"]');
+                var wrap = form.querySelector('.recipient-select-wrap');
+                var allRadio = form.querySelector('input[name="recipient_scope"][value="all"]');
+                var selectedRadio = form.querySelector('input[name="recipient_scope"][value="selected"]');
                 if (!wrap || !allRadio || !selectedRadio) return;
 
-                const update = function () {
+                var update = function () {
                     wrap.classList.toggle('hidden', !selectedRadio.checked);
                 };
 
@@ -1354,16 +1505,24 @@
             });
         }
 
-        initWorkerSelect2();
-        bindRecipientScope(document);
-        document.querySelectorAll('.modal').forEach(function (modal) {
-            modal.addEventListener('shown.bs.modal', function () {
-                initWorkerSelect2(modal);
-                syncWorkerSelect(modal);
-                bindRecipientScope(modal);
+        function setupModals() {
+            initWorkerSelect2(document);
+            bindRecipientScope(document);
+
+            document.querySelectorAll('.modal').forEach(function (modal) {
+                modal.addEventListener('shown.bs.modal', function () {
+                    initWorkerSelect2(modal);
+                    bindRecipientScope(modal);
+                });
             });
-        });
-    });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupModals);
+        } else {
+            setupModals();
+        }
+    })();
 
     // Explicit Tab Switcher for Work Practices
     function switchPracticeTab(tabName) {

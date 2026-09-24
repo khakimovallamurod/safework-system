@@ -354,7 +354,12 @@ class QuizStartView(AuthenticatedRequiredMixin, View):
     def get(self, request, practice_pk, test_pk, *args, **kwargs):
         practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
         test = get_object_or_404(WorkPracticeTest, pk=test_pk, is_active=True)
-        if test.section_id != practice.section_id and not test.practice_permissions.filter(practice=practice).exists():
+        is_test_linked = (
+            test.section_id == practice.section_id
+            or (practice.section and test.section and test.section.department_id == practice.section.department_id)
+            or test.practice_permissions.filter(practice=practice).exists()
+        )
+        if not is_test_linked:
             messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
             return redirect('work-practices')
         
@@ -383,9 +388,8 @@ class QuizStartView(AuthenticatedRequiredMixin, View):
             messages.warning(request, "Ushbu stajirovka yakunlangan va yopilgan.")
             return redirect('work-practices')
 
-        is_valid, msg = test.is_in_time_window
-        if not is_valid:
-            messages.warning(request, msg)
+        if test.is_stopped:
+            messages.warning(request, "Test muddatidan oldin to‘xtatilgan.")
             return redirect('work-practices')
 
         # Check attempts
@@ -406,7 +410,12 @@ class QuizStartView(AuthenticatedRequiredMixin, View):
     def post(self, request, practice_pk, test_pk, *args, **kwargs):
         practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
         test = get_object_or_404(WorkPracticeTest, pk=test_pk, is_active=True)
-        if test.section_id != practice.section_id and not test.practice_permissions.filter(practice=practice).exists():
+        is_test_linked = (
+            test.section_id == practice.section_id
+            or (practice.section and test.section and test.section.department_id == practice.section.department_id)
+            or test.practice_permissions.filter(practice=practice).exists()
+        )
+        if not is_test_linked:
             messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
             return redirect('work-practices')
 
@@ -430,9 +439,8 @@ class QuizStartView(AuthenticatedRequiredMixin, View):
             messages.warning(request, "Ushbu stajirovka yakunlangan va yopilgan.")
             return redirect('work-practices')
 
-        is_valid, msg = test.is_in_time_window
-        if not is_valid:
-            messages.warning(request, msg)
+        if test.is_stopped:
+            messages.warning(request, "Test muddatidan oldin to‘xtatilgan.")
             return redirect('work-practices')
         
         attempts_count = WorkPracticeTestAttempt.objects.filter(practice=practice, user=request.user, test=test).count()
