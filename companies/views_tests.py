@@ -30,7 +30,7 @@ def _get_sections_for_test_management(request):
     if not profile:
         return Section.objects.none()
 
-    if profile.role == 'org_leader':
+    if profile.role in ['org_leader', 'organization_leader']:
         from accounts.views import _org_leader_departments
         depts = _org_leader_departments(request.user)
         return Section.objects.filter(department__in=depts).select_related('department')
@@ -348,7 +348,7 @@ class QuestionDeleteView(SectionAdminRequiredMixin, View):
         return redirect('companies:test_detail', pk=test.id)
 
 
-class QuizStartView(SectionMemberRequiredMixin, View):
+class QuizStartView(AuthenticatedRequiredMixin, View):
     template_name = 'companies/tests/quiz_start.html'
 
     def get(self, request, practice_pk, test_pk, *args, **kwargs):

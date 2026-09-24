@@ -1646,11 +1646,14 @@ def _build_org_leader_dashboard(user, profile):
     ppe_rate = _percent(ppe_accepted, max(ppe_total, 1))
 
     # SafeWork Enterprise Index (0 - 100)
+    # 10-band: Qoidabuzarliklar ta'sirini me'yorlashtirish (bitta qoidabuzarlik uchun katta foiz ayrilmasligi)
+    violation_penalty = min(80, (active_violations_count * 3) + (recent_violations_count * 1))
+    violation_score = max(20, 100 - violation_penalty)
     composite_guideline_rate = guidelines_info['composite_guideline_rate']
     index_score = round(
-        (composite_guideline_rate * 0.45)
+        (composite_guideline_rate * 0.50)
         + (assessment_pass_rate * 0.30)
-        + (max(0, 100 - (active_violations_count * 15 + recent_violations_count * 5)) * 0.25)
+        + (violation_score * 0.20)
     )
     index_score = max(0, min(100, index_score))
 
@@ -1843,11 +1846,14 @@ def _build_department_admin_dashboard(user, profile):
     ppe_rate = _percent(ppe_accepted, max(ppe_total, 1))
 
     # Mehnat muhofazasi indeksi
+    # 10-band: Qoidabuzarliklar ta'sirini me'yorlashtirish (bitta qoidabuzarlik uchun katta foiz ayrilmasligi)
+    violation_penalty = min(80, (active_violations_count * 3) + (recent_violations_count * 1))
+    violation_score = max(20, 100 - violation_penalty)
     composite_guideline_rate = guidelines_info['composite_guideline_rate']
     index_score = round(
-        (composite_guideline_rate * 0.45)
+        (composite_guideline_rate * 0.50)
         + (assessment_pass_rate * 0.30)
-        + (max(0, 100 - (active_violations_count * 15 + recent_violations_count * 5)) * 0.25)
+        + (violation_score * 0.20)
     )
     index_score = max(0, min(100, index_score))
 
@@ -2295,6 +2301,30 @@ class DepartmentWorkerRegistryView(DepartmentSupervisorOnlyMixin, TemplateView):
                     unassigned_workers.append(row)
             grouped_data = list(sec_map.values())
 
+            # Bo'limga hali biriktirilmagan va yangi ro'yxatdan o'tgan xodimlar
+            assigned_uids = set(SectionMembership.objects.filter(section__department=department).values_list('user_id', flat=True))
+            unassigned_profiles = UserProfile.objects.filter(
+                Q(department=department) | Q(organization=department.leader, department__isnull=True),
+                role=UserProfile.ROLE_WORKER
+            ).exclude(user_id__in=assigned_uids).select_related('user', 'department', 'region')
+
+            for up in unassigned_profiles:
+                entry_status = _entry_guideline_status_for_user(up.user)
+                unassigned_workers.append({
+                    'membership': None,
+                    'user': up.user,
+                    'profile': up,
+                    'department': up.department or department,
+                    'section': None,
+                    'profession': None,
+                    'medical_record': None,
+                    'entry_status': entry_status,
+                    'mandatory_statuses': _mandatory_guideline_statuses_for_user(up.user),
+                    'profession_status': {'label': 'Kasb yo‘riqnomasi', 'is_passed': False, 'acknowledged_at': None},
+                    'is_assigned': False,
+                    'is_approved_by_dept': up.is_approved_by_dept,
+                })
+
         context.update(
             self.get_role_context()
             | {
@@ -2306,6 +2336,102 @@ class DepartmentWorkerRegistryView(DepartmentSupervisorOnlyMixin, TemplateView):
             }
         )
         return context
+
+
+class DepartmentWorkerAcceptView(DepartmentAdminRequiredMixin, View):
+    """
+    9-band: Zavodga yangi ro'yxatdan o'tgan xodimni Boshqarma boshlig'i qabul qilishi.
+    Qabul qilingach, xodimga FAQAT Kirish yo'riqnomasi taqdim etiladi.
+    """
+    def post(self, request, pk, *args, **kwargs):
+        profile = get_object_or_404(UserProfile, pk=pk)
+        department = get_department_admin_department(request.user)
+
+        if not department:
+            # Tashkilot rahbari ham qabul qila oladi
+            if request.user.profile.role == UserProfile.ROLE_ORG_LEADER:
+                dept_id = request.POST.get('department_id')
+                department = Department.objects.filter(leader=request.user.profile, pk=dept_id).first() if dept_id else Department.objects.filter(leader=request.user.profile).first()
+
+        profile.is_approved_by_dept = True
+        profile.approved_by_dept_at = timezone.now()
+        profile.approved_by_dept_user = request.user
+        if department:
+            profile.department = department
+        profile.save(update_fields=['is_approved_by_dept', 'approved_by_dept_at', 'approved_by_dept_user', 'department'])
+
+        # Kirish yo'riqnomasini xodimga avtomatik biriktirish (faqat kirish yo'riqnomasi ochiladi)
+        try:
+            from companies.models import EntryGuideline, GuidelineDispatch, GuidelineDispatchRecipient
+            active_dispatch = GuidelineDispatch.objects.filter(
+                guideline__organization=profile.organization or (department.leader if department else None),
+                is_active=True
+            ).first()
+            if not active_dispatch:
+                active_dispatch = GuidelineDispatch.objects.filter(is_active=True).first()
+
+            if active_dispatch:
+                GuidelineDispatchRecipient.objects.get_or_create(
+                    dispatch=active_dispatch,
+                    user=profile.user,
+                )
+        except Exception:
+            pass
+
+        # Xodimga bildirishnoma
+        try:
+            send_action_notification(
+                title="Boshqarma tomonidan qabul qilindingiz",
+                message=f"Siz «{department.name if department else 'Boshqarma'}» tomonidan muvaffaqiyatli qabul qilindingiz. Endi Kirish yo‘riqnomasi bilan tanishib chiqing.",
+                notif_type='guideline',
+                url='/kirish-yoriknomam/',
+                target_users=[profile.user]
+            )
+        except Exception:
+            pass
+
+        messages.success(request, f"{profile.full_name} muvaffaqiyatli qabul qilindi. Xodimga Kirish yo‘riqnomasi ochildi.")
+        return redirect(request.POST.get('next') or reverse('department-workers'))
+
+
+class WorkerStatusUpdateView(AuthenticatedRequiredMixin, View):
+    """
+    4-band: Xodimni ishdan bo'shatish, ta'tilga chiqarish, bloklash yoki faollashtirish.
+    """
+    def post(self, request, pk, *args, **kwargs):
+        role_ctx = self.get_role_context()
+        can_manage = role_ctx.get('is_org_leader') or role_ctx.get('is_department_admin') or role_ctx.get('is_super_admin')
+        if not can_manage:
+            messages.error(request, "Xodim holatini o‘zgartirish huquqi sizda yo‘q.")
+            return redirect('dashboard')
+
+        profile = get_object_or_404(UserProfile, pk=pk)
+        new_status = request.POST.get('employment_status', '').strip()
+        reason = request.POST.get('status_reason', '').strip()
+
+        valid_statuses = dict(UserProfile.EMPLOYMENT_STATUS_CHOICES)
+        if new_status not in valid_statuses:
+            messages.error(request, "Noto‘g‘ri mehnat holati tanlandi.")
+            return redirect(request.POST.get('next') or reverse('department-workers'))
+
+        profile.employment_status = new_status
+        profile.status_reason = reason
+        profile.status_changed_at = timezone.now()
+        profile.status_changed_by = request.user
+
+        user = profile.user
+        if new_status in [UserProfile.STATUS_DISMISSED, UserProfile.STATUS_BLOCKED]:
+            user.is_active = False
+            user.save(update_fields=['is_active'])
+        elif new_status in [UserProfile.STATUS_ACTIVE, UserProfile.STATUS_ON_LEAVE]:
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+
+        profile.save(update_fields=['employment_status', 'status_reason', 'status_changed_at', 'status_changed_by'])
+
+        status_label = valid_statuses.get(new_status)
+        messages.success(request, f"{profile.full_name} mehnat holati «{status_label}»ga o‘zgartirildi.")
+        return redirect(request.POST.get('next') or reverse('department-workers'))
 
 
 class SectionDetailView(DepartmentAdminRequiredMixin, TemplateView):
@@ -3791,10 +3917,20 @@ class GuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
             return redirect(request.POST.get('next') or reverse('notifications-inbox'))
 
+        duration = request.POST.get('reading_duration_seconds', '0')
+        try:
+            duration_sec = int(duration)
+        except ValueError:
+            duration_sec = 0
+
+        if duration_sec < 40 and request.POST.get('reading_duration_seconds') is not None:
+            messages.warning(request, 'Yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi. Iltimos, diqqat bilan o‘qib chiqing.')
+            return redirect(request.POST.get('next') or reverse('notifications-inbox'))
+
         receipt.is_acknowledged = True
         receipt.acknowledged_at = timezone.now()
         receipt.save(update_fields=['is_acknowledged', 'acknowledged_at'])
-        messages.success(request, 'Yo‘riqnoma qabul qilindi. Rahmat!')
+        messages.success(request, 'Yo‘riqnoma muvaffaqiyatli qabul qilindi. Rahmat!')
         next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or reverse('notifications-inbox')
         if not url_has_allowed_host_and_scheme(
             next_url,
@@ -3836,14 +3972,25 @@ class MandatoryGuidelineListView(DepartmentSupervisorOnlyMixin, TemplateView):
         form = MandatoryGuidelineForm(request.POST, request.FILES)
         if form.is_valid():
             guideline_type = form.cleaned_data['guideline_type']
-            if MandatoryGuideline.objects.filter(department=department, guideline_type=guideline_type).exists():
-                messages.error(request, 'Bu turdagi yo‘riqnoma allaqachon yaratilgan. Uni tahrirlang.')
-                return redirect(f"{reverse('mandatory-guidelines')}?type={guideline_type}")
+            # 6-band: Avvalgi faol yo'riqnomani arxivga o'tkazish (tarix saqlanadi)
+            old_active = MandatoryGuideline.objects.filter(
+                department=department,
+                guideline_type=guideline_type,
+                is_active=True
+            )
+            old_count = old_active.count()
+            old_active.update(is_active=False)
+
             guideline = form.save(commit=False)
             guideline.department = department
             guideline.created_by = request.user
+            guideline.is_active = True
             guideline.save()
-            messages.success(request, 'Majburiy yo‘riqnoma saqlandi.')
+
+            if old_count > 0:
+                messages.success(request, f'Yangi yo‘riqnoma joriy qilindi! Avvalgi yo‘riqnoma tarixga (arxivga) saqlandi. Xodimlar yangi yo‘riqnoma bilan qaytadan tanishib chiqadilar.')
+            else:
+                messages.success(request, 'Majburiy yo‘riqnoma muvaffaqiyatli saqlandi va joriy qilindi.')
         else:
             messages.error(request, 'Yo‘riqnoma yaratishda xatolik bor.')
         return redirect(f"{reverse('mandatory-guidelines')}?type={selected_type}" if selected_type else 'mandatory-guidelines')
@@ -3858,10 +4005,6 @@ class MandatoryGuidelineEditView(DepartmentSupervisorOnlyMixin, View):
             return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}" if guideline else 'mandatory-guidelines')
         form = MandatoryGuidelineForm(request.POST, request.FILES, instance=guideline)
         if form.is_valid():
-            guideline_type = form.cleaned_data['guideline_type']
-            if MandatoryGuideline.objects.filter(department=department, guideline_type=guideline_type).exclude(pk=guideline.pk).exists():
-                messages.error(request, 'Bu turdagi yo‘riqnoma allaqachon mavjud.')
-                return redirect(f"{reverse('mandatory-guidelines')}?type={guideline_type}")
             form.save()
             messages.success(request, 'Yo‘riqnoma yangilandi.')
         else:
@@ -3904,9 +4047,39 @@ class MandatoryGuidelineStopView(DepartmentSupervisorOnlyMixin, View):
         return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}")
 
 
+class MandatoryGuidelineResumeView(DepartmentSupervisorOnlyMixin, View):
+    """6-band: Muddatidan oldin to'xtatilgan majburiy yo'riqnomani qayta yoqish (resume)."""
+
+    def post(self, request, pk, *args, **kwargs):
+        department = _guideline_department_or_redirect(request)
+        guideline = MandatoryGuideline.objects.filter(pk=pk, department=department).first() if department else None
+        if not guideline:
+            messages.error(request, 'Yo‘riqnoma topilmadi.')
+            return redirect('mandatory-guidelines')
+
+        guideline.is_stopped = False
+        guideline.stopped_at = None
+        guideline.stop_reason = ''
+        guideline.stopped_by = None
+        guideline.save(update_fields=['is_stopped', 'stopped_at', 'stop_reason', 'stopped_by'])
+        messages.success(request, f"«{guideline.name}» yo‘riqnomasi muvaffaqiyatli qayta yoqildi va faollashtirildi.")
+        return redirect(f"{reverse('mandatory-guidelines')}?type={guideline.guideline_type}")
+
+
 class MandatoryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'accounts/mandatory_guidelines_inbox.html'
     type_titles = dict(MandatoryGuideline.TYPE_CHOICES)
+
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.role == UserProfile.ROLE_WORKER and not profile.section_id:
+            messages.info(
+                request,
+                "Siz hali uchastkaga biriktirilmagansiz. Kirish yo‘riqnomasidan o‘tganingizdan so‘ng, "
+                "uchastka boshlig‘i sizni kasbingiz bo‘yicha uchastkaga biriktiradi va majburiy yo‘riqnomalar ochiladi."
+            )
+            return redirect('worker-entry-guidelines')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -3998,18 +4171,40 @@ class MandatoryGuidelinePdfView(AuthenticatedRequiredMixin, View):
 class MandatoryGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         receipt = get_object_or_404(MandatoryGuidelineReceipt, pk=pk, user=request.user)
+        duration = request.POST.get('reading_duration_seconds', '0')
+        try:
+            duration_sec = int(duration)
+        except ValueError:
+            duration_sec = 0
+
         if not request.POST.get('agree'):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
             return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+
+        if duration_sec < 40:
+            messages.warning(request, 'Yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi. Iltimos, diqqat bilan o‘qib chiqing.')
+            return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+
         receipt.is_acknowledged = True
         receipt.acknowledged_at = timezone.now()
         receipt.save(update_fields=['is_acknowledged', 'acknowledged_at'])
-        messages.success(request, 'Yo‘riqnoma qabul qilindi.')
+        messages.success(request, 'Yo‘riqnoma muvaffaqiyatli qabul qilindi.')
         return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
 
 
 class ProfessionGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'accounts/profession_guideline_inbox.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.role == UserProfile.ROLE_WORKER and not profile.section_id:
+            messages.info(
+                request,
+                "Siz hali uchastkaga biriktirilmagansiz. Kirish yo‘riqnomasidan o‘tganingizdan so‘ng, "
+                "uchastka boshlig‘i sizni kasbingiz bo‘yicha uchastkaga biriktiradi va kasb yo‘riqnomasi ochiladi."
+            )
+            return redirect('worker-entry-guidelines')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -4173,7 +4368,12 @@ class SectionInternalGuidelineListView(SectionAdminRequiredMixin, TemplateView):
         if not section:
             return context
 
-        active_dispatch = _active_internal_guideline_dispatch_for_section(section)
+        active_dispatches = SectionInternalGuidelineDispatch.objects.filter(
+            guideline__section=section,
+            is_active=True,
+        ).select_related('guideline')
+        active_guideline_ids = set(active_dispatches.values_list('guideline_id', flat=True))
+        active_dispatch = active_dispatches.first()
         context.update(
             self.get_role_context()
             | {
@@ -4183,6 +4383,7 @@ class SectionInternalGuidelineListView(SectionAdminRequiredMixin, TemplateView):
                 'send_workers': get_section_workers_for_internal_guidelines(section),
                 'active_dispatch': active_dispatch,
                 'active_guideline_id': active_dispatch.guideline_id if active_dispatch else None,
+                'active_guideline_ids': active_guideline_ids,
                 'page_title': 'Ichki yo‘riqnomalar',
             }
         )
@@ -4258,42 +4459,55 @@ class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
             return redirect('internal-guidelines')
 
         action = request.POST.get('action', 'activate')
-        active_dispatch = _active_internal_guideline_dispatch_for_section(section)
+        active_dispatch = SectionInternalGuidelineDispatch.objects.filter(guideline=guideline, is_active=True).first()
 
         if action == 'deactivate':
-            if not active_dispatch or active_dispatch.guideline_id != guideline.pk:
+            if not active_dispatch:
                 messages.info(request, 'Bu yo‘riqnoma hozir joriy emas.')
                 return redirect('internal-guidelines')
             active_dispatch.is_active = False
             active_dispatch.save(update_fields=['is_active'])
-            messages.success(request, 'Ichki yo‘riqnoma faolsizlantirildi. Blok yechildi.')
+            messages.success(request, 'Ichki yo‘riqnoma faolsizlantirildi.')
             return redirect('internal-guidelines')
 
-        users = list(get_section_workers_for_internal_guidelines(section).filter(is_superuser=False))
+        # 6-band: Kimlarga tegishliligini belgilash (tanlangan xodimlar yoki butun bo'lim)
+        selected_worker_ids = request.POST.getlist('workers')
+        if selected_worker_ids:
+            users = list(User.objects.filter(
+                id__in=selected_worker_ids,
+                is_superuser=False
+            ).filter(
+                Q(section_memberships__section=section) | Q(profile__section=section)
+            ).distinct())
+        else:
+            users = list(get_section_workers_for_internal_guidelines(section).filter(is_superuser=False))
+
         if not users:
-            messages.error(request, 'Bo‘limda xodimlar topilmadi.')
+            messages.error(request, 'Yo‘riqnoma yuborish uchun xodimlar tanlanmadi.')
             return redirect('internal-guidelines')
 
-        if not all([guideline.start_time, guideline.registration_end_time, guideline.active_until]):
-            messages.error(request, 'Avval yo‘riqnomaga boshlanish, ro‘yxatdan o‘tish oxiri va faollik tugash vaqtlarini kiriting.')
+        # Faqat boshlanish va tugash vaqti yetarli (ro'yxatdan o'tish oxiri shart emas)
+        if not guideline.start_time or not guideline.active_until:
+            messages.error(request, 'Avval yo‘riqnomaga boshlanish va tugash vaqtlarini kiriting.')
             return redirect('internal-guidelines')
         if not guideline.pdf_file_exists:
             messages.error(request, 'Fayl serverda topilmadi. Avval yo‘riqnomani tahrirlab faylni qayta yuklang.')
             return redirect('internal-guidelines')
 
-        SectionInternalGuidelineDispatch.objects.filter(guideline__section=section, is_active=True).update(is_active=False)
+        # Faqat shu yo'riqnomaning avvalgi faol holatini yangilash (boshqa yo'riqnomalar o'chirilmaydi!)
+        SectionInternalGuidelineDispatch.objects.filter(guideline=guideline, is_active=True).update(is_active=False)
         dispatch = SectionInternalGuidelineDispatch.objects.create(
             guideline=guideline,
             sent_by=request.user,
             is_active=True,
             start_time=guideline.start_time,
-            registration_end_time=guideline.registration_end_time,
+            registration_end_time=guideline.registration_end_time or guideline.start_time,
             active_until=guideline.active_until,
         )
         SectionInternalGuidelineRecipient.objects.bulk_create(
             [SectionInternalGuidelineRecipient(dispatch=dispatch, user=user) for user in users]
         )
-        messages.success(request, f'Ichki yo‘riqnoma {len(users)} ta xodimga yuborildi.')
+        messages.success(request, f'«{guideline.name}» ichki yo‘riqnomasi {len(users)} ta tanlangan xodimga joriy qilindi.')
         return redirect('internal-guideline-status')
 
 
@@ -4386,10 +4600,20 @@ class InternalGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
             return redirect(request.POST.get('next') or reverse('worker-messages-inbox'))
 
+        duration = request.POST.get('reading_duration_seconds', '0')
+        try:
+            duration_sec = int(duration)
+        except ValueError:
+            duration_sec = 0
+
+        if duration_sec < 40 and request.POST.get('reading_duration_seconds') is not None:
+            messages.warning(request, 'Yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi. Iltimos, diqqat bilan o‘qib chiqing.')
+            return redirect(request.POST.get('next') or reverse('worker-messages-inbox'))
+
         receipt.is_acknowledged = True
         receipt.acknowledged_at = timezone.now()
         receipt.save(update_fields=['is_acknowledged', 'acknowledged_at'])
-        messages.success(request, 'Yo‘riqnoma qabul qilindi. Rahmat!')
+        messages.success(request, 'Yo‘riqnoma muvaffaqiyatli qabul qilindi. Rahmat!')
         next_url = request.POST.get('next') or reverse('worker-messages-inbox')
         if not url_has_allowed_host_and_scheme(
             next_url,
@@ -4721,7 +4945,7 @@ def _work_practices_for_super_admin():
 def _sync_work_practice_assignees(practice, worker_ids, section):
     valid_ids = set(
         User.objects.filter(
-            Q(section_memberships__section=section) | Q(profile__section=section) | Q(profile__department=section.department),
+            Q(section_memberships__section=section) | Q(profile__section=section) | Q(supervised_sections=section),
             profile__role__in=[UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN],
             is_superuser=False
         ).values_list('pk', flat=True)
@@ -4775,7 +4999,13 @@ def _get_practice_for_management(request, pk):
         return None, None
     if request.user.is_superuser:
         return practice, practice.section
-    if practice.responsible_user_id == request.user.id or practice.created_by_id == request.user.id:
+
+    # 5-band: Agar foydalanuvchi ushbu amaliyotda amaliyotchi (o'rganuvchi) bo'lsa, uni boshqara olmaydi / o'chira olmaydi!
+    from companies.models import SectionWorkPracticeAssignee
+    if SectionWorkPracticeAssignee.objects.filter(practice=practice, user=request.user).exists():
+        return None, None
+
+    if practice.created_by_id == request.user.id or practice.responsible_user_id == request.user.id:
         return practice, practice.section
     profile = getattr(request.user, 'profile', None)
     if not profile:
@@ -5027,7 +5257,6 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             section_workers = list(User.objects.filter(
                 Q(section_memberships__section=section) |
                 Q(profile__section=section) |
-                Q(profile__department=section.department) |
                 Q(supervised_sections=section),
                 is_superuser=False
             ).select_related('profile', 'profile__section', 'profile__department').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
@@ -5036,7 +5265,6 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             section_workers = list(User.objects.filter(
                 Q(section_memberships__section=target_sec) |
                 Q(profile__section=target_sec) |
-                Q(profile__department=target_sec.department) |
                 Q(supervised_sections=target_sec),
                 is_superuser=False
             ).select_related('profile', 'profile__section', 'profile__department').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
@@ -5174,7 +5402,6 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 practice.eligible_workers = list(User.objects.filter(
                     Q(section_memberships__section=practice.section) |
                     Q(profile__section=practice.section) |
-                    Q(profile__department=practice.section.department) |
                     Q(supervised_sections=practice.section),
                     is_superuser=False
                 ).select_related('profile').prefetch_related('supervised_sections').distinct().order_by('profile__full_name', 'username'))
@@ -6160,6 +6387,26 @@ class VerifyOTPView(View):
         if auth_flow == 'register':
             user.is_active = True
             user.save()
+            try:
+                from companies.models import Department
+                from accounts.notifications import send_action_notification
+                org = profile.organization
+                if org:
+                    departments = Department.objects.filter(leader=org).select_related('supervisor')
+                    dept_supervisors = [d.supervisor for d in departments if d.supervisor]
+                    if org.user:
+                        dept_supervisors.append(org.user)
+                    if dept_supervisors:
+                        send_action_notification(
+                            title="Yangi xodim ro‘yxatdan o‘tdi",
+                            message=f"{profile.full_name} tizimda ro‘yxatdan o‘tdi. Iltimos, xodimni bo‘limga qabul qiling.",
+                            notif_type='system',
+                            url='/boshqarma-xodimlari/',
+                            target_users=dept_supervisors,
+                            exclude_users=[user]
+                        )
+            except Exception:
+                pass
             messages.success(request, "Akkauntingiz muvaffaqiyatli tasdiqlandi. Endi tizimga kirishingiz mumkin.")
             request.session.pop('temp_user_id', None)
             request.session.pop('auth_flow', None)

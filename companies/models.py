@@ -370,13 +370,13 @@ class MandatoryGuideline(models.Model):
         related_name='stopped_mandatory_guidelines',
         verbose_name="To'xtatgan foydalanuvchi",
     )
+    is_active = models.BooleanField(default=True, verbose_name="Joriy faol")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['guideline_type', '-created_at']
         db_table = 'majburiy_yoriqnoma'
-        unique_together = ('department', 'guideline_type')
 
     def __str__(self):
         return self.name

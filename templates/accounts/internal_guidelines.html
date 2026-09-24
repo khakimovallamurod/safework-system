@@ -57,7 +57,7 @@
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex flex-col gap-1.5">
-                            {% if active_guideline_id == guideline.id %}
+                            {% if guideline.id in active_guideline_ids %}
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 w-fit">
                                     <i class="bi bi-shield-lock-fill"></i> Joriy
                                 </span>
@@ -85,8 +85,8 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-right whitespace-nowrap">
-                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg {% if active_guideline_id == guideline.id %}border border-rose-300 text-rose-600 hover:bg-rose-50{% else %}border border-emerald-300 text-emerald-600 hover:bg-emerald-50{% endif %} transition" data-bs-toggle="modal" data-bs-target="#internalSendModal{{ guideline.id }}" title="{% if active_guideline_id == guideline.id %}Faolsizlantirish{% else %}Joriy qilish{% endif %}">
-                            {% if active_guideline_id == guideline.id %}
+                        <button type="button" class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg {% if guideline.id in active_guideline_ids %}border border-rose-300 text-rose-600 hover:bg-rose-50{% else %}border border-emerald-300 text-emerald-600 hover:bg-emerald-50{% endif %} transition" data-bs-toggle="modal" data-bs-target="#internalSendModal{{ guideline.id }}" title="{% if guideline.id in active_guideline_ids %}Faolsizlantirish{% else %}Joriy qilish{% endif %}">
+                            {% if guideline.id in active_guideline_ids %}
                             <i class="bi bi-unlock"></i>
                             {% else %}
                             <i class="bi bi-shield-lock"></i>
@@ -130,7 +130,7 @@
                     {{ form.pdf_file }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish vaqti</label>
                     {{ form.start_time }}
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Ro'yxatdan o'tish oxiri vaqti</label>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Ro'yxatdan o'tish oxiri vaqti (ixtiyoriy)</label>
                     {{ form.registration_end_time }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Faollik tugash vaqti</label>
                     {{ form.active_until }}
@@ -166,8 +166,8 @@
                     </p>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish sanasi</label>
                     <input type="date" name="start_time" value="{{ guideline.start_time|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Ro'yxatdan o'tish oxiri</label>
-                    <input type="date" name="registration_end_time" value="{{ guideline.registration_end_time|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Ro'yxatdan o'tish oxiri (ixtiyoriy)</label>
+                    <input type="date" name="registration_end_time" value="{{ guideline.registration_end_time|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Faollik tugash sanasi</label>
                     <input type="date" name="active_until" value="{{ guideline.active_until|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
                 </div>
@@ -199,7 +199,7 @@
 <div class="modal fade" id="internalSendModal{{ guideline.id }}" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-2xl border-0 shadow-2xl overflow-hidden">
-            {% if active_guideline_id == guideline.id %}
+            {% if guideline.id in active_guideline_ids %}
             <form method="post" action="{% url 'internal-guideline-stop' guideline.id %}">
                 {% csrf_token %}
                 <div class="modal-header bg-rose-50 border-b border-rose-100">
@@ -238,17 +238,36 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body py-4 space-y-3 text-sm text-slate-700">
-                    <p><strong>{{ guideline.name }}</strong> ni bo'lim xodimlariga avtomatik tarzda joriy qilasizmi?</p>
-                    <p class="text-xs text-slate-500">Bu holatda barcha bo'lim xodimlariga yo'riqnoma yuboriladi va o'qib tasdiqlashlari talab qilinadi.</p>
+                    <p><strong>{{ guideline.name }}</strong> yo'riqnomasini bo'lim xodimlariga joriy qilasizmi?</p>
                     {% if guideline.start_time %}
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
                         <div><span class="font-medium text-slate-500">Boshlanish:</span> {{ guideline.start_time|date:'d.m.Y' }}</div>
+                        {% if guideline.registration_end_time %}
                         <div><span class="font-medium text-slate-500">Ro'yxat oxiri:</span> {{ guideline.registration_end_time|date:'d.m.Y' }}</div>
+                        {% endif %}
                         <div><span class="font-medium text-slate-500">Faollik:</span> {{ guideline.active_until|date:'d.m.Y' }}</div>
                     </div>
                     {% else %}
                     <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">Avval yo'riqnomaga vaqt oralig'ini kiriting (tahrirlash orqali).</p>
                     {% endif %}
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Qabul qiluvchi xodimlar:</label>
+                            <span class="text-[11px] text-slate-500">Tanlanmasa barchaga yuboriladi</span>
+                        </div>
+                        <div class="max-h-44 overflow-y-auto border border-slate-200 rounded-xl p-2.5 space-y-1.5 bg-slate-50">
+                            {% for w in send_workers %}
+                            <label class="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-white text-xs cursor-pointer transition">
+                                <input type="checkbox" name="workers" value="{{ w.id }}" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                                <span class="font-medium text-slate-800">{{ w.profile.full_name|default:w.username }}</span>
+                                {% if w.profile.job_title %}<span class="text-slate-400 text-[11px]">({{ w.profile.job_title }})</span>{% endif %}
+                            </label>
+                            {% empty %}
+                            <p class="text-xs text-slate-400 p-2 text-center">Bo'limda tayinlangan xodimlar topilmadi.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer bg-slate-50 border-t border-slate-100">
                     <button type="button" class="h-9 px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-100" data-bs-dismiss="modal">Bekor</button>

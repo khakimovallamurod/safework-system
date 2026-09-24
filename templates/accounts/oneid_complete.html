@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div class="w-full max-w-lg">
+        <div class="overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200/50 border border-slate-100">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-700 p-6 text-white text-center">
+                <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md mb-3 border border-white/20">
+                    <i class="bi bi-shield-lock-fill text-2xl text-emerald-200"></i>
+                </div>
+                <h1 class="text-xl font-black">One ID orqali ro‘yxatdan o‘tish</h1>
+                <p class="text-xs text-emerald-100/90 mt-1">Shaxsingiz muvaffaqiyatli tasdiqlandi. Korxonangizni tanlang.</p>
+            </div>
+
+            <!-- User Info Card -->
+            <div class="p-6 border-b border-slate-100 bg-slate-50/70">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">One ID ma'lumotlari</p>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center py-1 border-b border-slate-200/60">
+                        <span class="text-slate-500">F.I.Sh:</span>
+                        <span class="font-bold text-slate-800">{{ oneid_user.full_name|default:"-" }}</span>
+                    </div>
+                    {% if oneid_user.pinfl %}
+                    <div class="flex justify-between items-center py-1 border-b border-slate-200/60">
+                        <span class="text-slate-500">JShShIR (PINFL):</span>
+                        <span class="font-mono font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded text-xs">{{ oneid_user.pinfl }}</span>
+                    </div>
+                    {% endif %}
+                    {% if oneid_user.passport_number %}
+                    <div class="flex justify-between items-center py-1">
+                        <span class="text-slate-500">Pasport:</span>
+                        <span class="font-mono font-semibold text-slate-700">{{ oneid_user.passport_series }} {{ oneid_user.passport_number }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Form -->
+            <form method="post" class="p-6 space-y-5">
+                {% csrf_token %}
+                
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                        Tashkilot / Zavodni tanlang <span class="text-rose-500">*</span>
+                    </label>
+                    {{ form.organization }}
+                    {% if form.organization.errors %}
+                    <p class="text-xs text-rose-500 mt-1">{{ form.organization.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-[11px] text-slate-400 mt-1.5">Siz mehnat faoliyatini olib boradigan korxonani belgilang.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                        Viloyat (ixtiyoriy)
+                    </label>
+                    {{ form.region }}
+                    {% if form.region.errors %}
+                    <p class="text-xs text-rose-500 mt-1">{{ form.region.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition active:scale-[0.99]">
+                        <i class="bi bi-check-circle-fill"></i> Ro‘yxatdan o‘tishni yakunlash
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

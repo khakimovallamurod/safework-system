@@ -35,8 +35,11 @@
                             <span class="text-slate-400">-</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3">
-                        {% if guideline.is_stopped %}
+                        {% if not guideline.is_active %}
+                            <span class="inline-flex rounded-md bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                                <i class="bi bi-archive mr-1.5"></i>Arxiv (Oldingi)
+                            </span>
+                        {% elif guideline.is_stopped %}
                             <span class="inline-flex rounded-md bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800" title="{{ guideline.stop_reason }}">
                                 <i class="bi bi-stop-circle mr-1.5"></i>To'xtatilgan
                             </span>
@@ -66,12 +69,19 @@
                         <span class="text-rose-600 font-medium"><i class="bi bi-exclamation-circle"></i> Fayl yo'q</span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-3 text-right">
-                        {% if not guideline.is_stopped %}
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        {% if guideline.is_stopped %}
+                        <form class="inline" method="post" action="{% url 'mandatory-guideline-resume' guideline.id %}" onsubmit="return confirm('Ushbu yo‘riqnomani qayta yoqishni tasdiqlaysizmi?');">
+                            {% csrf_token %}
+                            <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-300 text-emerald-600 hover:bg-emerald-50 transition" type="submit" title="Yo‘riqnomani qayta yoqish">
+                                <i class="bi bi-play-circle-fill"></i>
+                            </button>
+                        </form>
+                        {% else %}
                         <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 hover:bg-rose-50" data-bs-toggle="modal" data-bs-target="#mandatoryStop{{ guideline.id }}" type="button" title="Oldindan to'xtatish"><i class="bi bi-stop-circle"></i></button>
                         {% endif %}
                         <button class="mr-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 hover:bg-amber-50" data-bs-toggle="modal" data-bs-target="#mandatoryEdit{{ guideline.id }}" type="button" title="Tahrirlash"><i class="bi bi-pencil-square"></i></button>
-                        <form class="inline" method="post" action="{% url 'mandatory-guideline-delete' guideline.id %}">{% csrf_token %}<button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 hover:bg-rose-50" type="submit" title="O'chirish"><i class="bi bi-trash"></i></button></form>
+                        <form class="inline" method="post" action="{% url 'mandatory-guideline-delete' guideline.id %}" onsubmit="return confirm('Yo‘riqnomani o‘chirishni tasdiqlaysizmi?');">{% csrf_token %}<button class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 hover:bg-rose-50" type="submit" title="O'chirish"><i class="bi bi-trash"></i></button></form>
                     </td>
                 </tr>
                 {% empty %}

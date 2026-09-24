@@ -15,17 +15,29 @@
             <tr class="align-top hover:bg-slate-50">
                 <td class="px-4 py-3">
                     <div class="font-semibold text-slate-900">{{ row.profile.full_name|default:row.user.username }}</div>
-                    <div class="mt-1 flex items-center gap-2">
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
                         <span class="inline-flex rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">{{ row.profile.get_role_display }}</span>
+                        <!-- Status badge -->
+                        {% if row.profile.employment_status == 'on_leave' %}
+                        <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800"><i class="bi bi-clock-history mr-1"></i>Ta'tilda</span>
+                        {% elif row.profile.employment_status == 'dismissed' %}
+                        <span class="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800"><i class="bi bi-person-x mr-1"></i>Bo'shatilgan</span>
+                        {% elif row.profile.employment_status == 'blocked' or row.profile.is_blocked_by_violations %}
+                        <span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-800"><i class="bi bi-slash-circle mr-1"></i>Bloklangan</span>
+                        {% else %}
+                        <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800"><i class="bi bi-check-circle mr-1"></i>Faol</span>
+                        {% endif %}
                         <span class="text-xs text-slate-500">{{ row.profile.position|default:'Lavozim kiritilmagan' }}</span>
                     </div>
                 </td>
                 <td class="px-4 py-3 text-xs text-slate-600">
                     <div><span class="font-semibold text-slate-900">Login:</span> {{ row.user.username }}</div>
-                    <div><span class="font-semibold text-slate-900">Parol:</span> hashlangan, ko'rinmaydi</div>
+                    {% if row.profile.pinfl %}
+                    <div><span class="font-semibold text-slate-900">JShShIR:</span> <span class="font-mono text-emerald-700">{{ row.profile.pinfl }}</span></div>
+                    {% endif %}
                 </td>
                 <td class="px-4 py-3 text-xs text-slate-600">
-                    <div>{{ row.section.name }}</div>
+                    <div>{{ row.section.name|default:"Bo'lim biriktirilmagan" }}</div>
                     <div>{{ row.profession.name|default:'Kasb belgilanmagan' }}</div>
                 </td>
                 <td class="px-4 py-3">
@@ -54,10 +66,67 @@
                         </span>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-right">
-                    <a href="{% url 'global-worker-detail' row.profile.pk %}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-300 text-indigo-600 transition hover:bg-indigo-50" title="Tahlil varaqasi">
-                        <i class="bi bi-journal-text"></i>
-                    </a>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <div class="inline-flex items-center gap-1.5">
+                        {% if not row.profile.is_approved_by_dept %}
+                        <!-- 9-band: Boshqarma qabul qilish tugmasi -->
+                        <form method="post" action="{% url 'department-worker-accept' row.profile.pk %}" class="inline-block" onsubmit="return confirm('Ushbu xodimni qabul qilishni tasdiqlaysizmi? Unga faqat Kirish yo‘riqnomasi ochiladi.');">
+                            {% csrf_token %}
+                            <button type="submit" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition" title="Boshqarmaga qabul qilish">
+                                <i class="bi bi-person-check-fill"></i> Qabul qilish
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        <!-- 4-band: Holatni o'zgartirish (Ta'til, bo'shatish, bloklash) tugmasi -->
+                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition hover:bg-slate-100" data-bs-toggle="modal" data-bs-target="#statusModal{{ row.profile.pk }}" title="Mehnat holatini o‘zgartirish">
+                            <i class="bi bi-shield-shaded"></i>
+                        </button>
+
+                        <a href="{% url 'global-worker-detail' row.profile.pk %}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-300 text-indigo-600 transition hover:bg-indigo-50" title="Tahlil varaqasi">
+                            <i class="bi bi-journal-text"></i>
+                        </a>
+                    </div>
+
+                    <!-- Modal: Status update -->
+                    <div class="modal fade" id="statusModal{{ row.profile.pk }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered text-left">
+                            <div class="modal-content rounded-2xl border-0 shadow-2xl">
+                                <div class="modal-header border-b border-slate-100 p-4">
+                                    <h5 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                                        <i class="bi bi-person-gear text-indigo-600"></i> Mehnat holatini boshqarish
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <form method="post" action="{% url 'worker-status-update' row.profile.pk %}">
+                                    {% csrf_token %}
+                                    <div class="modal-body p-5 space-y-4">
+                                        <div>
+                                            <p class="text-xs text-slate-500 font-medium">Xodim:</p>
+                                            <p class="text-sm font-bold text-slate-800">{{ row.profile.full_name }}</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Yangi holatni tanlang</label>
+                                            <select name="employment_status" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500">
+                                                <option value="active" {% if row.profile.employment_status == 'active' %}selected{% endif %}>Faol ishlamoqda</option>
+                                                <option value="on_leave" {% if row.profile.employment_status == 'on_leave' %}selected{% endif %}>Ta‘tilda (O‘z hisobidan / Mehnat ta‘tili)</option>
+                                                <option value="dismissed" {% if row.profile.employment_status == 'dismissed' %}selected{% endif %}>Ishdan bo‘shatilgan</option>
+                                                <option value="blocked" {% if row.profile.employment_status == 'blocked' %}selected{% endif %}>Bloklangan</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Sababi / Buyruq ma'lumoti</label>
+                                            <textarea name="status_reason" rows="2" placeholder="Masalan: 12-sonli buyruqqa asosan 15 kun o'z hisobidan ta'tilda" class="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 outline-none focus:border-indigo-500">{{ row.profile.status_reason }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-t border-slate-100 p-3">
+                                        <button type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                                        <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 shadow-sm">Saqlash</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </td>
             </tr>
             {% empty %}

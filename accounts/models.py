@@ -135,6 +135,54 @@ class UserProfile(models.Model):
         self.assessment_qualified_status = value
         if value is True:
             self.assessment_qualified_at = timezone.now()
+    # One ID (id.egov.uz) identifikatorlari
+    pinfl = models.CharField(max_length=14, unique=True, null=True, blank=True, verbose_name="JShShIR (PINFL)")
+    passport_series = models.CharField(max_length=10, blank=True, default='', verbose_name="Pasport seriyasi")
+    passport_number = models.CharField(max_length=20, blank=True, default='', verbose_name="Pasport raqami")
+    one_id_user_id = models.CharField(max_length=100, blank=True, default='', verbose_name="One ID identifikatori")
+    birth_date = models.DateField(null=True, blank=True, verbose_name="Tug‘ilgan sana")
+
+    # Xodim ish holati (Faol, O'z hisobidan ta'til, Bo'shatilgan, Bloklangan)
+    STATUS_ACTIVE = 'active'
+    STATUS_ON_LEAVE = 'on_leave'
+    STATUS_DISMISSED = 'dismissed'
+    STATUS_BLOCKED = 'blocked'
+
+    EMPLOYMENT_STATUS_CHOICES = [
+        (STATUS_ACTIVE, 'Faol ishlamoqda'),
+        (STATUS_ON_LEAVE, 'Ta‘tilda (O‘z hisobidan / Mehnat ta‘tili)'),
+        (STATUS_DISMISSED, 'Ishdan bo‘shatilgan'),
+        (STATUS_BLOCKED, 'Bloklangan'),
+    ]
+
+    employment_status = models.CharField(
+        max_length=20,
+        choices=EMPLOYMENT_STATUS_CHOICES,
+        default=STATUS_ACTIVE,
+        verbose_name="Mehnat holati"
+    )
+    status_reason = models.TextField(blank=True, default='', verbose_name="Holat sababi / Izoh")
+    status_changed_at = models.DateTimeField(null=True, blank=True, verbose_name="Holat o‘zgargan sana")
+    status_changed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='status_changed_profiles', verbose_name="Holatni o‘zgartirgan rahbar"
+    )
+
+    # Zavodga yangi kelgan xodimni Boshqarma boshlig'i qabul qilishi (9-band)
+    is_approved_by_dept = models.BooleanField(
+        default=False,
+        verbose_name="Boshqarma tomonidan qabul qilingan"
+    )
+    approved_by_dept_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name="Boshqarma qabul qilgan sana"
+    )
+    approved_by_dept_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='approved_department_workers',
+        verbose_name="Qabul qilgan boshqarma boshlig'i"
+    )
+
     is_blocked_by_violations = models.BooleanField(
         default=False, 
         verbose_name="Qoidabuzarliklar sababli bloklangan"

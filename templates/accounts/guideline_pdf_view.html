@@ -65,24 +65,44 @@
 
     {% if receipt and not receipt.is_acknowledged %}
     <div class="shrink-0 border-t border-slate-200 bg-white p-4">
-        <form method="post" action="{{ acknowledge_url }}" class="mx-auto max-w-lg space-y-3">
+        <form method="post" action="{{ acknowledge_url }}" id="pdfAcknowledgeForm" class="mx-auto max-w-lg space-y-3">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ back_url }}" />
-            <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50/60">
-                <input type="checkbox" name="agree" value="1" required class="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/25" id="pdfAgreeCheckbox" />
+            <input type="hidden" name="reading_duration_seconds" id="readingDurationSeconds" value="0" />
+            <input type="hidden" name="started_at_ts" id="startedAtTs" value="" />
+
+            <!-- O'qish haqqoniyligi taymeri va holati -->
+            <div id="timerContainer" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 transition-all">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="bi bi-stopwatch text-amber-600 text-lg animate-pulse"></i>
+                        <span class="text-xs font-bold text-amber-900" id="timerStatusText">Yo‘riqnomani diqqat bilan o‘qib chiqing</span>
+                    </div>
+                    <span id="countdownTimer" class="inline-flex items-center rounded-lg bg-amber-200/80 px-2.5 py-1 text-xs font-black text-amber-900 font-mono">00:45</span>
+                </div>
+                <div class="w-full bg-amber-200/60 rounded-full h-1.5 overflow-hidden">
+                    <div id="readingProgressBar" class="bg-amber-600 h-1.5 rounded-full transition-all duration-1000 ease-linear" style="width: 0%;"></div>
+                </div>
+                <p class="text-[11px] text-amber-700/90 mt-1.5">
+                    Mehnat muhofazasi talablariga ko‘ra, yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi.
+                </p>
+            </div>
+
+            <label id="agreeLabel" class="flex cursor-not-allowed opacity-50 items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition">
+                <input type="checkbox" name="agree" value="1" disabled required class="mt-0.5 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/25 cursor-not-allowed" id="pdfAgreeCheckbox" />
                 <span class="text-sm text-slate-800">
-                    <span class="font-semibold text-slate-900">Roziman, o'qidim</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">Yo'riqnoma bilan tanishdim va rozi ekanligimni tasdiqlayman</span>
+                    <span class="font-semibold text-slate-900">Roziman, yo‘riqnoma bilan to‘liq tanishdim</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">Men yo‘riqnomada ko‘rsatilgan barcha xavfsizlik qoidalari va talablarni to‘liq o‘qib chiqdim hamda ularga rioya qilishga roziman.</span>
                 </span>
             </label>
             <button type="submit" id="pdfUnderstandBtn" disabled class="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition enabled:hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
-                <i class="bi bi-check2-circle text-lg"></i> Tushundim
+                <i class="bi bi-check2-circle text-lg"></i> Tushundim va qabul qildim
             </button>
         </form>
     </div>
     {% elif receipt and receipt.is_acknowledged %}
     <div class="shrink-0 border-t border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">
-        <i class="bi bi-patch-check-fill mr-1"></i> Qabul qilingan
+        <i class="bi bi-patch-check-fill mr-1"></i> Ushbu yo‘riqnoma bilan tanishilgan va qabul qilingan
     </div>
     {% endif %}
 </div>
@@ -93,7 +113,15 @@
     const viewport = document.getElementById('pdfViewport');
     const zoomLabel = document.getElementById('pdfZoomLabel');
     const agree = document.getElementById('pdfAgreeCheckbox');
+    const agreeLabel = document.getElementById('agreeLabel');
     const understand = document.getElementById('pdfUnderstandBtn');
+    const countdownEl = document.getElementById('countdownTimer');
+    const progressEl = document.getElementById('readingProgressBar');
+    const timerStatus = document.getElementById('timerStatusText');
+    const timerContainer = document.getElementById('timerContainer');
+    const durationInput = document.getElementById('readingDurationSeconds');
+    const startedInput = document.getElementById('startedAtTs');
+
     let zoom = 1;
     const ZOOM_MIN = 0.4, ZOOM_MAX = 3, ZOOM_STEP = 0.12;
     let pinchStartDist = 0, pinchStartZoom = 1;
@@ -127,10 +155,46 @@
     document.getElementById('pdfZoomOut')?.addEventListener('click', function () { setZoom(zoom - ZOOM_STEP); });
     document.getElementById('pdfZoomReset')?.addEventListener('click', function () { setZoom(1); });
 
-    if (agree && understand) {
-        function syncBtn() { understand.disabled = !agree.checked; }
-        agree.addEventListener('change', syncBtn);
-        syncBtn();
+    // Haqqoniylik taymeri: 45 soniya majburiy o'qish vaqti
+    const REQUIRED_SECONDS = 45;
+    let elapsed = 0;
+    const startTime = Date.now();
+    if (startedInput) startedInput.value = startTime;
+
+    if (countdownEl && agree && understand) {
+        const timer = setInterval(function () {
+            elapsed++;
+            if (durationInput) durationInput.value = elapsed;
+
+            const remaining = Math.max(0, REQUIRED_SECONDS - elapsed);
+            const mins = String(Math.floor(remaining / 60)).padStart(2, '0');
+            const secs = String(remaining % 60).padStart(2, '0');
+            countdownEl.textContent = mins + ':' + secs;
+
+            const percent = Math.min(100, Math.round((elapsed / REQUIRED_SECONDS) * 100));
+            if (progressEl) progressEl.style.width = percent + '%';
+
+            if (remaining === 0) {
+                clearInterval(timer);
+                if (timerContainer) {
+                    timerContainer.className = 'rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-emerald-900 transition-all';
+                    timerStatus.innerHTML = '<span class="text-emerald-700 font-bold"><i class="bi bi-check-circle-fill mr-1"></i> O‘qish vaqti me’yori bajarildi</span>';
+                    countdownEl.className = 'inline-flex items-center rounded-lg bg-emerald-200 px-2.5 py-1 text-xs font-black text-emerald-900 font-mono';
+                    countdownEl.textContent = 'Bajarildi';
+                }
+                agree.disabled = false;
+                agree.classList.remove('cursor-not-allowed');
+                agree.classList.add('cursor-pointer');
+                if (agreeLabel) {
+                    agreeLabel.classList.remove('cursor-not-allowed', 'opacity-50');
+                    agreeLabel.classList.add('cursor-pointer', 'has-[:checked]:border-emerald-400', 'has-[:checked]:bg-emerald-50/60');
+                }
+            }
+        }, 1000);
+
+        agree.addEventListener('change', function () {
+            understand.disabled = !(agree.checked && elapsed >= REQUIRED_SECONDS);
+        });
     }
 })();
 </script>

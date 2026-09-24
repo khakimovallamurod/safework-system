@@ -187,3 +187,9 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
 TELEGRAM_BOT_TOKEN = os.getenv('TOKEN', os.getenv('TELEGRAM_BOT_TOKEN', '')).strip()
+
+# One ID (id.egov.uz) SSO OAuth2 Configuration
+ONEID_CLIENT_ID = os.getenv('ONEID_CLIENT_ID', '').strip()
+ONEID_CLIENT_SECRET = os.getenv('ONEID_CLIENT_SECRET', '').strip()
+ONEID_AUTH_URL = os.getenv('ONEID_AUTH_URL', 'https://sso.egov.uz/sso/oauth/Authorization.do').strip()
+ONEID_REDIRECT_URI = os.getenv('ONEID_REDIRECT_URI', '').strip()

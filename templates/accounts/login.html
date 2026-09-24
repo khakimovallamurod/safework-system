@@ -148,8 +148,23 @@
                         <i class="bi bi-box-arrow-in-right text-lg"></i> Tizimga kirish
                     </button>
                 </form>
+
+                <!-- One ID orqali kirish (Yagona identifikatsiya tizimi) -->
+                <div class="mt-5">
+                    <div class="relative flex py-2 items-center">
+                        <div class="flex-grow border-t border-slate-200"></div>
+                        <span class="flex-shrink mx-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Yoki</span>
+                        <div class="flex-grow border-t border-slate-200"></div>
+                    </div>
+                    <a href="{% url 'oneid-login' %}" class="group relative flex w-full items-center justify-center gap-2.5 rounded-xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50 via-white to-blue-50 px-4 py-3 text-sm font-bold text-indigo-950 shadow-sm transition-all hover:border-indigo-400 hover:shadow-md hover:scale-[1.01] active:scale-[0.99]">
+                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-black shadow-sm group-hover:bg-indigo-700 transition">
+                            1ID
+                        </span>
+                        <span>One ID orqali kirish</span>
+                    </a>
+                </div>
                 
-                <div class="mt-8 flex flex-col items-center gap-3 border-t border-slate-200/60 pt-6">
+                <div class="mt-6 flex flex-col items-center gap-3 border-t border-slate-200/60 pt-5">
                     <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Yangi hisob yaratish</p>
                     <div class="flex w-full gap-3">
                         <a href="{% url 'register-leader' %}" class="flex-1 rounded-xl bg-white/60 border border-slate-200 py-2.5 text-center text-xs font-bold text-slate-700 transition hover:bg-white hover:border-emerald-200 hover:text-emerald-600 shadow-sm hover:shadow-md">

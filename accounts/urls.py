@@ -34,6 +34,11 @@ from companies.views_certificates import (
     CertificatePdfView,
     MyCertificatesView,
 )
+from accounts.views_oneid import (
+    OneIdLoginView,
+    OneIdCallbackView,
+    OneIdCompleteRegistrationView,
+)
 from accounts.views import (
     AiAssistantView,
     AdminLoginView,
@@ -45,6 +50,8 @@ from accounts.views import (
     GlobalWorkersView,
     GlobalWorkerDetailView,
     DepartmentWorkerRegistryView,
+    DepartmentWorkerAcceptView,
+    WorkerStatusUpdateView,
     EmployeeMedicalRecordListView,
     EmployeeMedicalRecordSaveView,
     GuidelinePdfView,
@@ -67,6 +74,7 @@ from accounts.views import (
     MandatoryGuidelineDeleteView,
     MandatoryGuidelineEditView,
     MandatoryGuidelineStopView,
+    MandatoryGuidelineResumeView,
     MandatoryGuidelineInboxView,
     MandatoryGuidelineListView,
     MandatoryGuidelinePdfView,
@@ -124,6 +132,9 @@ from accounts.views import (
 urlpatterns = [
     path('', LandingPageView.as_view(), name='home'),
     path('login/', AdminLoginView.as_view(), name='login'),
+    path('auth/oneid/login/', OneIdLoginView.as_view(), name='oneid-login'),
+    path('auth/oneid/callback/', OneIdCallbackView.as_view(), name='oneid-callback'),
+    path('auth/oneid/complete/', OneIdCompleteRegistrationView.as_view(), name='oneid-complete'),
     path('login/forgot/', ForgotPasswordView.as_view(), name='forgot-password'),
     path('telegram-connect/', TelegramConnectView.as_view(), name='telegram-connect'),
     path('telegram-check/', TelegramCheckAPIView.as_view(), name='telegram-check'),
@@ -180,6 +191,8 @@ urlpatterns = [
     path('tibbiy-malumot/', EmployeeMedicalRecordListView.as_view(), name='medical-records'),
     path('tibbiy-malumot/saqlash/', EmployeeMedicalRecordSaveView.as_view(), name='medical-record-save'),
     path('boshqarma-ishchilari/', DepartmentWorkerRegistryView.as_view(), name='department-workers'),
+    path('boshqarma-ishchilari/<int:pk>/qabul/', DepartmentWorkerAcceptView.as_view(), name='department-worker-accept'),
+    path('xodim/<int:pk>/status-update/', WorkerStatusUpdateView.as_view(), name='worker-status-update'),
     path('department-admins/<int:pk>/edit/', DepartmentEditView.as_view(), name='department-edit'),
     path('department-admins/<int:pk>/delete/', DepartmentDeleteView.as_view(), name='department-delete'),
     path('section-admins/', SectionAdminManagementView.as_view(), name='section-admins'),
@@ -195,6 +208,7 @@ urlpatterns = [
     path('majburiy-yoriknomalar/<int:pk>/edit/', MandatoryGuidelineEditView.as_view(), name='mandatory-guideline-edit'),
     path('majburiy-yoriknomalar/<int:pk>/delete/', MandatoryGuidelineDeleteView.as_view(), name='mandatory-guideline-delete'),
     path('majburiy-yoriknomalar/<int:pk>/stop/', MandatoryGuidelineStopView.as_view(), name='mandatory-guideline-stop'),
+    path('majburiy-yoriknomalar/<int:pk>/resume/', MandatoryGuidelineResumeView.as_view(), name='mandatory-guideline-resume'),
     path('majburiy-yoriknomalarim/', MandatoryGuidelineInboxView.as_view(), name='mandatory-guidelines-inbox'),
     path('pdf/majburiy-yoriknoma/<int:pk>/', MandatoryGuidelinePdfView.as_view(), name='mandatory-guideline-pdf'),
     path('majburiy-yoriknoma-qabul/<int:pk>/', MandatoryGuidelineAcknowledgeView.as_view(), name='mandatory-guideline-acknowledge'),

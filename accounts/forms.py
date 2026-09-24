@@ -640,12 +640,34 @@ def get_section_team_memberships(section):
 
 
 def get_available_section_workers(section):
-    """Bo'limga qo'shish: barcha xodimlar, boshqa bo'limda biriktirilmaganlar."""
-    return get_selectable_workers_queryset(
-        exclude_other_sections=True,
-        current_section=section,
-        organization=section.department.leader,
+    """
+    Uchastkaga qo'shish:
+    Faqat hali hech qaysi uchastkaga biriktirilmagan (bir marotaba qo'shilishi uchun),
+    bo'lim boshlig'i tasdiqlagan (is_approved_by_dept=True)
+    va shu bo'limga tegishli xodimlar.
+    """
+    if not section or not section.department:
+        return User.objects.none()
+
+    assigned_user_ids = set(
+        SectionMembership.objects.filter(section__isnull=False).values_list('user_id', flat=True)
     )
+    assigned_user_ids.update(
+        UserProfile.objects.filter(section__isnull=False).values_list('user_id', flat=True)
+    )
+
+    qs = User.objects.filter(
+        is_superuser=False,
+        profile__role=UserProfile.ROLE_WORKER,
+        profile__department=section.department,
+        profile__is_approved_by_dept=True,
+    ).exclude(
+        pk__in=assigned_user_ids
+    ).exclude(
+        profile__employment_status__in=[UserProfile.STATUS_DISMISSED, UserProfile.STATUS_BLOCKED]
+    ).select_related('profile')
+
+    return qs.order_by('profile__full_name', 'username')
 
 
 def get_section_member_worker_choices(section_admin, membership=None):
@@ -653,12 +675,28 @@ def get_section_member_worker_choices(section_admin, membership=None):
     if not section:
         return User.objects.none()
     include_id = membership.user_id if membership else None
-    return get_selectable_workers_queryset(
-        include_user_id=include_id,
-        exclude_other_sections=True,
-        current_section=section,
-        organization=section.department.leader,
+    
+    assigned_user_ids = set(
+        SectionMembership.objects.filter(section__isnull=False).exclude(pk=membership.pk if membership else None).values_list('user_id', flat=True)
     )
+    assigned_user_ids.update(
+        UserProfile.objects.filter(section__isnull=False).exclude(user_id=include_id if include_id else None).values_list('user_id', flat=True)
+    )
+
+    qs = User.objects.filter(
+        is_superuser=False,
+        profile__role=UserProfile.ROLE_WORKER,
+        profile__department=section.department,
+    ).exclude(
+        pk__in=assigned_user_ids
+    ).exclude(
+        profile__employment_status__in=[UserProfile.STATUS_DISMISSED, UserProfile.STATUS_BLOCKED]
+    )
+
+    if include_id:
+        qs = qs | User.objects.filter(pk=include_id)
+
+    return qs.select_related('profile').distinct().order_by('profile__full_name', 'username')
 
 
 def get_section_member_for_user(user):
@@ -944,8 +982,9 @@ class SectionInternalGuidelineForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field_name in ('start_time', 'registration_end_time', 'active_until'):
+        for field_name in ('start_time', 'active_until'):
             self.fields[field_name].required = True
+        self.fields['registration_end_time'].required = False
 
     def clean_pdf_file(self):
         pdf = self.cleaned_data.get('pdf_file')

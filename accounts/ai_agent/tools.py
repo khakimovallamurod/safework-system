@@ -691,6 +691,185 @@ class SoplineDataTools:
             "messages": messages
         }
 
+    # Helper: Foydalanuvchining vakolatiga mos xodimlar querysetini olish (Iyerarxik filtrlash)
+    def _get_scoped_profiles_qs(self):
+        from accounts.models import UserProfile
+        qs = UserProfile.objects.all().select_related('user', 'department', 'section', 'region', 'organization')
+
+        if self.is_super_admin:
+            if self.profile and self.profile.region_id:
+                # Agar inspektor ma'lum hududga biriktirilgan bo'lsa
+                qs = qs.filter(region_id=self.profile.region_id)
+            return qs
+
+        if self.role == 'organization_leader':
+            org_id = self._get_org_filter()
+            return qs.filter(Q(organization_id=org_id) | Q(id=org_id))
+        elif self.role == 'department_admin' and self.profile and self.profile.department_id:
+            return qs.filter(
+                Q(department_id=self.profile.department_id) |
+                Q(section__department_id=self.profile.department_id) |
+                Q(user__section_memberships__section__department_id=self.profile.department_id)
+            ).distinct()
+        elif self.role == 'section_admin' and self.profile and self.profile.section_id:
+            return qs.filter(
+                Q(section_id=self.profile.section_id) |
+                Q(user__section_memberships__section_id=self.profile.section_id)
+            ).distinct()
+        else:
+            return qs.filter(user=self.user)
+
+    # 18. Tizimdan foydalanish, kirishlar va faollik tahlili (Kim, qachon, necha marta)
+    def get_system_usage_and_activity(self, worker_name=None, only_active=False, **kwargs):
+        """
+        Xodimlarning saytga kirishi, faolligi, kim qachon oxirgi marta kirgani,
+        necha marta so'rov/murojaat yuborgani va qancha vaqt ishlagani bo'yicha tahliliy hisobot.
+        """
+        from accounts.models import UserActivitySummary
+        scoped_profiles = self._get_scoped_profiles_qs()
+        scoped_user_ids = list(scoped_profiles.values_list('user_id', flat=True))
+
+        activity_qs = UserActivitySummary.objects.filter(
+            user_id__in=scoped_user_ids
+        ).select_related('user', 'user__profile', 'user__profile__department', 'user__profile__section')
+
+        if worker_name:
+            activity_qs = activity_qs.filter(
+                Q(user__profile__full_name__icontains=worker_name) |
+                Q(user__username__icontains=worker_name)
+            )
+
+        if only_active:
+            activity_qs = activity_qs.filter(last_seen_at__isnull=False)
+
+        total_users = len(scoped_user_ids)
+        active_users_count = activity_qs.filter(last_seen_at__isnull=False).count()
+        never_logged_in_count = total_users - active_users_count
+
+        records = []
+        for act in activity_qs.order_by('-last_seen_at')[:25]:
+            p = getattr(act.user, 'profile', None)
+            total_minutes = round(act.total_active_seconds / 60, 1)
+            hours = int(total_minutes // 60)
+            mins = int(total_minutes % 60)
+            time_str = f"{hours} soat {mins} daqiqa" if hours > 0 else f"{mins} daqiqa"
+
+            records.append({
+                "username": act.user.username,
+                "full_name": p.full_name if p and p.full_name else act.user.get_full_name() or act.user.username,
+                "role": p.get_role_display() if p else "Xodim",
+                "department": p.department.name if p and p.department else "-",
+                "section": p.section.name if p and p.section else "-",
+                "last_seen": act.last_seen_at.strftime('%d.%m.%Y %H:%M') if act.last_seen_at else "Hali kirmagan",
+                "first_seen": act.first_seen_at.strftime('%d.%m.%Y %H:%M') if act.first_seen_at else "-",
+                "requests_count": act.requests_count,
+                "active_time": time_str,
+                "last_page": act.last_path or "-"
+            })
+
+        return {
+            "scope_info": {
+                "role": self.role,
+                "total_members_in_scope": total_users,
+                "logged_in_users_count": active_users_count,
+                "never_logged_in_count": never_logged_in_count
+            },
+            "activity_records": records
+        }
+
+    # 19. Tizim va mehnat muhofazasi bo'yicha to'liq tahliliy hisobot (Analiz va xulosa)
+    def get_safety_analysis_report(self, **kwargs):
+        """
+        Foydalanuvchining o'z yacheykasi (hudud, korxona yoki bo'lim) bo'yicha
+        saytni to'liq analiz qilib, xavfsizlik, yo'riqnomalar, testlar va qoidabuzarliklar bo'yicha hisobot beradi.
+        """
+        from companies.models import (
+            GuidelineDispatchRecipient, MandatoryGuidelineReceipt,
+            SectionWorkPracticeAssignee, WorkPracticeTestAttempt,
+            DepartmentAssessmentAttempt
+        )
+        from violations.models import Violation
+
+        scoped_profiles = self._get_scoped_profiles_qs()
+        scoped_user_ids = list(scoped_profiles.values_list('user_id', flat=True))
+        total_workers = len(scoped_user_ids)
+
+        if total_workers == 0:
+            return {"message": "Ushbu yacheykada xodimlar ma'lumoti topilmadi."}
+
+        # 1. Kirish yo'riqnomasi holati
+        entry_total = GuidelineDispatchRecipient.objects.filter(user_id__in=scoped_user_ids).count()
+        entry_passed = GuidelineDispatchRecipient.objects.filter(user_id__in=scoped_user_ids, is_acknowledged=True).count()
+        entry_percent = round((entry_passed / max(entry_total, 1)) * 100, 1)
+
+        # 2. Majburiy yo'riqnomalar
+        mand_total = MandatoryGuidelineReceipt.objects.filter(user_id__in=scoped_user_ids).count()
+        mand_passed = MandatoryGuidelineReceipt.objects.filter(user_id__in=scoped_user_ids, is_acknowledged=True).count()
+        mand_percent = round((mand_passed / max(mand_total, 1)) * 100, 1)
+
+        # 3. Stajirovka
+        practice_assignments = SectionWorkPracticeAssignee.objects.filter(user_id__in=scoped_user_ids).count()
+        practice_passed = scoped_profiles.filter(practice_qualified_status=True).count()
+        practice_percent = round((practice_passed / max(total_workers, 1)) * 100, 1)
+
+        # 4. Baholash testlari
+        test_attempts = DepartmentAssessmentAttempt.objects.filter(user_id__in=scoped_user_ids)
+        test_total = test_attempts.count()
+        test_passed = test_attempts.filter(score__gte=60).count()
+        test_percent = round((test_passed / max(test_total, 1)) * 100, 1)
+
+        # 5. Qoidabuzarliklar
+        violations = Violation.objects.filter(violator_id__in=scoped_user_ids)
+        v_total = violations.count()
+        v_active = violations.filter(is_active=True).count()
+        v_resolved = violations.filter(is_active=False).count()
+
+        # Umumiy xavfsizlik indeksi (taxminiy integrallashgan foiz)
+        safety_index = round(
+            (entry_percent * 0.25) +
+            (mand_percent * 0.35) +
+            (practice_percent * 0.25) +
+            (max(20, 100 - (v_active * 3)) * 0.15),
+            1
+        )
+        safety_index = max(0.0, min(100.0, safety_index))
+
+        assessment_grade = "A'lo" if safety_index >= 85 else ("Qoniqarli" if safety_index >= 60 else "Xavfli darajada past")
+
+        return {
+            "summary_scope": {
+                "role": self.role,
+                "total_workers": total_workers,
+                "safety_index": f"{safety_index}%",
+                "assessment_grade": assessment_grade
+            },
+            "entry_guidelines": {
+                "total_dispatched": entry_total,
+                "passed": entry_passed,
+                "percentage": f"{entry_percent}%"
+            },
+            "mandatory_guidelines": {
+                "total_required": mand_total,
+                "acknowledged": mand_passed,
+                "percentage": f"{mand_percent}%"
+            },
+            "work_practices": {
+                "assigned_count": practice_assignments,
+                "qualified_workers": practice_passed,
+                "qualification_rate": f"{practice_percent}%"
+            },
+            "department_assessments": {
+                "attempts_count": test_total,
+                "successful_attempts": test_passed,
+                "pass_rate": f"{test_percent}%"
+            },
+            "violations_summary": {
+                "total_violations": v_total,
+                "active_violations": v_active,
+                "resolved_violations": v_resolved
+            }
+        }
+
 
 # Gemini Tool Declarations (17 ta to'liq vosita)
 GEMINI_TOOLS_DECLARATION = [
@@ -856,6 +1035,25 @@ GEMINI_TOOLS_DECLARATION = [
     {
         "name": "get_section_messages_and_tasks",
         "description": "Bo'lim ichidagi xabarlar, rasmiy e'lonlar va topshiriqlar ro'yxati.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {}
+        }
+    },
+    {
+        "name": "get_system_usage_and_activity",
+        "description": "Sayt tahlili: kim qachon oxirgi marta kirdi, qancha vaqt ishladi, necha marta murojaat qildi va faollik darajasi.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "worker_name": {"type": "STRING", "description": "Xodim ismi yoki familiyasi bo'yicha qidiruv."},
+                "only_active": {"type": "BOOLEAN", "description": "Faqat tizimga kirgan faol xodimlar."}
+            }
+        }
+    },
+    {
+        "name": "get_safety_analysis_report",
+        "description": "Saytni to'liq analiz qilish va o'z yacheykasi (inspektor bo'lsa hudud, direktor bo'lsa korxona, bo'lim boshlig'i bo'lsa bo'lim) bo'yicha hisobot taqdim etish.",
         "parameters": {
             "type": "OBJECT",
             "properties": {}

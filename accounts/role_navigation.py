@@ -86,7 +86,10 @@ def get_guideline_gate_state(user):
         state['worker_entry_guideline_locked'] = True
         state['next_guideline_url_name'] = 'worker-entry-guidelines'
 
-    if profile.department_id:
+    # 9-band: Ishchi faqat uchastkaga biriktirilgandan keyin qolgan majburiy va kasbiy yo'riqnomalar ochiladi
+    can_access_advanced_guidelines = (profile.role != UserProfile.ROLE_WORKER) or bool(profile.section_id)
+
+    if profile.department_id and can_access_advanced_guidelines:
         from companies.models import MandatoryGuideline, MandatoryGuidelineReceipt
         active_guidelines = list(MandatoryGuideline.objects.filter(
             department_id=profile.department_id,
@@ -112,7 +115,7 @@ def get_guideline_gate_state(user):
             if not state['next_guideline_url_name']:
                 state['next_guideline_url_name'] = 'mandatory-guidelines-inbox'
 
-    if profile.role in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_DEPARTMENT_ADMIN}:
+    if can_access_advanced_guidelines and profile.role in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_DEPARTMENT_ADMIN}:
         from companies.models import ProfessionGuidelineReceipt, SectionMembership
         memberships = (
             SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
