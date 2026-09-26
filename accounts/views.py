@@ -4456,6 +4456,52 @@ class SectionInternalGuidelineDeleteView(SectionAdminRequiredMixin, View):
         return redirect('internal-guidelines')
 
 
+def _dispatch_internal_guidelines(request, section, guideline_ids):
+    from django.db import transaction
+    from companies.models import SectionMembership
+
+    selected_worker_ids = request.POST.getlist('workers')
+    eligible_workers = get_section_workers_for_internal_guidelines(section).filter(is_superuser=False)
+    if selected_worker_ids:
+        users = list(eligible_workers.filter(pk__in=selected_worker_ids).distinct())
+    else:
+        messages.error(request, 'Xodimlarni ro‘yxatdan aniq tanlang.')
+        return redirect('internal-guidelines')
+    if not users:
+        messages.error(request, 'Tanlangan xodimlar ushbu bo‘limga tegishli emas yoki ro‘yxat bo‘sh.')
+        return redirect('internal-guidelines')
+
+    guidelines = list(_internal_guidelines_for_section(section).filter(pk__in=guideline_ids).distinct())
+    if not guidelines or len({str(g.pk) for g in guidelines}) != len(set(guideline_ids)):
+        messages.error(request, 'Tanlangan yo‘riqnomalardan biri topilmadi.')
+        return redirect('internal-guidelines')
+    for guideline in guidelines:
+        if not guideline.start_time or not guideline.active_until or guideline.active_until <= guideline.start_time:
+            messages.error(request, f'«{guideline.name}» uchun boshlanish va tugash sanalarini to‘g‘ri kiriting.')
+            return redirect('internal-guidelines')
+        if not guideline.pdf_file_exists:
+            messages.error(request, f'«{guideline.name}» fayli serverda topilmadi.')
+            return redirect('internal-guidelines')
+
+    with transaction.atomic():
+        dispatches = []
+        for guideline in guidelines:
+            SectionInternalGuidelineDispatch.objects.filter(guideline=guideline, is_active=True).update(is_active=False)
+            dispatch = SectionInternalGuidelineDispatch.objects.create(
+                guideline=guideline, sent_by=request.user, is_active=True,
+                start_time=guideline.start_time, registration_end_time=guideline.start_time,
+                active_until=guideline.active_until,
+            )
+            dispatches.append(dispatch)
+        SectionInternalGuidelineRecipient.objects.bulk_create(
+            [SectionInternalGuidelineRecipient(dispatch=dispatch, user=user)
+             for dispatch in dispatches for user in users],
+            ignore_conflicts=True,
+        )
+    messages.success(request, f'{len(guidelines)} ta yo‘riqnoma {len(users)} nafar tanlangan xodimga joriy qilindi.')
+    return redirect('internal-guideline-status')
+
+
 class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         section = _section_for_admin_or_redirect(request)
@@ -4479,23 +4525,21 @@ class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
             messages.success(request, 'Ichki yo‘riqnoma faolsizlantirildi.')
             return redirect('internal-guidelines')
 
+        # Bir amalda bir nechta yo'riqnomani joriy qilish uchun parent batch POST aynan shu actionni yuboradi.
+        batch_ids = request.POST.getlist('guidelines')
+        if batch_ids:
+            return _dispatch_internal_guidelines(request, section, batch_ids)
+
         # 6-band: Kimlarga tegishliligini belgilash (tanlangan xodimlar yoki butun bo'lim)
         selected_worker_ids = request.POST.getlist('workers')
-        if selected_worker_ids:
-            users = list(User.objects.filter(
-                id__in=selected_worker_ids,
-                is_superuser=False
-            ).filter(
-                Q(section_memberships__section=section) | Q(profile__section=section)
-            ).distinct())
-        else:
-            users = list(get_section_workers_for_internal_guidelines(section).filter(is_superuser=False))
+        eligible_workers = get_section_workers_for_internal_guidelines(section).filter(is_superuser=False)
+        users = list(eligible_workers.filter(pk__in=selected_worker_ids).distinct()) if selected_worker_ids else []
 
         if not users:
-            messages.error(request, 'Yo‘riqnoma yuborish uchun xodimlar tanlanmadi.')
+            messages.error(request, 'Yo‘riqnoma yuborish uchun bo‘lim xodimlaridan kamida bittasini tanlang.')
             return redirect('internal-guidelines')
 
-        # Faqat boshlanish va tugash vaqti yetarli (ro'yxatdan o'tish oxiri shart emas)
+        # Faqat boshlanish va tugash sanalari ishlatiladi.
         if not guideline.start_time or not guideline.active_until:
             messages.error(request, 'Avval yo‘riqnomaga boshlanish va tugash vaqtlarini kiriting.')
             return redirect('internal-guidelines')
@@ -4510,7 +4554,7 @@ class SectionInternalGuidelineSendView(SectionAdminRequiredMixin, View):
             sent_by=request.user,
             is_active=True,
             start_time=guideline.start_time,
-            registration_end_time=guideline.registration_end_time or guideline.start_time,
+            registration_end_time=guideline.start_time,
             active_until=guideline.active_until,
         )
         SectionInternalGuidelineRecipient.objects.bulk_create(

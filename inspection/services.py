@@ -130,6 +130,9 @@ class RegionScope:
         self.user = user
         profile = getattr(user, 'profile', None)
         self.is_super_admin = user.is_superuser or (profile is not None and profile.role == UserProfile.ROLE_SUPER_ADMIN)
+        self.show_staff_details = bool(
+            self.is_super_admin or (profile and profile.role == UserProfile.ROLE_INSPECTION and profile.inspection_detail_access)
+        )
         self.region_missing = False
 
         if self.is_super_admin:

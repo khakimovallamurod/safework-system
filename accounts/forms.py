@@ -978,7 +978,7 @@ _DATE_WIDGET = forms.DateInput(
 class SectionInternalGuidelineForm(forms.ModelForm):
     class Meta:
         model = SectionInternalGuideline
-        fields = ('name', 'pdf_file', 'start_time', 'registration_end_time', 'active_until')
+        fields = ('name', 'pdf_file', 'start_time', 'active_until')
         widgets = {
             'name': forms.TextInput(attrs=_field_attrs('Yo‘riqnoma nomi')),
             'pdf_file': forms.FileInput(
@@ -988,7 +988,6 @@ class SectionInternalGuidelineForm(forms.ModelForm):
                 }
             ),
             'start_time': _DATE_WIDGET,
-            'registration_end_time': _DATE_WIDGET,
             'active_until': _DATE_WIDGET,
         }
 
@@ -996,7 +995,6 @@ class SectionInternalGuidelineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field_name in ('start_time', 'active_until'):
             self.fields[field_name].required = True
-        self.fields['registration_end_time'].required = False
 
     def clean_pdf_file(self):
         pdf = self.cleaned_data.get('pdf_file')
@@ -1014,15 +1012,12 @@ class SectionInternalGuidelineForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         start = cleaned.get('start_time')
-        reg_end = cleaned.get('registration_end_time')
         active_until = normalize_end_of_day(cleaned.get('active_until'))
         if active_until:
             # Sana tanlanganda tugash kuni oxirigacha (23:59:59) faol bo'ladi
             cleaned['active_until'] = active_until
-        if start and reg_end and reg_end <= start:
-            raise ValidationError("Ro'yxatdan o'tish oxiri boshlanish vaqtidan keyin bo'lishi kerak.")
-        if reg_end and active_until and active_until <= reg_end:
-            raise ValidationError('Faollik tugashi ro\'yxatdan o\'tish oxiridan keyin bo\'lishi kerak.')
+        if start and active_until and active_until <= start:
+            raise ValidationError('Tugash sanasi boshlanish sanasidan keyin bo\'lishi kerak.')
         return cleaned
 
 

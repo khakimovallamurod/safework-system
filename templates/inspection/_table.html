@@ -6,11 +6,11 @@
             <tr>
                 <th scope="col" class="px-4 py-3 w-12 text-center">#</th>
                 <th scope="col" class="px-4 py-3">{{ columns.primary }}</th>
-                <th scope="col" class="px-4 py-3">{{ columns.category }}</th>
-                <th scope="col" class="px-4 py-3">{{ columns.supervisor }}</th>
+                {% if show_staff_details or scope.is_super_admin %}<th scope="col" class="px-4 py-3">{{ columns.category }}</th>
+                <th scope="col" class="px-4 py-3">{{ columns.supervisor }}</th>{% endif %}
                 <th scope="col" class="px-4 py-3">{{ columns.metric }}</th>
                 <th scope="col" class="px-4 py-3">Holat</th>
-                <th scope="col" class="px-4 py-3 text-right">Amallar</th>
+                {% if show_staff_details or scope.is_super_admin %}<th scope="col" class="px-4 py-3 text-right">Amallar</th>{% endif %}
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -21,14 +21,14 @@
                     <div class="font-semibold text-slate-900 truncate" title="{{ row.primary }}">{{ row.primary }}</div>
                     {% if row.primary_sub %}<div class="text-[11px] text-slate-500 truncate" title="{{ row.primary_sub }}">{{ row.primary_sub }}</div>{% endif %}
                 </td>
-                <td class="px-4 py-3 max-w-[220px]">
+                {% if show_staff_details or scope.is_super_admin %}<td class="px-4 py-3 max-w-[220px]">
                     <div class="text-slate-800 truncate" title="{{ row.category }}">{{ row.category }}</div>
                     {% if row.category_sub %}<div class="text-[11px] text-slate-500 truncate" title="{{ row.category_sub }}">{{ row.category_sub }}</div>{% endif %}
                 </td>
                 <td class="px-4 py-3">
                     <div class="text-slate-800 {% if row.supervisor == 'Tayinlanmagan' %}text-slate-400 italic{% endif %}">{{ row.supervisor }}</div>
                     {% if row.supervisor_phone %}<a href="tel:{{ row.supervisor_phone }}" class="text-[11px] font-mono text-indigo-600 hover:underline">{{ row.supervisor_phone }}</a>{% endif %}
-                </td>
+                </td>{% endif %}
                 <td class="px-4 py-3 min-w-[150px] max-w-[260px]">
                     <div class="font-bold text-slate-900 tabular-nums">{{ row.metric }}</div>
                     {% if row.progress is not None %}
@@ -43,14 +43,14 @@
                         <span class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ row.status_label }}
                     </span>
                 </td>
-                <td class="px-4 py-3 text-right">
+                {% if show_staff_details or scope.is_super_admin %}<td class="px-4 py-3 text-right">
                     {% if row.detail_url %}
                     <a href="{{ row.detail_url }}" {% if row.detail_external %}target="_blank" rel="noopener"{% endif %}
                        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition">
                         <i class="bi bi-eye"></i> Ko‘rish
                     </a>
                     {% endif %}
-                </td>
+                </td>{% endif %}
             </tr>
             {% empty %}
             <tr>

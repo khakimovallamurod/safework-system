@@ -44,6 +44,7 @@ class InspectionReadOnlyMixin(InspectionRequiredMixin):
             'available_regions': scope.available_regions,
             'region_missing': scope.region_missing,
             'region_query': region_query,
+            'show_staff_details': scope.show_staff_details,
         })
         return context
 
@@ -98,8 +99,37 @@ class InspectionRegistryView(InspectionReadOnlyMixin, TemplateView):
 
         rows = self.build_rows(scope, profiles)
         kpis = self.get_kpis(rows)
-
-        query = request.GET.get('q', '').strip()
+        if not scope.show_staff_details:
+            # Aggregate by organization so no person names, phones, per-person status, or searchable details leak.
+            aggregate = {}
+            for profile in profiles:
+                org_id = scope.org_id_of(profile)
+                if org_id:
+                    item = aggregate.setdefault(org_id, {'total': 0, 'done': 0})
+                    item['total'] += 1
+            for row, profile in zip(rows, profiles):
+                org_id = scope.org_id_of(profile)
+                if org_id and row['status_key'] == 'done':
+                    aggregate[org_id]['done'] += 1
+            safe_rows = []
+            for org in scope.orgs:
+                counts = aggregate.get(org.pk)
+                if not counts:
+                    continue
+                done = counts['done']
+                pct = services._pct(done, counts['total'])
+                safe_rows.append(services.make_row(
+                    primary=org.organization_name or org.full_name,
+                    category=org.industry.name if org.industry_id else '—',
+                    metric=f'{done}/{counts["total"]}',
+                    metric_sub=f'{pct}% bajarilgan', progress=pct,
+                    status_key='done' if pct == 100 else ('pending' if done else 'missing'),
+                    status_label=f'{pct}% bajarilgan', status_tone='emerald' if pct == 100 else ('amber' if done else 'rose'),
+                    detail_url='',
+                ))
+            rows = safe_rows
+            self.org_filter = False
+        query = request.GET.get('q', '').strip() if scope.show_staff_details else ''
         status = request.GET.get('status', '').strip()
         if query:
             needle = query.lower()
@@ -213,6 +243,9 @@ class InspectionCompanyDetailView(InspectionReadOnlyMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         scope = self.get_scope()
+        if not scope.show_staff_details:
+            from django.http import Http404
+            raise Http404
         org = scope.get_org_or_404(kwargs['pk'])
         metrics = services.compute_org_metrics(scope)[org.pk]
         profiles = scope.profiles_for(org.pk)
@@ -252,6 +285,9 @@ class InspectionWorkerDetailView(InspectionReadOnlyMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         scope = self.get_scope()
+        if not scope.show_staff_details:
+            from django.http import Http404
+            raise Http404
         profile = scope.get_staff_or_404(kwargs['pk'])
         only = [profile]
         org_id = scope.org_id_of(profile)
@@ -585,6 +621,8 @@ class InspectionAdminManageView(SuperAdminRequiredMixin, TemplateView):
                 messages.error(request, "Viloyat topilmadi.")
                 return redirect('inspection:admin-manage')
 
+            inspection_detail_access = request.POST.get('inspection_detail_access') == '1'
+
             try:
                 with transaction.atomic():
                     user = User.objects.create_user(username=username, password=password)
@@ -594,7 +632,8 @@ class InspectionAdminManageView(SuperAdminRequiredMixin, TemplateView):
                         full_name=full_name,
                         phone_number=clean_phone,
                         region=region,
-                        position="Davlat mehnat inspektori"
+                        position="Davlat mehnat inspektori",
+                        inspection_detail_access=inspection_detail_access,
                     )
                 messages.success(request, f"Inspektor «{full_name}» ({clean_phone}) muvaffaqiyatli qo‘shildi.")
             except IntegrityError:
@@ -646,6 +685,8 @@ class InspectionAdminManageView(SuperAdminRequiredMixin, TemplateView):
                         profile.user.save()
                     if region_id and region_id.isdigit():
                         profile.region_id = int(region_id)
+                    if 'inspection_detail_access' in request.POST:
+                        profile.inspection_detail_access = request.POST.get('inspection_detail_access') == '1'
                     profile.save()
 
                     if new_password:
@@ -657,6 +698,14 @@ class InspectionAdminManageView(SuperAdminRequiredMixin, TemplateView):
                 messages.error(request, "Ma'lumotlarni saqlashda xatolik: telefon raqam takrorlangan bo'lishi mumkin.")
             except Exception as e:
                 messages.error(request, f"Xatolik: {str(e)}")
+
+        elif action == 'toggle-detail-access':
+            inspector_id = request.POST.get('inspector_id')
+            profile = get_object_or_404(UserProfile, id=inspector_id, role=UserProfile.ROLE_INSPECTION)
+            profile.inspection_detail_access = not profile.inspection_detail_access
+            profile.save(update_fields=['inspection_detail_access'])
+            state = 'kengaytirilgan (xodim tafsilotlari ochiq)' if profile.inspection_detail_access else 'umumiy (faqat son va foizlar)'
+            messages.success(request, f'{profile.full_name} uchun inspeksiya ko‘rish ruxsati {state} holatiga o‘zgartirildi.')
 
         elif action == 'delete':
             inspector_id = request.POST.get('inspector_id')

@@ -72,6 +72,11 @@ class UserProfile(models.Model):
         related_name='user_profiles',
         verbose_name='Viloyat'
     )
+    inspection_detail_access = models.BooleanField(
+        default=False,
+        verbose_name='Inspeksiyaga xodimlar tafsilotlarini ko‘rsatish',
+        help_text='O‘chiq bo‘lsa inspeksiya faqat umumiy son va foizlarni ko‘radi.',
+    )
     department = models.ForeignKey(
         'companies.Department',
         on_delete=models.SET_NULL,

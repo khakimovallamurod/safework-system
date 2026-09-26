@@ -136,8 +136,6 @@
                     {{ form.pdf_file }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish vaqti</label>
                     {{ form.start_time }}
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Ro'yxatdan o'tish oxiri vaqti (ixtiyoriy)</label>
-                    {{ form.registration_end_time }}
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Faollik tugash vaqti</label>
                     {{ form.active_until }}
                 </div>
@@ -172,8 +170,6 @@
                     </p>
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Boshlanish sanasi</label>
                     <input type="date" name="start_time" value="{{ guideline.start_time|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
-                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Ro'yxatdan o'tish oxiri (ixtiyoriy)</label>
-                    <input type="date" name="registration_end_time" value="{{ guideline.registration_end_time|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" />
                     <label class="mb-1.5 block text-sm font-medium text-slate-700">Faollik tugash sanasi</label>
                     <input type="date" name="active_until" value="{{ guideline.active_until|date:'Y-m-d' }}" class="form-control block w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" required />
                 </div>
@@ -248,9 +244,6 @@
                     {% if guideline.start_time %}
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs space-y-1">
                         <div><span class="font-medium text-slate-500">Boshlanish:</span> {{ guideline.start_time|date:'d.m.Y' }}</div>
-                        {% if guideline.registration_end_time %}
-                        <div><span class="font-medium text-slate-500">Ro'yxat oxiri:</span> {{ guideline.registration_end_time|date:'d.m.Y' }}</div>
-                        {% endif %}
                         <div><span class="font-medium text-slate-500">Faollik:</span> {{ guideline.active_until|date:'d.m.Y' }}</div>
                     </div>
                     {% else %}

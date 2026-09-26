@@ -36,7 +36,7 @@
         {% endif %}
 
         {# ── Filtrlar (faqat qidiruv, ma'lumot o'zgarmaydi) ── #}
-        <form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
+        {% if show_staff_details %}<form method="get" class="flex flex-wrap items-center gap-2 border-b border-slate-100 p-3">
             {% for tab in tabs %}{% if tab.active and tab.param %}
             <input type="hidden" name="{% if page_key == 'tests' %}kind{% else %}type{% endif %}" value="{{ tab.param }}">
             {% endif %}{% endfor %}
@@ -68,7 +68,7 @@
             </a>
             {% endif %}
             <span class="ml-auto text-xs text-slate-500">Topildi: <strong class="text-slate-800">{{ page_obj.paginator.count }}</strong></span>
-        </form>
+        </form>{% else %}<div class="border-b border-slate-100 px-4 py-3 text-xs text-slate-500">Faqat tashkilotlar bo‘yicha jami xodimlar soni va bajarilish foizi ko‘rsatiladi.</div>{% endif %}
 
         {% include 'inspection/_table.html' %}
 
