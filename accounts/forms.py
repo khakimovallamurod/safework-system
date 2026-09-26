@@ -18,6 +18,7 @@ from companies.models import (
     SectionMessage,
     SectionWorkPractice,
 )
+from companies.guidelines import normalize_end_of_day
 from industries.models import Industry
 from professions.models import Profession
 
@@ -70,9 +71,17 @@ class SoplineAuthenticationForm(AuthenticationForm):
         password = self.cleaned_data.get('password')
 
         if phone and password:
-            normalized_phone = normalize_uz_phone(phone)
+            try:
+                normalized_phone = normalize_uz_phone(phone)
+            except ValidationError:
+                normalized_phone = phone.strip()
+
             self.cleaned_data['username'] = normalized_phone
             self.user_cache = authenticate(self.request, username=normalized_phone, password=password)
+            if self.user_cache is None:
+                # Agar bazada +998 siz saqlangan bo'lsa ham tekshirish
+                raw_digits = normalized_phone.replace('+998', '').replace(' ', '')
+                self.user_cache = authenticate(self.request, username=raw_digits, password=password)
             if self.user_cache is None:
                 raise self.get_invalid_login_error()
             self.confirm_login_allowed(self.user_cache)
@@ -269,7 +278,10 @@ class MandatoryGuidelineForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         start = cleaned.get('start_time')
-        active_until = cleaned.get('active_until')
+        active_until = normalize_end_of_day(cleaned.get('active_until'))
+        if active_until:
+            # Sana tanlanganda tugash kuni oxirigacha (23:59:59) faol bo'ladi
+            cleaned['active_until'] = active_until
         if start and active_until and active_until <= start:
             raise ValidationError("Faollik tugashi boshlanish vaqtidan keyin bo‘lishi kerak.")
         return cleaned
@@ -1003,7 +1015,10 @@ class SectionInternalGuidelineForm(forms.ModelForm):
         cleaned = super().clean()
         start = cleaned.get('start_time')
         reg_end = cleaned.get('registration_end_time')
-        active_until = cleaned.get('active_until')
+        active_until = normalize_end_of_day(cleaned.get('active_until'))
+        if active_until:
+            # Sana tanlanganda tugash kuni oxirigacha (23:59:59) faol bo'ladi
+            cleaned['active_until'] = active_until
         if start and reg_end and reg_end <= start:
             raise ValidationError("Ro'yxatdan o'tish oxiri boshlanish vaqtidan keyin bo'lishi kerak.")
         if reg_end and active_until and active_until <= reg_end:
@@ -1050,6 +1065,12 @@ class SectionWorkPracticeForm(forms.ModelForm):
     class Meta:
         model = SectionWorkPractice
         fields = ('name', 'start_time', 'end_time', 'notes')
+        labels = {
+            'name': 'Nomi',
+            'start_time': 'Boshlanish vaqti',
+            'end_time': 'Tugash vaqti',
+            'notes': 'Izoh',
+        }
         widgets = {
             'name': forms.TextInput(attrs=_field_attrs('Ish amaliyoti nomi')),
             'start_time': _DATE_WIDGET,
@@ -1066,10 +1087,24 @@ class SectionWorkPracticeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def clean_end_time(self):
+        from datetime import datetime, time
+        from django.utils import timezone
+        end = self.cleaned_data.get('end_time')
+        raw = (self.data.get(self.add_prefix('end_time')) or '').strip()
+        # Faqat sana kiritilgan bo'lsa (type="date"), tugash vaqti o'sha kunning oxiri hisoblanadi,
+        # aks holda oxirgi kun 00:00 da tugab, amaliyot bir kun qisqarib qoladi.
+        if end and raw and len(raw) == 10:
+            end = timezone.make_aware(
+                datetime.combine(timezone.localdate(end), time(23, 59, 59)),
+                timezone.get_current_timezone(),
+            )
+        return end
+
     def clean(self):
         cleaned = super().clean()
         start = cleaned.get('start_time')
         end = cleaned.get('end_time')
         if start and end and end <= start:
-            raise ValidationError('Tugash vaqti boshlanish vaqtidan keyin bo‘lishi kerak.')
+            self.add_error('end_time', 'Tugash vaqti boshlanish vaqtidan keyin bo‘lishi kerak.')
         return cleaned

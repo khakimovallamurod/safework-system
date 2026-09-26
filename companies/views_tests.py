@@ -5,9 +5,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Q
 
-from accounts.mixins import SectionAdminRequiredMixin, AuthenticatedRequiredMixin, SectionMemberRequiredMixin
+from accounts.mixins import SectionAdminRequiredMixin, AuthenticatedRequiredMixin
 from accounts.notifications import send_action_notification
 from companies.forms import WorkPracticeTestForm, WorkPracticeTestQuestionForm
 from companies.models import (
@@ -92,7 +93,7 @@ class TestPracticePermissionsView(SectionAdminRequiredMixin, View):
     def post(self, request, pk, *args, **kwargs):
         sections = _get_sections_for_test_management(request)
         test = get_object_or_404(WorkPracticeTest, pk=pk, section__in=sections)
-        selected_ids = set(map(int, request.POST.getlist('practice_ids')))
+        selected_ids = {int(pid) for pid in request.POST.getlist('practice_ids') if str(pid).isdigit()}
 
         # Remove permissions that are no longer selected
         test.practice_permissions.exclude(practice_id__in=selected_ids).delete()
@@ -302,10 +303,14 @@ class TestDetailView(SectionAdminRequiredMixin, View):
                 return redirect('work-practices')
 
         questions = test.questions.all()
+        attempts = WorkPracticeTestAttempt.objects.filter(
+            test=test, finished_at__isnull=False
+        ).select_related('user', 'user__profile', 'practice', 'test').order_by('-finished_at')
         context = self.get_role_context()
         context.update({
             'test': test,
             'questions': questions,
+            'attempts': attempts,
         })
         return render(request, self.template_name, context)
 
@@ -348,55 +353,156 @@ class QuestionDeleteView(SectionAdminRequiredMixin, View):
         return redirect('companies:test_detail', pk=test.id)
 
 
+def _is_test_linked_to_practice(test, practice):
+    return (
+        test.section_id == practice.section_id
+        or (practice.section and test.section and test.section.department_id == practice.section.department_id)
+        or test.practice_permissions.filter(practice=practice).exists()
+    )
+
+
+def _practice_window_error(practice, test):
+    """Stajirovka/test vaqt oynasi yopiq bo'lsa, xabar matnini qaytaradi (aks holda None)."""
+    now = timezone.now()
+    if practice.start_time and practice.start_time > now:
+        return f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
+    if practice.end_time and practice.end_time < now:
+        return f"Ushbu stajirovka testi topshirish muddati tugagan (Tugash vaqti: {timezone.localtime(practice.end_time):%d.%m.%Y %H:%M})."
+    if practice.closed_at:
+        return "Ushbu stajirovka yakunlangan va yopilgan."
+    if test.is_stopped:
+        return "Test muddatidan oldin to‘xtatilgan."
+    is_valid, msg = test.is_in_time_window
+    if not is_valid:
+        return msg
+    return None
+
+
+def _can_view_attempt(request, attempt):
+    """Natijani ko'rish huquqi: amaliyotchining o'zi, mas'ul ustoz, yaratuvchi va tegishli rahbarlar."""
+    user = request.user
+    if attempt.user_id == user.id or user.is_superuser or user.is_staff:
+        return True
+    practice = attempt.practice
+    if practice.responsible_user_id == user.id or practice.created_by_id == user.id:
+        return True
+    profile = getattr(user, 'profile', None)
+    if not profile:
+        return False
+    if profile.role == 'super_admin':
+        return True
+    if profile.role in ['org_leader', 'organization_leader', 'department_admin', 'section_admin']:
+        return _get_sections_for_test_management(request).filter(pk=practice.section_id).exists()
+    return False
+
+
+def _finalize_quiz_attempt(attempt, post_data=None):
+    """
+    Urinishni yakunlaydi va ballni hisoblaydi. Faqat bir marta ishlaydi (ikki marta yuborishdan himoya).
+    post_data=None bo'lsa (vaqt tugagan), javoblar hisobga olinmaydi.
+    Qaytaradi: (final_score, passed) yoki urinish allaqachon yakunlangan bo'lsa None.
+    """
+    question_ids = list(attempt.question_ids or [])
+    questions = list(WorkPracticeTestQuestion.objects.filter(id__in=question_ids))
+    total = len(questions)
+
+    correct = 0
+    answers_to_create = []
+    if post_data is not None:
+        for question in questions:
+            user_answer = post_data.get(f'question_{question.id}')
+            if user_answer and str(user_answer).isdigit() and int(user_answer) in (1, 2, 3):
+                selected = int(user_answer)
+                is_correct = (selected == question.correct_option)
+                if is_correct:
+                    correct += 1
+                answers_to_create.append(WorkPracticeTestAttemptAnswer(
+                    attempt=attempt,
+                    question=question,
+                    selected_option=selected,
+                    is_correct=is_correct,
+                ))
+
+    # Butun sonli arifmetika: float xatoliklarsiz foizni pastga yaxlitlash
+    final_score = (correct * 100) // total if total else 0
+    now = timezone.now()
+
+    with transaction.atomic():
+        updated = WorkPracticeTestAttempt.objects.filter(
+            pk=attempt.pk, finished_at__isnull=True
+        ).update(score=final_score, finished_at=now)
+        if not updated:
+            return None
+        WorkPracticeTestAttemptAnswer.objects.bulk_create(answers_to_create, ignore_conflicts=True)
+
+    attempt.score = final_score
+    attempt.finished_at = now
+    passed = attempt.is_passed
+
+    # Testdan o'tgan amaliyotchi mustaqil ishlashga ruxsat oladi
+    if passed:
+        profile = getattr(attempt.user, 'profile', None)
+        if profile and not profile.practice_qualified:
+            profile.practice_qualified = True
+            profile.save(update_fields=['practice_qualified_status', 'practice_qualified_at'])
+
+    return final_score, passed
+
+
+def _close_expired_attempts(practice, user, test):
+    """Vaqti tugab, yakunlanmay qolgan urinishlarni 0 ball bilan yopish."""
+    grace = timezone.timedelta(seconds=WorkPracticeTestAttempt.SUBMIT_GRACE_SECONDS)
+    open_attempts = WorkPracticeTestAttempt.objects.filter(
+        practice=practice, user=user, test=test, finished_at__isnull=True
+    ).select_related('test', 'user__profile')
+    active = None
+    for att in open_attempts:
+        if timezone.now() > att.deadline + grace:
+            _finalize_quiz_attempt(att, post_data=None)
+        elif active is None:
+            active = att
+    return active
+
+
 class QuizStartView(AuthenticatedRequiredMixin, View):
     template_name = 'companies/tests/quiz_start.html'
 
-    def get(self, request, practice_pk, test_pk, *args, **kwargs):
-        practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, is_active=True)
-        is_test_linked = (
-            test.section_id == practice.section_id
-            or (practice.section and test.section and test.section.department_id == practice.section.department_id)
-            or test.practice_permissions.filter(practice=practice).exists()
+    def _load(self, request, practice_pk, test_pk):
+        practice = get_object_or_404(
+            SectionWorkPractice.objects.select_related('section', 'section__department', 'responsible_user__profile'),
+            pk=practice_pk,
         )
-        if not is_test_linked:
+        test = get_object_or_404(
+            WorkPracticeTest.objects.select_related('section'), pk=test_pk, is_active=True
+        )
+        if not _is_test_linked_to_practice(test, practice):
             messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
-            return redirect('work-practices')
-        
-        # Verify user is assigned to this practice
+            return None, None, redirect('work-practices')
+
+        # Faqat amaliyotga biriktirilgan xodim test topshira oladi
         if not SectionWorkPracticeAssignee.objects.filter(practice=practice, user=request.user).exists():
             messages.error(request, "Siz ushbu amaliyotga biriktirilmagansiz.")
-            return redirect('dashboard')
-            
-        now = timezone.now()
-        # Test activates once the practice start_time arrives and before end_time
-        if practice.start_time and practice.start_time > now:
-            messages.warning(
-                request,
-                f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
-            )
-            return redirect('work-practices')
+            return None, None, redirect('work-practices')
 
-        if practice.end_time and practice.end_time < now:
-            messages.warning(
-                request,
-                f"Ushbu stajirovka testi topshirish muddati tugagan (Tugash vaqti: {timezone.localtime(practice.end_time):%d.%m.%Y %H:%M})."
-            )
-            return redirect('work-practices')
+        window_error = _practice_window_error(practice, test)
+        if window_error:
+            messages.warning(request, window_error)
+            return None, None, redirect('work-practices')
+        return practice, test, None
 
-        if practice.closed_at:
-            messages.warning(request, "Ushbu stajirovka yakunlangan va yopilgan.")
-            return redirect('work-practices')
+    def get(self, request, practice_pk, test_pk, *args, **kwargs):
+        practice, test, error_response = self._load(request, practice_pk, test_pk)
+        if error_response:
+            return error_response
 
-        if test.is_stopped:
-            messages.warning(request, "Test muddatidan oldin to‘xtatilgan.")
-            return redirect('work-practices')
+        active_attempt = _close_expired_attempts(practice, request.user, test)
+        if active_attempt:
+            return redirect('companies:quiz_take', attempt_pk=active_attempt.id)
 
-        # Check attempts
         attempts_count = WorkPracticeTestAttempt.objects.filter(practice=practice, user=request.user, test=test).count()
         if attempts_count >= test.attempts_allowed:
             messages.error(request, "Urinishlar soni tugagan.")
-            return redirect('dashboard')
+            return redirect('work-practices')
 
         context = self.get_role_context()
         context.update({
@@ -406,106 +512,133 @@ class QuizStartView(AuthenticatedRequiredMixin, View):
             'attempts_left': test.attempts_allowed - attempts_count
         })
         return render(request, self.template_name, context)
-        
+
     def post(self, request, practice_pk, test_pk, *args, **kwargs):
-        practice = get_object_or_404(SectionWorkPractice, pk=practice_pk)
-        test = get_object_or_404(WorkPracticeTest, pk=test_pk, is_active=True)
-        is_test_linked = (
-            test.section_id == practice.section_id
-            or (practice.section and test.section and test.section.department_id == practice.section.department_id)
-            or test.practice_permissions.filter(practice=practice).exists()
-        )
-        if not is_test_linked:
-            messages.error(request, "Ushbu test ushbu amaliyotga biriktirilmagan.")
-            return redirect('work-practices')
+        practice, test, error_response = self._load(request, practice_pk, test_pk)
+        if error_response:
+            return error_response
 
-        now = timezone.now()
-        # Test activates once the practice start_time arrives and before end_time
-        if practice.start_time and practice.start_time > now:
-            messages.warning(
-                request,
-                f"Ushbu stajirovka testi hali boshlanmagan. Boshlanish vaqti: {timezone.localtime(practice.start_time):%d.%m.%Y %H:%M}"
-            )
-            return redirect('work-practices')
+        # Yakunlanmagan faol urinish bo'lsa, yangisini ochmasdan o'shanga qaytarish
+        active_attempt = _close_expired_attempts(practice, request.user, test)
+        if active_attempt:
+            return redirect('companies:quiz_take', attempt_pk=active_attempt.id)
 
-        if practice.end_time and practice.end_time < now:
-            messages.warning(
-                request,
-                f"Ushbu stajirovka testi topshirish muddati tugagan (Tugash vaqti: {timezone.localtime(practice.end_time):%d.%m.%Y %H:%M})."
-            )
-            return redirect('work-practices')
-
-        if practice.closed_at:
-            messages.warning(request, "Ushbu stajirovka yakunlangan va yopilgan.")
-            return redirect('work-practices')
-
-        if test.is_stopped:
-            messages.warning(request, "Test muddatidan oldin to‘xtatilgan.")
-            return redirect('work-practices')
-        
-        attempts_count = WorkPracticeTestAttempt.objects.filter(practice=practice, user=request.user, test=test).count()
-        if attempts_count >= test.attempts_allowed:
-            messages.error(request, "Urinishlar soni tugagan.")
-            return redirect('dashboard')
-            
-        # Create attempt
-        attempt = WorkPracticeTestAttempt.objects.create(
-            practice=practice,
-            user=request.user,
-            test=test
-        )
-        
         # Sync any missing questions from department test base
-        dept = practice.section.department
+        dept = practice.section.department if practice.section else None
         if dept:
             existing_texts = set(t.strip().lower() for t in test.questions.values_list('text', flat=True))
             dept_questions = DepartmentTestBaseQuestion.objects.filter(department=dept)
-            missing_q = [
-                WorkPracticeTestQuestion(
+            missing_q = []
+            for dq in dept_questions:
+                key = dq.text.strip().lower()
+                if key in existing_texts:
+                    continue
+                existing_texts.add(key)
+                missing_q.append(WorkPracticeTestQuestion(
                     test=test,
                     text=dq.text,
                     option_1=dq.option_1,
                     option_2=dq.option_2,
                     option_3=dq.option_3,
                     correct_option=dq.correct_option
-                )
-                for dq in dept_questions if dq.text.strip().lower() not in existing_texts
-            ]
+                ))
             if missing_q:
                 WorkPracticeTestQuestion.objects.bulk_create(missing_q)
 
         # Generate random questions
-        all_questions = list(test.questions.all())
-        random.shuffle(all_questions)
-        selected_questions = all_questions[:test.questions_count]
-        
-        # Store selected question IDs in session
-        request.session[f'quiz_attempt_{attempt.id}'] = [q.id for q in selected_questions]
-        
+        all_question_ids = list(test.questions.values_list('id', flat=True))
+        if not all_question_ids:
+            messages.error(request, "Ushbu testda savollar mavjud emas. Bo‘lim rahbariga murojaat qiling.")
+            return redirect('work-practices')
+        random.shuffle(all_question_ids)
+        selected_ids = all_question_ids[:test.questions_count]
+
+        with transaction.atomic():
+            # Parallel so'rovlarda urinishlar sonidan oshib ketmaslik uchun qatorni qulflash
+            SectionWorkPracticeAssignee.objects.select_for_update().filter(practice=practice, user=request.user).first()
+            attempts_count = WorkPracticeTestAttempt.objects.filter(practice=practice, user=request.user, test=test).count()
+            if attempts_count >= test.attempts_allowed:
+                messages.error(request, "Urinishlar soni tugagan.")
+                return redirect('work-practices')
+            attempt = WorkPracticeTestAttempt.objects.create(
+                practice=practice,
+                user=request.user,
+                test=test,
+                question_ids=selected_ids,
+            )
+
         return redirect('companies:quiz_take', attempt_pk=attempt.id)
 
 
-class QuizTakeView(SectionMemberRequiredMixin, View):
+class QuizTakeView(AuthenticatedRequiredMixin, View):
     template_name = 'companies/tests/quiz_take.html'
 
+    def _get_attempt(self, request, attempt_pk):
+        return get_object_or_404(
+            WorkPracticeTestAttempt.objects.select_related(
+                'test', 'practice', 'practice__section', 'practice__section__department', 'user', 'user__profile'
+            ),
+            pk=attempt_pk,
+            user=request.user,
+        )
+
+    def _notify_result(self, request, attempt, final_score, passed):
+        try:
+            worker_name = (request.user.profile.full_name if hasattr(request.user, 'profile') and request.user.profile and request.user.profile.full_name else request.user.username)
+            if not passed:
+                notif_title = f"Ogohlantirish: Testdan o‘tmadi ({worker_name})"
+                notif_msg = f"{worker_name} «{attempt.practice.name}» stajirovkasi doirasidagi «{attempt.test.name}» testidan o‘ta olmadi (Natija: {final_score}%, o‘tish bali: {attempt.test.pass_percentage}%)."
+            else:
+                notif_title = f"Stajirovka testi topshirildi ({worker_name})"
+                notif_msg = f"{worker_name} «{attempt.practice.name}» stajirovkasi doirasidagi «{attempt.test.name}» testidan muvaffaqiyatli o‘tdi (Natija: {final_score}%)."
+
+            target_users = [attempt.practice.responsible_user] if attempt.practice.responsible_user_id else None
+            send_action_notification(
+                title=notif_title,
+                message=notif_msg,
+                notif_type='test',
+                url=reverse('companies:quiz_result', kwargs={'attempt_pk': attempt.id}),
+                section=attempt.practice.section,
+                department=attempt.practice.section.department if attempt.practice.section else None,
+                target_users=target_users,
+                exclude_users=[request.user]
+            )
+        except Exception:
+            pass
+
     def get(self, request, attempt_pk, *args, **kwargs):
-        attempt = get_object_or_404(WorkPracticeTestAttempt, pk=attempt_pk, user=request.user)
+        attempt = self._get_attempt(request, attempt_pk)
         if attempt.finished_at:
+            return redirect('companies:quiz_result', attempt_pk=attempt.id)
+
+        # Server tomonidagi vaqt nazorati: vaqt tugagan bo'lsa urinish avtomatik yopiladi
+        if attempt.remaining_seconds <= 0:
+            result = _finalize_quiz_attempt(attempt, post_data=None)
+            if result:
+                self._notify_result(request, attempt, *result)
+            messages.warning(request, "Test vaqti tugagan. Urinish yakunlandi.")
             return redirect('companies:quiz_result', attempt_pk=attempt.id)
 
         is_valid, msg = attempt.test.is_in_time_window
         if not is_valid:
             messages.warning(request, msg)
             return redirect('work-practices')
-            
-        question_ids = request.session.get(f'quiz_attempt_{attempt.id}', [])
+
+        question_ids = list(attempt.question_ids or [])
+        if not question_ids:
+            # Eski urinishlar uchun (savollar sessiyada saqlangan)
+            question_ids = request.session.get(f'quiz_attempt_{attempt.id}', [])
+            if question_ids:
+                attempt.question_ids = question_ids
+                attempt.save(update_fields=['question_ids'])
         if not question_ids:
             messages.error(request, "Savollar topilmadi yoki sessiya tugagan.")
-            return redirect('dashboard')
-            
+            return redirect('work-practices')
+
         questions = list(WorkPracticeTestQuestion.objects.filter(id__in=question_ids))
-        # Order them dynamically as per the session list
-        questions = sorted(questions, key=lambda q: question_ids.index(q.id))
+        # Order them dynamically as per the stored list
+        order = {qid: i for i, qid in enumerate(question_ids)}
+        questions.sort(key=lambda q: order.get(q.id, 0))
 
         # Shuffle options for each question
         for q in questions:
@@ -522,99 +655,117 @@ class QuizTakeView(SectionMemberRequiredMixin, View):
             'attempt': attempt,
             'test': attempt.test,
             'questions': questions,
+            'remaining_seconds': attempt.remaining_seconds,
         })
         return render(request, self.template_name, context)
 
     def post(self, request, attempt_pk, *args, **kwargs):
-        attempt = get_object_or_404(WorkPracticeTestAttempt, pk=attempt_pk, user=request.user)
+        attempt = self._get_attempt(request, attempt_pk)
         if attempt.finished_at:
             return redirect('companies:quiz_result', attempt_pk=attempt.id)
-            
-        question_ids = request.session.get(f'quiz_attempt_{attempt.id}', [])
-        questions = WorkPracticeTestQuestion.objects.filter(id__in=question_ids)
-        
-        score = 0
-        answers_to_create = []
-        for question in questions:
-            user_answer = request.POST.get(f'question_{question.id}')
-            if user_answer and str(user_answer).isdigit():
-                selected = int(user_answer)
-                is_correct = (selected == question.correct_option)
-                if is_correct:
-                    score += 1
-                answers_to_create.append(WorkPracticeTestAttemptAnswer(
-                    attempt=attempt,
-                    question=question,
-                    selected_option=selected,
-                    is_correct=is_correct,
-                ))
 
-        # Calculate percentage
-        if len(question_ids) > 0:
-            final_score = int((score / len(question_ids)) * 100)
-        else:
-            final_score = 0
+        if not attempt.question_ids:
+            session_ids = request.session.get(f'quiz_attempt_{attempt.id}', [])
+            if session_ids:
+                attempt.question_ids = session_ids
+                attempt.save(update_fields=['question_ids'])
 
-        attempt.score = final_score
-        attempt.finished_at = timezone.now()
-        attempt.save()
-
-        # Save per-question answers
-        WorkPracticeTestAttemptAnswer.objects.bulk_create(answers_to_create, ignore_conflicts=True)
-
-        # Mark worker as practice-qualified if score >= 60%
-        if final_score >= 60:
-            profile = request.user.profile
-            if not profile.practice_qualified:
-                profile.practice_qualified = True
-                profile.save(update_fields=['practice_qualified_status', 'practice_qualified_at'])
+        # Vaqt tugaganidan keyin (qo'shimcha muhlatdan so'ng) yuborilgan javoblar qabul qilinmaydi
+        grace = timezone.timedelta(seconds=WorkPracticeTestAttempt.SUBMIT_GRACE_SECONDS)
+        is_late = timezone.now() > attempt.deadline + grace
+        result = _finalize_quiz_attempt(attempt, post_data=None if is_late else request.POST)
+        if result is None:
+            # Ikki marta yuborilgan (allaqachon yakunlangan)
+            return redirect('companies:quiz_result', attempt_pk=attempt.id)
+        final_score, passed = result
 
         # Cleanup session
-        if f'quiz_attempt_{attempt.id}' in request.session:
-            del request.session[f'quiz_attempt_{attempt.id}']
+        request.session.pop(f'quiz_attempt_{attempt.id}', None)
 
-        # Xabarnoma: test natijasi va ogohlantirish (Direktor va Boshqarma nazoratchisiga)
-        try:
-            worker_name = (request.user.profile.full_name if hasattr(request.user, 'profile') and request.user.profile and request.user.profile.full_name else request.user.username)
-            if final_score < 60:
-                notif_title = f"Ogohlantirish: Testdan o‘tmadi ({worker_name})"
-                notif_msg = f"{worker_name} «{attempt.practice.name}» stajirovkasi doirasidagi «{attempt.test.name}» testidan o‘ta olmadi (Natija: {final_score}%)."
-            else:
-                notif_title = f"Stajirovka testi topshirildi ({worker_name})"
-                notif_msg = f"{worker_name} «{attempt.practice.name}» stajirovkasi doirasidagi «{attempt.test.name}» testidan muvaffaqiyatli o‘tdi (Natija: {final_score}%)."
+        self._notify_result(request, attempt, final_score, passed)
 
-            send_action_notification(
-                title=notif_title,
-                message=notif_msg,
-                notif_type='test',
-                url='/ish-amaliyotlari/',
-                section=attempt.practice.section,
-                department=attempt.practice.section.department if attempt.practice.section else None,
-                exclude_users=[request.user]
-            )
-        except Exception:
-            pass
-
-        messages.success(request, f"Test yakunlandi. Natijangiz: {final_score}%")
+        if is_late:
+            messages.warning(request, "Test vaqti tugaganidan keyin yuborildi, javoblar qabul qilinmadi.")
+        else:
+            messages.success(request, f"Test yakunlandi. Natijangiz: {final_score}%")
         return redirect('companies:quiz_result', attempt_pk=attempt.id)
 
 
-class QuizResultView(SectionMemberRequiredMixin, View):
+class QuizResultView(AuthenticatedRequiredMixin, View):
     template_name = 'companies/tests/quiz_result.html'
 
     def get(self, request, attempt_pk, *args, **kwargs):
-        attempt = get_object_or_404(WorkPracticeTestAttempt, pk=attempt_pk, user=request.user)
-        answers = (
+        attempt = get_object_or_404(
+            WorkPracticeTestAttempt.objects.select_related(
+                'test', 'practice', 'practice__section', 'practice__responsible_user__profile', 'user', 'user__profile'
+            ),
+            pk=attempt_pk,
+        )
+        if not _can_view_attempt(request, attempt):
+            messages.error(request, "Natijani ko‘rish huquqi yo‘q.")
+            return redirect('work-practices')
+        if not attempt.finished_at:
+            if attempt.user_id == request.user.id:
+                return redirect('companies:quiz_take', attempt_pk=attempt.id)
+            messages.info(request, "Test hali yakunlanmagan.")
+            return redirect('work-practices')
+
+        answers = list(
             attempt.answers
             .select_related('question')
             .order_by('id')
         )
+        total = len(attempt.question_ids) if attempt.question_ids else len(answers)
+        correct_count = sum(1 for a in answers if a.is_correct)
         context = self.get_role_context()
         context.update({
             'attempt': attempt,
             'test': attempt.test,
             'answers': answers,
-            'total': answers.count(),
-            'correct_count': answers.filter(is_correct=True).count(),
+            'total': total,
+            'correct_count': correct_count,
+            'wrong_count': max(total - correct_count, 0),
+            'is_owner': attempt.user_id == request.user.id,
+        })
+        return render(request, self.template_name, context)
+
+
+class PracticeCompletionCertificateView(AuthenticatedRequiredMixin, View):
+    """Mustaqil ishlashga ruxsatnoma (stajirovka yakuni hujjati) - faqat testdan o'tganda."""
+    template_name = 'companies/tests/practice_certificate.html'
+
+    def get(self, request, attempt_pk, *args, **kwargs):
+        attempt = get_object_or_404(
+            WorkPracticeTestAttempt.objects.select_related(
+                'test',
+                'practice',
+                'practice__section',
+                'practice__section__department',
+                'practice__section__supervisor__profile',
+                'practice__responsible_user__profile',
+                'user',
+                'user__profile',
+            ),
+            pk=attempt_pk,
+        )
+        if not _can_view_attempt(request, attempt):
+            messages.error(request, "Hujjatni ko‘rish huquqi yo‘q.")
+            return redirect('work-practices')
+        if not attempt.is_passed:
+            messages.error(request, "Ruxsatnoma faqat testdan muvaffaqiyatli o‘tilganda beriladi.")
+            return redirect('work-practices')
+
+        assignment = SectionWorkPracticeAssignee.objects.filter(
+            practice=attempt.practice, user=attempt.user
+        ).first()
+        context = self.get_role_context()
+        context.update({
+            'attempt': attempt,
+            'test': attempt.test,
+            'practice': attempt.practice,
+            'trainee': attempt.user,
+            'trainee_profile': getattr(attempt.user, 'profile', None),
+            'assignment': assignment,
+            'issued_at': attempt.finished_at,
         })
         return render(request, self.template_name, context)

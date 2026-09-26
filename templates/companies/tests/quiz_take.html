@@ -81,21 +81,11 @@
 </div>
 
 <script>
-    // Timer logic
-    const durationMinutes = {{ test.duration }};
-    const startTimeStr = "{{ attempt.started_at.isoformat }}";
-    
-    // Fallback if parsing fails
-    let endTime = new Date();
-    endTime.setMinutes(endTime.getMinutes() + durationMinutes);
-    
-    try {
-        const start = new Date(startTimeStr);
-        if (!isNaN(start.getTime())) {
-            endTime = new Date(start.getTime() + durationMinutes * 60000);
-        }
-    } catch(e) {}
-    
+    // Timer logic: qolgan vaqt serverda hisoblanadi (sahifani yangilash vaqtni qayta boshlamaydi)
+    const remainingSeconds = {{ remaining_seconds|default:0 }};
+    const endTime = new Date(Date.now() + remainingSeconds * 1000);
+    let isSubmitting = false;
+
     const display = document.getElementById('time-display');
     const form = document.getElementById('quizForm');
     
@@ -112,8 +102,10 @@
                 timerBox.classList.replace('border-indigo-100', 'border-rose-200');
             }
             clearInterval(timerInterval);
-            
-            // Auto submit
+            if (isSubmitting) return;
+            isSubmitting = true;
+
+            // Auto submit (javob berilmagan savollar bo'lsa ham)
             var sBtn = document.getElementById('submitBtn');
             if (sBtn) {
                 sBtn.innerHTML = "Vaqt tugadi. Yuborilmoqda...";
@@ -137,7 +129,18 @@
         }
     }
     
-    updateTimer();
+    // Ikki marta yuborishning oldini olish
+    form.addEventListener('submit', function (e) {
+        if (isSubmitting) { e.preventDefault(); return; }
+        isSubmitting = true;
+        var sBtn = document.getElementById('submitBtn');
+        if (sBtn) {
+            sBtn.disabled = true;
+            sBtn.innerHTML = "Yuborilmoqda...";
+        }
+    });
+
     const timerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
 </script>
 {% endblock %}

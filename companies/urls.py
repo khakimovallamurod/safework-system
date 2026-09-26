@@ -5,7 +5,7 @@ from companies.views_tests import (
     TestListView, TestCreateView, TestEditView, TestDeleteView, TestStopView,
     TestDetailView, TestToggleStatusView, TestPracticePermissionsView,
     QuestionCreateView, QuestionDeleteView,
-    QuizStartView, QuizTakeView, QuizResultView
+    QuizStartView, QuizTakeView, QuizResultView, PracticeCompletionCertificateView
 )
 
 app_name = 'companies'
@@ -31,4 +31,5 @@ urlpatterns = [
     path('practice/<int:practice_pk>/tests/<int:test_pk>/start/', QuizStartView.as_view(), name='quiz_start'),
     path('quiz/attempt/<int:attempt_pk>/', QuizTakeView.as_view(), name='quiz_take'),
     path('quiz/attempt/<int:attempt_pk>/result/', QuizResultView.as_view(), name='quiz_result'),
+    path('quiz/attempt/<int:attempt_pk>/certificate/', PracticeCompletionCertificateView.as_view(), name='quiz_certificate'),
 ]

@@ -88,6 +88,16 @@ from companies.models import (
     WorkPracticeTestAttempt,
     WorkPracticeTestPermission,
 )
+from companies.guidelines import (
+    current_entry_dispatch,
+    current_entry_receipt,
+    current_internal_receipts,
+    current_mandatory_guidelines,
+    current_profession_membership,
+    effective_end,
+    mandatory_type_order,
+    profession_guideline_receipt,
+)
 from industries.models import Industry
 from professions.models import Profession
 from violations.models import Violation
@@ -703,8 +713,9 @@ def _build_dashboard_overview(user, role_context):
     internal_pending = max(internal_total - internal_accepted, 0)
     assessment_passed = assessment_attempts.filter(finished_at__isnull=False, score__gte=60).count()
     assessment_failed = assessment_attempts.filter(finished_at__isnull=False, score__lt=60).count()
-    practice_passed = practice_attempts.filter(finished_at__isnull=False, score__gte=60).count()
-    practice_failed = practice_attempts.filter(finished_at__isnull=False, score__lt=60).count()
+    from django.db.models import F
+    practice_passed = practice_attempts.filter(finished_at__isnull=False, score__gte=F('test__pass_percentage')).count()
+    practice_failed = practice_attempts.filter(finished_at__isnull=False, score__lt=F('test__pass_percentage')).count()
     medical_latest = {}
     for record in medical_records.order_by('user_id', '-end_date', '-created_at'):
         medical_latest.setdefault(record.user_id, record)
@@ -763,8 +774,10 @@ def _build_dashboard_overview(user, role_context):
 
 
 def _build_worker_dashboard(user):
-    entry_receipts = GuidelineDispatchRecipient.objects.filter(user=user)
-    internal_receipts = SectionInternalGuidelineRecipient.objects.filter(user=user)
+    # Har bir yo'riqnoma bo'yicha faqat joriy (eng so'nggi faol) versiya hisoblanadi
+    current_entry = current_entry_receipt(user)
+    entry_receipts = [current_entry] if current_entry else []
+    internal_receipts = current_internal_receipts(user)
     assessment_notifications = DepartmentAssessmentNotification.objects.filter(user=user)
     assessment_attempts = DepartmentAssessmentAttempt.objects.filter(user=user, finished_at__isnull=False)
     practice_assignments = SectionWorkPracticeAssignee.objects.filter(user=user)
@@ -775,10 +788,10 @@ def _build_worker_dashboard(user):
 
     best_assessment = assessment_attempts.order_by('-score', '-finished_at').first()
     best_practice = practice_attempts.order_by('-score', '-finished_at').first()
-    entry_total = entry_receipts.count()
-    entry_accepted = entry_receipts.filter(is_acknowledged=True).count()
-    internal_total = internal_receipts.count()
-    internal_accepted = internal_receipts.filter(is_acknowledged=True).count()
+    entry_total = len(entry_receipts)
+    entry_accepted = sum(1 for receipt in entry_receipts if receipt.is_acknowledged)
+    internal_total = len(internal_receipts)
+    internal_accepted = sum(1 for receipt in internal_receipts if receipt.is_acknowledged)
     assessment_total = assessment_notifications.count()
     assessment_confirmed = assessment_notifications.filter(is_confirmed=True).count()
     practice_total = practice_assignments.count()
@@ -830,34 +843,22 @@ def _build_worker_dashboard(user):
 
 
 def _profession_membership_for_user(user):
-    profile = getattr(user, 'profile', None)
-    memberships = (
-        SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
-        .exclude(profession__nizom_file='')
-        .select_related('profession', 'section')
-    )
-    if profile and profile.section_id:
-        current_membership = memberships.filter(section_id=profile.section_id).order_by('-assigned_at', '-pk').first()
-        if current_membership:
-            return current_membership
-    return memberships.order_by('-assigned_at', '-pk').first()
+    # Gate (role_navigation) bilan bir xil tanlov — qabul aynan ochilgan a'zolikka yoziladi
+    return current_profession_membership(user)
 
 
 def _current_profession_guideline_receipt(membership):
-    receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(
-        membership=membership,
-        defaults={'profession': membership.profession},
-    )
-    if receipt.profession_id != membership.profession_id:
-        receipt.profession = membership.profession
-        receipt.is_acknowledged = False
-        receipt.acknowledged_at = None
-        receipt.save(update_fields=['profession', 'is_acknowledged', 'acknowledged_at'])
-    return receipt
+    return profession_guideline_receipt(membership)
 
 
 class DashboardView(AuthenticatedRequiredMixin, TemplateView):
     template_name = 'dashboard.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.role == UserProfile.ROLE_INSPECTION:
+            return redirect('inspection:dashboard')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1646,14 +1647,11 @@ def _build_org_leader_dashboard(user, profile):
     ppe_rate = _percent(ppe_accepted, max(ppe_total, 1))
 
     # SafeWork Enterprise Index (0 - 100)
-    # 10-band: Qoidabuzarliklar ta'sirini me'yorlashtirish (bitta qoidabuzarlik uchun katta foiz ayrilmasligi)
-    violation_penalty = min(80, (active_violations_count * 3) + (recent_violations_count * 1))
-    violation_score = max(20, 100 - violation_penalty)
+    # Qoidabuzarliklar hisobga olinmaydi, indeks xodimlarning yo'riqnomalari va test/bilim darajasiga asoslanadi
     composite_guideline_rate = guidelines_info['composite_guideline_rate']
     index_score = round(
-        (composite_guideline_rate * 0.50)
+        (composite_guideline_rate * 0.70)
         + (assessment_pass_rate * 0.30)
-        + (violation_score * 0.20)
     )
     index_score = max(0, min(100, index_score))
 
@@ -1846,14 +1844,11 @@ def _build_department_admin_dashboard(user, profile):
     ppe_rate = _percent(ppe_accepted, max(ppe_total, 1))
 
     # Mehnat muhofazasi indeksi
-    # 10-band: Qoidabuzarliklar ta'sirini me'yorlashtirish (bitta qoidabuzarlik uchun katta foiz ayrilmasligi)
-    violation_penalty = min(80, (active_violations_count * 3) + (recent_violations_count * 1))
-    violation_score = max(20, 100 - violation_penalty)
+    # Qoidabuzarliklar hisobga olinmaydi, indeks xodimlarning yo'riqnomalari va test/bilim darajasiga asoslanadi
     composite_guideline_rate = guidelines_info['composite_guideline_rate']
     index_score = round(
-        (composite_guideline_rate * 0.50)
+        (composite_guideline_rate * 0.70)
         + (assessment_pass_rate * 0.30)
-        + (violation_score * 0.20)
     )
     index_score = max(0, min(100, index_score))
 
@@ -2128,12 +2123,25 @@ def _latest_medical_records_for_users(user_ids):
 def _mandatory_guideline_statuses_for_user(user):
     labels = dict(MandatoryGuideline.TYPE_CHOICES)
     rows = []
-    receipts = {
-        receipt.guideline.guideline_type: receipt
-        for receipt in MandatoryGuidelineReceipt.objects.filter(user=user)
-        .select_related('guideline')
-        .order_by('guideline__guideline_type', '-acknowledged_at', '-created_at')
+    profile = getattr(user, 'profile', None)
+    current_by_type = {
+        guideline.guideline_type: guideline.pk
+        for guideline in current_mandatory_guidelines(profile.department_id if profile else None)
     }
+    receipts = {}
+    # Joriy faol versiya bo'yicha holat; joriy versiya bo'lmasa — eng so'nggi versiya
+    for receipt in (
+        MandatoryGuidelineReceipt.objects.filter(user=user)
+        .select_related('guideline')
+        .order_by('-guideline__created_at', '-guideline_id')
+    ):
+        guideline_type = receipt.guideline.guideline_type
+        current_id = current_by_type.get(guideline_type)
+        if current_id is not None:
+            if receipt.guideline_id == current_id:
+                receipts[guideline_type] = receipt
+        else:
+            receipts.setdefault(guideline_type, receipt)
     for guideline_type, label in MandatoryGuideline.TYPE_CHOICES:
         receipt = receipts.get(guideline_type)
         rows.append(
@@ -2361,22 +2369,8 @@ class DepartmentWorkerAcceptView(DepartmentAdminRequiredMixin, View):
         profile.save(update_fields=['is_approved_by_dept', 'approved_by_dept_at', 'approved_by_dept_user', 'department'])
 
         # Kirish yo'riqnomasini xodimga avtomatik biriktirish (faqat kirish yo'riqnomasi ochiladi)
-        try:
-            from companies.models import EntryGuideline, GuidelineDispatch, GuidelineDispatchRecipient
-            active_dispatch = GuidelineDispatch.objects.filter(
-                guideline__organization=profile.organization or (department.leader if department else None),
-                is_active=True
-            ).first()
-            if not active_dispatch:
-                active_dispatch = GuidelineDispatch.objects.filter(is_active=True).first()
-
-            if active_dispatch:
-                GuidelineDispatchRecipient.objects.get_or_create(
-                    dispatch=active_dispatch,
-                    user=profile.user,
-                )
-        except Exception:
-            pass
+        # Faqat xodim boshqarmasining joriy kirish yo'riqnomasi (boshqa boshqarmaniki emas)
+        current_entry_receipt(profile.user, create=True)
 
         # Xodimga bildirishnoma
         try:
@@ -2391,7 +2385,7 @@ class DepartmentWorkerAcceptView(DepartmentAdminRequiredMixin, View):
             pass
 
         messages.success(request, f"{profile.full_name} muvaffaqiyatli qabul qilindi. Xodimga Kirish yo‘riqnomasi ochildi.")
-        return redirect(request.POST.get('next') or reverse('department-workers'))
+        return redirect(_safe_post_next(request, 'department-workers'))
 
 
 class WorkerStatusUpdateView(AuthenticatedRequiredMixin, View):
@@ -2412,7 +2406,7 @@ class WorkerStatusUpdateView(AuthenticatedRequiredMixin, View):
         valid_statuses = dict(UserProfile.EMPLOYMENT_STATUS_CHOICES)
         if new_status not in valid_statuses:
             messages.error(request, "Noto‘g‘ri mehnat holati tanlandi.")
-            return redirect(request.POST.get('next') or reverse('department-workers'))
+            return redirect(_safe_post_next(request, 'department-workers'))
 
         profile.employment_status = new_status
         profile.status_reason = reason
@@ -2431,7 +2425,7 @@ class WorkerStatusUpdateView(AuthenticatedRequiredMixin, View):
 
         status_label = valid_statuses.get(new_status)
         messages.success(request, f"{profile.full_name} mehnat holati «{status_label}»ga o‘zgartirildi.")
-        return redirect(request.POST.get('next') or reverse('department-workers'))
+        return redirect(_safe_post_next(request, 'department-workers'))
 
 
 class SectionDetailView(DepartmentAdminRequiredMixin, TemplateView):
@@ -2658,6 +2652,7 @@ class OrganizationProfessionGuidelineOverviewView(OrgLeaderRequiredMixin, Templa
 
             accepted = ProfessionGuidelineReceipt.objects.filter(
                 membership__in=memberships,
+                profession=profession,
                 is_acknowledged=True
             ).count()
             
@@ -3309,11 +3304,11 @@ class SectionMemberMessageReadView(SectionMemberRequiredMixin, View):
         )
         if receipt.is_read:
             messages.info(request, 'Bu xabar allaqachon tanishilgan deb belgilangan.')
-            return redirect(request.POST.get('next') or reverse('section-member-messages'))
+            return redirect(_safe_post_next(request, 'section-member-messages'))
 
         if not request.POST.get('agree'):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
-            return redirect(request.POST.get('next') or reverse('section-member-messages'))
+            return redirect(_safe_post_next(request, 'section-member-messages'))
 
         receipt.is_read = True
         receipt.read_at = timezone.now()
@@ -3339,6 +3334,18 @@ def _guideline_department_or_redirect(request):
 
 def _guidelines_for_department(department):
     return EntryGuideline.objects.filter(department=department).select_related('created_by')
+
+
+def _safe_post_next(request, default_name):
+    """POST dagi `next` faqat shu saytga tegishli bo'lsa ishlatiladi (open redirect himoyasi)."""
+    next_url = request.POST.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return reverse(default_name)
 
 
 def _safe_back_url(request, default_name):
@@ -3395,7 +3402,13 @@ class GuidelinePdfView(AuthenticatedRequiredMixin, View):
         if receipt is None:
             receipt = (
                 GuidelineDispatchRecipient.objects.select_related('dispatch')
-                .filter(user=request.user, dispatch__guideline=guideline, dispatch__is_active=True)
+                .filter(
+                    user=request.user,
+                    dispatch__guideline=guideline,
+                    dispatch__is_active=True,
+                    dispatch__is_stopped=False,
+                )
+                .order_by('-dispatch__sent_at', '-dispatch_id')
                 .first()
             )
 
@@ -3454,11 +3467,7 @@ def _dispatch_stats(dispatch):
 
 
 def _active_entry_dispatch_for_department(department):
-    return (
-        GuidelineDispatch.objects.filter(guideline__department=department, is_active=True)
-        .select_related('guideline')
-        .first()
-    )
+    return current_entry_dispatch(department.pk if department else None)
 
 
 def _collect_department_entry_guideline_recipients(department):
@@ -3874,11 +3883,9 @@ class WorkerEntryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
         profile = getattr(self.request.user, 'profile', None)
         is_admin_view = not (role_context.get('is_worker') or role_context.get('is_section_admin'))
 
-        receipts = (
-            GuidelineDispatchRecipient.objects.filter(user=self.request.user, dispatch__is_active=True)
-            .select_related('dispatch__guideline', 'section')
-            .order_by('-dispatch__sent_at')
-        )
+        # Xodimga faqat bitta — boshqarmasining joriy kirish yo'riqnomasi ko'rsatiladi
+        current_receipt = current_entry_receipt(self.request.user, create=not is_admin_view)
+        receipts = [current_receipt] if current_receipt else []
 
         dept = None
         if profile and profile.department_id:
@@ -3911,11 +3918,11 @@ class GuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
         )
         if receipt.is_acknowledged:
             messages.info(request, 'Bu yo‘riqnoma allaqachon qabul qilingan.')
-            return redirect(request.POST.get('next') or reverse('notifications-inbox'))
+            return redirect(_safe_post_next(request, 'notifications-inbox'))
 
         if not request.POST.get('agree'):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
-            return redirect(request.POST.get('next') or reverse('notifications-inbox'))
+            return redirect(_safe_post_next(request, 'notifications-inbox'))
 
         duration = request.POST.get('reading_duration_seconds', '0')
         try:
@@ -3925,7 +3932,7 @@ class GuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
 
         if duration_sec < 40 and request.POST.get('reading_duration_seconds') is not None:
             messages.warning(request, 'Yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi. Iltimos, diqqat bilan o‘qib chiqing.')
-            return redirect(request.POST.get('next') or reverse('notifications-inbox'))
+            return redirect(_safe_post_next(request, 'notifications-inbox'))
 
         receipt.is_acknowledged = True
         receipt.acknowledged_at = timezone.now()
@@ -4088,23 +4095,16 @@ class MandatoryGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
         receipts = MandatoryGuidelineReceipt.objects.none()
         selected_type = self.request.GET.get('type', '').strip()
         if profile and profile.department_id:
-            type_order = {
-                MandatoryGuideline.TYPE_MEDICAL: 0,
-                MandatoryGuideline.TYPE_FIRE: 1,
-                MandatoryGuideline.TYPE_ELECTRIC: 2,
-            }
-            active_all = list(MandatoryGuideline.objects.filter(
-                department_id=profile.department_id,
-                start_time__lte=timezone.now(),
-                active_until__gte=timezone.now(),
-            ))
-            active_all.sort(key=lambda item: type_order.get(item.guideline_type, 99))
+            type_order = mandatory_type_order()
+            # Har bir tur bo'yicha faqat bitta — eng so'nggi faol yo'riqnoma (gate bilan bir xil tanlov)
+            active_all = current_mandatory_guidelines(profile.department_id)
+
+            all_receipts = {}
             for guideline in active_all:
-                MandatoryGuidelineReceipt.objects.get_or_create(guideline=guideline, user=self.request.user)
-            all_receipts = {
-                receipt.guideline.guideline_type: receipt
-                for receipt in MandatoryGuidelineReceipt.objects.filter(user=self.request.user, guideline__in=active_all).select_related('guideline')
-            }
+                receipt, _ = MandatoryGuidelineReceipt.objects.get_or_create(guideline=guideline, user=self.request.user)
+                receipt.guideline = guideline
+                all_receipts[guideline.guideline_type] = receipt
+
             active_qs = active_all
             if selected_type in self.type_titles:
                 active_qs = [guideline for guideline in active_all if guideline.guideline_type == selected_type]
@@ -4133,26 +4133,36 @@ class MandatoryGuidelinePdfView(AuthenticatedRequiredMixin, View):
     def get(self, request, pk, *args, **kwargs):
         guideline = get_object_or_404(MandatoryGuideline, pk=pk)
         receipt = MandatoryGuidelineReceipt.objects.filter(guideline=guideline, user=request.user).first()
+        profile = getattr(request.user, 'profile', None)
+        current_guidelines = (
+            current_mandatory_guidelines(guideline.department_id)
+            if profile and profile.department_id == guideline.department_id
+            else []
+        )
+        if receipt is None and any(item.pk == guideline.pk for item in current_guidelines):
+            # Joriy yo'riqnoma uchun qabul yozuvi aynan shu yo'riqnomaga yaratiladi
+            receipt, _ = MandatoryGuidelineReceipt.objects.get_or_create(guideline=guideline, user=request.user)
         department = get_department_admin_department(request.user)
         can_manage = department is not None and department.pk == guideline.department_id
         if not receipt and not can_manage:
             messages.error(request, 'PDF ko‘rish uchun ruxsat yo‘q.')
             return redirect('mandatory-guidelines-inbox')
         if receipt and not receipt.is_acknowledged:
-            type_order = [
-                MandatoryGuideline.TYPE_MEDICAL,
-                MandatoryGuideline.TYPE_FIRE,
-                MandatoryGuideline.TYPE_ELECTRIC,
+            type_order = mandatory_type_order()
+            current_order = type_order.get(guideline.guideline_type, 99)
+            # Faqat joriy (eng so'nggi faol) oldingi turdagi yo'riqnomalar ketma-ketlikni belgilaydi
+            previous_ids = [
+                item.pk for item in current_guidelines
+                if type_order.get(item.guideline_type, 99) < current_order
             ]
-            previous_types = type_order[:type_order.index(guideline.guideline_type)] if guideline.guideline_type in type_order else []
-            previous_pending = MandatoryGuidelineReceipt.objects.filter(
-                user=request.user,
-                guideline__department=guideline.department,
-                guideline__start_time__lte=timezone.now(),
-                guideline__active_until__gte=timezone.now(),
-                guideline__guideline_type__in=previous_types,
-                is_acknowledged=False,
-            ).exists()
+            acknowledged_ids = set(
+                MandatoryGuidelineReceipt.objects.filter(
+                    user=request.user,
+                    guideline_id__in=previous_ids,
+                    is_acknowledged=True,
+                ).values_list('guideline_id', flat=True)
+            )
+            previous_pending = any(item_id not in acknowledged_ids for item_id in previous_ids)
             if previous_pending:
                 messages.warning(request, 'Yo‘riqnomalarni ketma-ket o‘qing.')
                 return redirect('mandatory-guidelines-inbox')
@@ -4179,17 +4189,17 @@ class MandatoryGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
 
         if not request.POST.get('agree'):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
-            return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+            return redirect(_safe_post_next(request, 'mandatory-guidelines-inbox'))
 
         if duration_sec < 40:
             messages.warning(request, 'Yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi. Iltimos, diqqat bilan o‘qib chiqing.')
-            return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+            return redirect(_safe_post_next(request, 'mandatory-guidelines-inbox'))
 
         receipt.is_acknowledged = True
         receipt.acknowledged_at = timezone.now()
         receipt.save(update_fields=['is_acknowledged', 'acknowledged_at'])
         messages.success(request, 'Yo‘riqnoma muvaffaqiyatli qabul qilindi.')
-        return redirect(request.POST.get('next') or reverse('mandatory-guidelines-inbox'))
+        return redirect(_safe_post_next(request, 'mandatory-guidelines-inbox'))
 
 
 class ProfessionGuidelineInboxView(AuthenticatedRequiredMixin, TemplateView):
@@ -4279,15 +4289,19 @@ def _active_internal_guideline_dispatch_for_section(section):
 def _internal_guideline_time_phase(dispatch, now=None):
     """Ichki yo'riqnoma vaqt fazasi — ishchilar uchun 3 rang."""
     now = now or timezone.now()
+    if dispatch.is_stopped:
+        return 'stopped', "To'xtatilgan", 'inbox-row-waiting'
     start = dispatch.start_time or dispatch.sent_at
     reg_end = dispatch.registration_end_time or start
-    active_until = dispatch.active_until or reg_end
+    # Sana (00:00) sifatida saqlangan tugash vaqti shu kun oxirigacha faol hisoblanadi
+    # Tugash vaqti kiritilmagan (eski) yuborilishlar muddatsiz faol hisoblanadi (model bilan bir xil)
+    active_until = effective_end(dispatch.active_until)
 
     if now < start:
         return 'waiting', 'Boshlanmagan', 'inbox-row-waiting'
     if now < reg_end:
         return 'registration', "Ro'yxatdan o'tish davri", 'inbox-row-registration'
-    if now < active_until:
+    if active_until is None or now <= active_until:
         return 'active', 'Faol', 'inbox-row-active'
     return 'expired', 'Muddati tugagan', 'inbox-row-waiting'
 
@@ -4299,11 +4313,8 @@ def _build_worker_guideline_inbox_items(request):
     next_encoded = quote(request.get_full_path(), safe='')
     items = []
 
-    internal_receipts = (
-        SectionInternalGuidelineRecipient.objects.filter(user=request.user)
-        .select_related('dispatch__guideline')
-        .order_by('-dispatch__sent_at')
-    )
+    # Har bir ichki yo'riqnoma bo'yicha faqat eng so'nggi faol yuborilish (dublikatlarsiz)
+    internal_receipts = current_internal_receipts(request.user)
     for receipt in internal_receipts:
         guideline = receipt.dispatch.guideline
         dispatch = receipt.dispatch
@@ -4330,11 +4341,9 @@ def _build_worker_guideline_inbox_items(request):
             }
         )
 
-    dept_receipts = (
-        GuidelineDispatchRecipient.objects.filter(user=request.user)
-        .select_related('dispatch__guideline')
-        .order_by('-dispatch__sent_at')
-    )
+    # Boshqarmadan faqat joriy kirish yo'riqnomasi (eski/to'xtatilgan versiyalar ko'rsatilmaydi)
+    current_entry = current_entry_receipt(request.user)
+    dept_receipts = [current_entry] if current_entry else []
     for receipt in dept_receipts:
         guideline = receipt.dispatch.guideline
         items.append(
@@ -4594,11 +4603,11 @@ class InternalGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
         )
         if receipt.is_acknowledged:
             messages.info(request, 'Bu yo‘riqnoma allaqachon qabul qilingan.')
-            return redirect(request.POST.get('next') or reverse('worker-messages-inbox'))
+            return redirect(_safe_post_next(request, 'worker-messages-inbox'))
 
         if not request.POST.get('agree'):
             messages.error(request, 'Avval «Roziman, o‘qidim» belgisini qo‘ying.')
-            return redirect(request.POST.get('next') or reverse('worker-messages-inbox'))
+            return redirect(_safe_post_next(request, 'worker-messages-inbox'))
 
         duration = request.POST.get('reading_duration_seconds', '0')
         try:
@@ -4608,7 +4617,7 @@ class InternalGuidelineAcknowledgeView(AuthenticatedRequiredMixin, View):
 
         if duration_sec < 40 and request.POST.get('reading_duration_seconds') is not None:
             messages.warning(request, 'Yo‘riqnomani to‘liq o‘rganib chiqish uchun kamida 45 soniya talab etiladi. Iltimos, diqqat bilan o‘qib chiqing.')
-            return redirect(request.POST.get('next') or reverse('worker-messages-inbox'))
+            return redirect(_safe_post_next(request, 'worker-messages-inbox'))
 
         receipt.is_acknowledged = True
         receipt.acknowledged_at = timezone.now()
@@ -5077,7 +5086,9 @@ def _responsible_trainee_stats(practice, attempts_by_user=None):
         read = read_counts.get(user.id, 0)
         u_attempts = [a for a in (attempts_by_user.get(user.id, []) if attempts_by_user else []) if a.score is not None]
         best_att = max(u_attempts, key=lambda x: x.score) if u_attempts else None
-        has_passed = any(a.score >= 60 for a in u_attempts)
+        passed_attempts = [a for a in u_attempts if a.is_passed]
+        passed_attempt = max(passed_attempts, key=lambda x: x.score) if passed_attempts else None
+        has_passed = passed_attempt is not None
         stats.append(
             {
                 'assignment': assignee,
@@ -5088,6 +5099,7 @@ def _responsible_trainee_stats(practice, attempts_by_user=None):
                 'accepted': assignee.trainee_accepted or assignee.accepted_by_responsible,
                 'accepted_at': assignee.trainee_accepted_at or assignee.accepted_at,
                 'best_attempt': best_att,
+                'passed_attempt': passed_attempt,
                 'has_passed': has_passed,
             }
         )
@@ -5095,6 +5107,7 @@ def _responsible_trainee_stats(practice, attempts_by_user=None):
 
 
 def _build_work_practice_dashboard(practices):
+    from django.db.models import F
     rows = []
     total_assignees = accepted_total = completed_total = failed_tests_total = 0
     now = timezone.now()
@@ -5111,14 +5124,14 @@ def _build_work_practice_dashboard(practices):
             score__isnull=False,
         )
         passed_users = set(
-            finished_attempts.filter(score__gte=60).values_list('user_id', flat=True)
+            finished_attempts.filter(score__gte=F('test__pass_percentage')).values_list('user_id', flat=True)
         )
         failed_users = set(
-            finished_attempts.filter(score__lt=60).exclude(user_id__in=passed_users).values_list('user_id', flat=True)
+            finished_attempts.filter(score__lt=F('test__pass_percentage')).exclude(user_id__in=passed_users).values_list('user_id', flat=True)
         )
         completed_total += len(passed_users)
         failed_tests_total += len(failed_users)
-        duration_days = max((practice.end_time.date() - practice.start_time.date()).days + 1, 1)
+        duration_days = max((timezone.localdate(practice.end_time) - timezone.localdate(practice.start_time)).days + 1, 1)
         stage = 'Tugatildi' if practice.closed_at else ('Muddat tugagan' if practice.end_time <= now else 'Jarayonda')
         rows.append({
             'practice': practice,
@@ -5250,8 +5263,7 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 practices.append(p)
 
         now = timezone.now()
-        today = now.date()
-        is_member = not role.get('is_section_admin', False)
+        today = timezone.localdate(now)
 
         def _get_worker_role_badge(u):
             prof = getattr(u, 'profile', None)
@@ -5367,7 +5379,9 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
                 u_attempts = [a for a in practice_attempts_by_user.get(item.user_id, []) if a.score is not None]
                 item.attempts = u_attempts
                 item.best_attempt = max(u_attempts, key=lambda x: x.score) if u_attempts else None
-                item.has_passed = any(a.score >= 60 for a in u_attempts)
+                passed_attempts = [a for a in u_attempts if a.is_passed]
+                item.passed_attempt = max(passed_attempts, key=lambda x: x.score) if passed_attempts else None
+                item.has_passed = item.passed_attempt is not None
                 if item.has_passed:
                     passed_count += 1
                 elif item.best_attempt is not None and item.best_attempt.score is not None:
@@ -5385,7 +5399,7 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
 
             # Days remaining counter (for participant cards)
             if practice.end_time:
-                end_date = practice.end_time.date()
+                end_date = timezone.localdate(practice.end_time)
                 delta = (end_date - today).days
                 practice.days_left = delta          # 0 = oxirgi kun, <0 = tugagan
                 practice.is_last_day = (delta == 0)
@@ -5424,16 +5438,8 @@ class SectionWorkPracticeListView(WorkPracticeAccessRequiredMixin, TemplateView)
             practice.available_tests = raw_tests
             practice.my_assignment = next((item for item in assignee_items if item.user_id == self.request.user.id), None)
 
-            if is_assignee or is_member:
-                practice.my_attempts = list(
-                    WorkPracticeTestAttempt.objects.filter(
-                        practice=practice,
-                        user=self.request.user,
-                        finished_at__isnull=False,
-                    ).select_related('test').order_by('-started_at')
-                )
-            else:
-                practice.my_attempts = []
+            # Joriy foydalanuvchining yakunlangan urinishlari (oldindan yuklangan attempts_map'dan)
+            practice.my_attempts = practice_attempts_by_user.get(self.request.user.id, []) if is_assignee else []
 
             # Pre-load eligible workers and tests for modals
             if practice.section:
@@ -5666,6 +5672,7 @@ class SectionWorkPracticeEditView(SectionAdminRequiredMixin, View):
             messages.error(request, 'Ish amaliyoti topilmadi yoki boshqarish huquqi yo‘q.')
             return redirect('work-practices')
 
+        old_responsible_id = practice.responsible_user_id
         form = SectionWorkPracticeForm(request.POST, instance=practice)
         if form.is_valid():
             form.save()
@@ -5676,9 +5683,17 @@ class SectionWorkPracticeEditView(SectionAdminRequiredMixin, View):
                 elif resp_id == '':
                     practice.responsible_user = None
                     practice.save(update_fields=['responsible_user'])
+            # Ustoz almashtirilsa, yangi ustoz mas'uliyatni qaytadan qabul qilishi kerak
+            if practice.responsible_user_id != old_responsible_id and practice.responsible_accepted:
+                practice.responsible_accepted = False
+                practice.responsible_accepted_at = None
+                practice.save(update_fields=['responsible_accepted', 'responsible_accepted_at'])
             messages.success(request, 'Ish amaliyoti yangilandi.')
         else:
-            messages.error(request, 'Tahrirlashda xatolik bor.')
+            for field, errors in form.errors.items():
+                label = form.fields.get(field).label if field in form.fields else field
+                for error in errors:
+                    messages.error(request, f'{label}: {error}')
         return redirect('work-practices')
 
 
@@ -5755,7 +5770,13 @@ class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
                 or (user_prof and user_prof.role == UserProfile.ROLE_DEPARTMENT_ADMIN and user_prof.department_id == assignment.practice.section.department_id)
             )
         )
-        is_org_leader = (user_prof and user_prof.role == UserProfile.ROLE_ORG_LEADER)
+        is_org_leader = bool(
+            user_prof
+            and user_prof.role == UserProfile.ROLE_ORG_LEADER
+            and assignment.practice.section
+            and assignment.practice.section.department
+            and assignment.practice.section.department.leader_id == user_prof.id
+        )
         is_superuser = request.user.is_superuser
 
         if not (is_self or is_resp or is_creator or is_section_head or is_dept_head or is_org_leader or is_superuser):
@@ -5782,10 +5803,8 @@ class SectionWorkPracticeAssigneeAcceptView(AuthenticatedRequiredMixin, View):
         assignment.accepted_by_responsible = True
         assignment.accepted_at = timezone.now()
         assignment.save(update_fields=['trainee_accepted', 'trainee_accepted_at', 'accepted_by_responsible', 'accepted_at'])
-        profile = getattr(assignment.user, 'profile', None)
-        if profile and not profile.practice_qualified:
-            profile.practice_qualified = True
-            profile.save(update_fields=['practice_qualified_status', 'practice_qualified_at'])
+        # Eslatma: amaliyotni qabul qilish mustaqil ishlashga ruxsat bermaydi -
+        # practice_qualified faqat yakuniy testdan o'tilganda belgilanadi (companies/views_tests.py).
 
         try:
             worker_profile = getattr(assignment.user, 'profile', None)
@@ -6233,10 +6252,24 @@ class GlobalWorkerDetailView(AuthenticatedRequiredMixin, TemplateView):
             user=user
         ).select_related('assessment').order_by('-started_at')
         
-        # Work practices
-        context['work_practices'] = SectionWorkPracticeAssignee.objects.filter(
+        # Work practices and results
+        work_practices = list(SectionWorkPracticeAssignee.objects.filter(
             user=user
-        ).select_related('practice__section').order_by('-practice__created_at')
+        ).select_related('practice__section', 'practice__responsible_user__profile').order_by('-practice__created_at'))
+        practice_ids = [wp.practice_id for wp in work_practices]
+        practice_attempts = list(WorkPracticeTestAttempt.objects.filter(
+            user=user,
+            practice_id__in=practice_ids,
+            finished_at__isnull=False
+        ).select_related('test').order_by('-finished_at'))
+        for wp in work_practices:
+            wp_att = [a for a in practice_attempts if a.practice_id == wp.practice_id]
+            wp.attempts = wp_att
+            wp.best_attempt = max(wp_att, key=lambda x: (x.score or 0)) if wp_att else None
+            passed_attempts = [a for a in wp_att if a.is_passed]
+            wp.passed_attempt = max(passed_attempts, key=lambda x: x.score) if passed_attempts else None
+            wp.has_passed = wp.passed_attempt is not None
+        context['work_practices'] = work_practices
         
         # Medical records
         try:
@@ -6265,17 +6298,15 @@ class NotificationListView(AuthenticatedRequiredMixin, RoleContextMixin, Templat
 class NotificationMarkReadView(AuthenticatedRequiredMixin, View):
     def post(self, request):
         from accounts.models import SystemNotification
-        from companies.models import GuidelineDispatchRecipient, SectionInternalGuidelineRecipient, DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt
-        
+        from companies.models import DepartmentAssessmentNotification, SectionWorkPracticeMessageReceipt
+
+        # Muhim: yo'riqnoma bildirishnomalari (gd_/ig_) bu yerda "o'qilgan" qilinmaydi —
+        # ular faqat PDF o'qilib, «Roziman» bilan qabul qilinganda tasdiqlanadi.
         notif_id = request.POST.get('id')
         if notif_id:
             # Check prefix
             if notif_id.startswith('sn_'):
                 SystemNotification.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_read=True)
-            elif notif_id.startswith('gd_'):
-                GuidelineDispatchRecipient.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_acknowledged=True)
-            elif notif_id.startswith('ig_'):
-                SectionInternalGuidelineRecipient.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_acknowledged=True)
             elif notif_id.startswith('da_'):
                 DepartmentAssessmentNotification.objects.filter(id=int(notif_id[3:]), user=request.user).update(is_confirmed=True)
             elif notif_id.startswith('pm_'):
@@ -6283,8 +6314,6 @@ class NotificationMarkReadView(AuthenticatedRequiredMixin, View):
         else:
             # Mark all as read
             SystemNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
-            GuidelineDispatchRecipient.objects.filter(user=request.user, is_acknowledged=False).update(is_acknowledged=True)
-            SectionInternalGuidelineRecipient.objects.filter(user=request.user, is_acknowledged=False).update(is_acknowledged=True)
             DepartmentAssessmentNotification.objects.filter(user=request.user, is_confirmed=False).update(is_confirmed=True)
             SectionWorkPracticeMessageReceipt.objects.filter(user=request.user, is_read=False).update(is_read=True)
             

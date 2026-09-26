@@ -43,18 +43,23 @@ class Profession(models.Model):
     def is_currently_active(self):
         if not self.start_time or not self.active_until:
             return True
-        from django.utils import timezone
-        now = timezone.now()
-        return self.start_time <= now <= self.active_until
+        from companies.guidelines import is_within_window
+        return is_within_window(self.start_time, self.active_until)
+
+    @property
+    def has_started(self):
+        from companies.guidelines import has_started
+        return has_started(self.start_time)
+
+    @property
+    def is_expired(self):
+        from companies.guidelines import is_expired
+        return is_expired(self.active_until)
 
     @property
     def days_left(self):
-        if not self.active_until:
-            return None
-        from django.utils import timezone
-        now = timezone.now()
-        delta = self.active_until - now
-        return delta.days if delta.days >= 0 else -1
+        from companies.guidelines import days_left
+        return days_left(self.active_until)
 
     class Meta:
         ordering = ['-created_at']

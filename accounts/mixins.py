@@ -94,8 +94,11 @@ class RoleContextMixin:
                 or SectionWorkPractice.objects.filter(responsible_user=user).exists()
                 or SectionWorkPractice.objects.filter(created_by=user).exists()
             )
+        is_inspection = profile is not None and profile.role == 'inspection' and not is_super_admin
         if is_super_admin:
             role_name = 'Super admin'
+        elif is_inspection:
+            role_name = 'Mehnat inspeksiyasi'
         elif is_org_leader:
             role_name = 'Tashkilot rahbari'
         elif is_department_admin:
@@ -119,6 +122,7 @@ class RoleContextMixin:
             profile_short_name = profile_display_name.split()[0] if profile_display_name else user.username
         context = {
             'is_super_admin': is_super_admin,
+            'is_inspection': is_inspection,
             'is_org_leader': is_org_leader,
             'is_department_admin': is_department_admin,
             'is_section_admin': is_section_admin,
@@ -184,6 +188,9 @@ class SuperuserActionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, Role
             messages.error(self.request, "Bu amal siz uchun yopiq.")
             return redirect('dashboard')
         return redirect('login')
+
+
+SuperAdminRequiredMixin = SuperuserActionRequiredMixin
 
 
 class ProfessionAccessRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
@@ -304,5 +311,24 @@ class WorkPracticeAccessRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, R
     def handle_no_permission(self):
         if self.request.user.is_authenticated:
             messages.error(self.request, "Ish amaliyotlari sahifasi siz uchun yopiq.")
+            return redirect('dashboard')
+        return redirect('login')
+
+
+class InspectionRequiredMixin(LoginRequiredMixin, UserPassesTestMixin, RoleContextMixin):
+    login_url = 'login'
+
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        profile = getattr(user, 'profile', None)
+        return profile is not None and profile.role in {'inspection', 'super_admin'}
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            messages.error(self.request, "Mehnat inspeksiyasi bo‘limiga kirish huquqi sizda yo‘q.")
             return redirect('dashboard')
         return redirect('login')

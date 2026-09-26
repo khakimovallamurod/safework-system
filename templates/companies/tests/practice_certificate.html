@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<style>
+  @media print {
+    #app-sidebar, header, .no-print { display: none !important; }
+    body, main { background: #fff !important; }
+    .print-sheet { box-shadow: none !important; border: 1px solid #cbd5e1 !important; margin: 0 !important; max-width: 100% !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-5 pb-10">
+
+  <div class="no-print flex flex-wrap items-center justify-between gap-3">
+    <div class="text-xs text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
+      <a href="{% url 'work-practices' %}" class="hover:text-brand-600 transition">Ish amaliyotlari</a>
+      <span>/</span>
+      <a href="{% url 'companies:quiz_result' attempt_pk=attempt.id %}" class="hover:text-brand-600 transition">Test natijasi</a>
+      <span>/</span>
+      <span class="text-slate-400">Ruxsatnoma</span>
+    </div>
+    <button type="button" onclick="window.print()"
+            class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition">
+      <i class="bi bi-printer"></i> Chop etish
+    </button>
+  </div>
+
+  <div class="print-sheet bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-10">
+    <div class="text-center border-b border-slate-200 pb-5 mb-6">
+      {% if practice.section.department %}
+      <div class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ practice.section.department.name }}</div>
+      {% endif %}
+      <div class="text-xs text-slate-500">{{ practice.section.name }}</div>
+      <h1 class="mt-4 text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-wide">Mustaqil ishlashga ruxsatnoma</h1>
+      <p class="mt-1 text-sm text-slate-500">Ish amaliyoti (stajirovka) yakuni to‘g‘risida</p>
+      <p class="mt-2 text-xs text-slate-400">№ {{ practice.id }}-{{ attempt.id }} · {{ issued_at|date:"d.m.Y" }}</p>
+    </div>
+
+    <p class="text-sm leading-relaxed text-slate-700">
+      Ushbu hujjat bilan tasdiqlanadiki,
+      <strong class="text-slate-900">{{ trainee_profile.full_name|default:trainee.username }}</strong>{% if trainee_profile.position %} ({{ trainee_profile.position }}){% endif %}
+      «<strong>{{ practice.name }}</strong>» ish amaliyotini (stajirovkasini) belgilangan muddatda o‘tab,
+      yakuniy nazorat testidan muvaffaqiyatli o‘tdi va mustaqil ishlashga ruxsat etiladi.
+    </p>
+
+    <div class="mt-6 overflow-x-auto">
+      <table class="min-w-full text-sm divide-y divide-slate-100 border border-slate-200 rounded-xl">
+        <tbody class="divide-y divide-slate-100">
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500 w-1/2">Amaliyotchi</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">{{ trainee_profile.full_name|default:trainee.username }} <span class="text-xs text-slate-400 font-normal">({{ trainee.username }})</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Bo‘lim</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">{{ practice.section.name }}</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Stajirovka muddati</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">{{ practice.start_time|date:"d.m.Y" }} — {{ practice.end_time|date:"d.m.Y" }}</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Mas’ul ustoz</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">
+              {% if practice.responsible_user %}{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Yakuniy test</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">{{ test.name }}</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Natija</td>
+            <td class="px-4 py-2.5 font-black text-emerald-700">{{ attempt.score }}% <span class="text-xs font-medium text-slate-500">(o‘tish bali: {{ test.pass_percentage }}%)</span></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Test topshirilgan sana</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">{{ attempt.finished_at|date:"d.m.Y H:i" }}</td>
+          </tr>
+          {% if assignment and assignment.accepted_at %}
+          <tr>
+            <td class="px-4 py-2.5 text-slate-500">Amaliyot qabul qilingan</td>
+            <td class="px-4 py-2.5 font-semibold text-slate-900">{{ assignment.accepted_at|date:"d.m.Y H:i" }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-8 text-sm">
+      <div>
+        <div class="text-xs text-slate-500 mb-8">Mas’ul ustoz:</div>
+        <div class="border-t border-slate-400 pt-1 text-xs text-slate-600">
+          {% if practice.responsible_user %}{{ practice.responsible_user.profile.full_name|default:practice.responsible_user.username }}{% endif %} (imzo)
+        </div>
+      </div>
+      <div>
+        <div class="text-xs text-slate-500 mb-8">Bo‘lim boshlig‘i:</div>
+        <div class="border-t border-slate-400 pt-1 text-xs text-slate-600">
+          {% if practice.section.supervisor %}{{ practice.section.supervisor.profile.full_name|default:practice.section.supervisor.username }}{% endif %} (imzo)
+        </div>
+      </div>
+    </div>
+
+    <p class="mt-8 text-[11px] text-slate-400 text-center">Hujjat Sopline tizimida elektron shakllantirildi · {{ issued_at|date:"d.m.Y H:i" }}</p>
+  </div>
+</div>
+{% endblock %}

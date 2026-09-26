@@ -39,7 +39,7 @@
                 {% endif %}
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="space-y-2">
                     <label class="block text-sm font-semibold text-slate-700" for="{{ form.duration.id_for_label }}">
                         Davomiyligi (daqiqa) <span class="text-rose-500 ml-0.5">*</span>
@@ -67,6 +67,17 @@
                         <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.questions_count.errors.0 }}</p>
                     {% endif %}
                 </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700" for="{{ form.pass_percentage.id_for_label }}">
+                        O'tish bali (%) <span class="text-rose-500 ml-0.5">*</span>
+                    </label>
+                    {{ form.pass_percentage }}
+                    {% if form.pass_percentage.errors %}
+                        <p class="text-sm text-rose-500 mt-1.5 flex items-center gap-1.5"><i class="bi bi-exclamation-circle"></i> {{ form.pass_percentage.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
                     <label class="block text-sm font-semibold text-slate-700" for="{{ form.start_time.id_for_label }}">

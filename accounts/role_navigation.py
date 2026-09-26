@@ -1,6 +1,9 @@
-from django.utils import timezone
-
-from companies.models import GuidelineDispatchRecipient
+from companies.guidelines import (
+    current_entry_receipt,
+    current_mandatory_guidelines,
+    current_profession_membership,
+    profession_guideline_receipt,
+)
 
 
 WORKER_ENTRY_GUIDELINE_ALLOWED_URLS = {
@@ -33,30 +36,10 @@ def get_pending_entry_guidelines_count(user):
     if not profile.department_id:
         return 0
         
-    from companies.models import GuidelineDispatch, GuidelineDispatchRecipient
-    
-    active_dispatch = GuidelineDispatch.objects.filter(
-        guideline__department_id=profile.department_id,
-        is_active=True
-    ).select_related('guideline').first()
-    
-    if not active_dispatch:
-        return 0
-        
-    receipt = GuidelineDispatchRecipient.objects.filter(
-        dispatch=active_dispatch,
-        user=user
-    ).first()
-    
+    # Faqat joriy (eng so'nggi, to'xtatilmagan) kirish yo'riqnomasi hisobga olinadi
+    receipt = current_entry_receipt(user, create=True)
     if not receipt:
-        kind = GuidelineDispatchRecipient.KIND_SECTION if profile.role == UserProfile.ROLE_SECTION_ADMIN else GuidelineDispatchRecipient.KIND_WORKER
-        receipt = GuidelineDispatchRecipient.objects.create(
-            dispatch=active_dispatch,
-            user=user,
-            section_id=profile.section_id,
-            recipient_kind=kind
-        )
-        
+        return 0
     return 1 if not receipt.is_acknowledged else 0
 
 
@@ -90,22 +73,19 @@ def get_guideline_gate_state(user):
     can_access_advanced_guidelines = (profile.role != UserProfile.ROLE_WORKER) or bool(profile.section_id)
 
     if profile.department_id and can_access_advanced_guidelines:
-        from companies.models import MandatoryGuideline, MandatoryGuidelineReceipt
-        active_guidelines = list(MandatoryGuideline.objects.filter(
-            department_id=profile.department_id,
-            start_time__lte=timezone.now(),
-            active_until__gte=timezone.now(),
-        ))
-        type_order = {
-            MandatoryGuideline.TYPE_MEDICAL: 0,
-            MandatoryGuideline.TYPE_FIRE: 1,
-            MandatoryGuideline.TYPE_ELECTRIC: 2,
-        }
-        active_guidelines.sort(key=lambda item: type_order.get(item.guideline_type, 99))
+        from companies.models import MandatoryGuidelineReceipt
+        # Har bir tur bo'yicha faqat bitta — eng so'nggi faol (to'xtatilmagan) yo'riqnoma
+        active_guidelines = current_mandatory_guidelines(profile.department_id)
+        acknowledged_ids = set(
+            MandatoryGuidelineReceipt.objects.filter(
+                user=user,
+                guideline__in=active_guidelines,
+                is_acknowledged=True,
+            ).values_list('guideline_id', flat=True)
+        )
         pending = 0
         for guideline in active_guidelines:
-            receipt, _ = MandatoryGuidelineReceipt.objects.get_or_create(guideline=guideline, user=user)
-            if not receipt.is_acknowledged:
+            if guideline.pk not in acknowledged_ids:
                 if not state['next_mandatory_guideline_type']:
                     state['next_mandatory_guideline_type'] = guideline.guideline_type
                 pending += 1
@@ -116,30 +96,11 @@ def get_guideline_gate_state(user):
                 state['next_guideline_url_name'] = 'mandatory-guidelines-inbox'
 
     if can_access_advanced_guidelines and profile.role in {UserProfile.ROLE_WORKER, UserProfile.ROLE_SECTION_ADMIN, UserProfile.ROLE_DEPARTMENT_ADMIN}:
-        from companies.models import ProfessionGuidelineReceipt, SectionMembership
-        memberships = (
-            SectionMembership.objects.filter(user=user, profession__isnull=False, profession__nizom_file__isnull=False)
-            .exclude(profession__nizom_file='')
-            .select_related('profession', 'section')
-        )
-        membership = None
-        if profile.section_id:
-            membership = memberships.filter(section_id=profile.section_id).order_by('-assigned_at', '-pk').first()
-        if not membership and profile.role == UserProfile.ROLE_DEPARTMENT_ADMIN:
-            membership = memberships.filter(section__isnull=True).order_by('-assigned_at', '-pk').first()
-        if not membership:
-            membership = memberships.order_by('-assigned_at', '-pk').first()
+        # Gate, inbox, PDF va qabul bir xil a'zolikni tanlashi uchun umumiy helper
+        membership = current_profession_membership(user)
         if membership and membership.profession.nizom_file:
             state['has_profession_guideline'] = True
-            receipt, _ = ProfessionGuidelineReceipt.objects.get_or_create(
-                membership=membership,
-                defaults={'profession': membership.profession},
-            )
-            if receipt.profession_id != membership.profession_id:
-                receipt.profession = membership.profession
-                receipt.is_acknowledged = False
-                receipt.acknowledged_at = None
-                receipt.save(update_fields=['profession', 'is_acknowledged', 'acknowledged_at'])
+            receipt = profession_guideline_receipt(membership)
             if not receipt.is_acknowledged:
                 if membership.profession.is_currently_active:
                     state['pending_profession_guidelines_count'] = 1

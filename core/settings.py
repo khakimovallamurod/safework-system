@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     'professions',
     'ppe',
     'violations',
+    'inspection',
 ]
 
 MIDDLEWARE = [
@@ -97,6 +98,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'violations.middleware.ViolationBlockMiddleware',
     'accounts.middleware.WorkerEntryGuidelineGateMiddleware',
+    'inspection.middleware.InspectionReadOnlyMiddleware',
     'accounts.middleware.UserActivityMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

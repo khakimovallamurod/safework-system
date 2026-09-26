@@ -24,6 +24,7 @@ class UserProfile(models.Model):
     ROLE_DEPARTMENT_ADMIN = 'department_admin'
     ROLE_SECTION_ADMIN = 'section_admin'
     ROLE_WORKER = 'worker'
+    ROLE_INSPECTION = 'inspection'
 
     ROLE_CHOICES = [
         (ROLE_SUPER_ADMIN, 'Super admin'),
@@ -31,6 +32,7 @@ class UserProfile(models.Model):
         (ROLE_DEPARTMENT_ADMIN, 'Boshqarma admini'),
         (ROLE_SECTION_ADMIN, 'Bo‘lim admini'),
         (ROLE_WORKER, 'Xodim'),
+        (ROLE_INSPECTION, 'Mehnat inspeksiyasi'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')

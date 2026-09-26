@@ -2,6 +2,7 @@ import secrets
 import string
 
 from django.contrib.auth import get_user_model
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -389,18 +390,25 @@ class MandatoryGuideline(models.Model):
 
     @property
     def is_currently_active(self):
-        if self.is_stopped:
+        if self.is_stopped or not self.start_time or not self.active_until:
             return False
-        now = timezone.now()
-        return self.start_time <= now <= self.active_until
+        from companies.guidelines import is_within_window
+        return is_within_window(self.start_time, self.active_until)
+
+    @property
+    def has_started(self):
+        from companies.guidelines import has_started
+        return has_started(self.start_time)
+
+    @property
+    def is_expired(self):
+        from companies.guidelines import is_expired
+        return is_expired(self.active_until)
 
     @property
     def days_left(self):
-        if not self.active_until:
-            return None
-        now = timezone.now()
-        delta = self.active_until - now
-        return delta.days if delta.days >= 0 else -1
+        from companies.guidelines import days_left
+        return days_left(self.active_until)
 
 
 class MandatoryGuidelineReceipt(models.Model):
@@ -566,6 +574,28 @@ class SectionInternalGuideline(models.Model):
             return False
         return self.pdf_file.storage.exists(self.pdf_file.name)
 
+    @property
+    def is_currently_active(self):
+        if not self.start_time or not self.active_until:
+            return True
+        from companies.guidelines import is_within_window
+        return is_within_window(self.start_time, self.active_until)
+
+    @property
+    def has_started(self):
+        from companies.guidelines import has_started
+        return has_started(self.start_time)
+
+    @property
+    def is_expired(self):
+        from companies.guidelines import is_expired
+        return is_expired(self.active_until)
+
+    @property
+    def days_left(self):
+        from companies.guidelines import days_left
+        return days_left(self.active_until)
+
 
 class SectionInternalGuidelineDispatch(models.Model):
     guideline = models.ForeignKey(
@@ -602,6 +632,20 @@ class SectionInternalGuidelineDispatch(models.Model):
 
     def __str__(self):
         return f'{self.guideline.name} ({self.sent_at:%d.%m.%Y})'
+
+    @property
+    def is_currently_active(self):
+        if self.is_stopped:
+            return False
+        if not self.start_time or not self.active_until:
+            return self.is_active
+        from companies.guidelines import is_within_window
+        return self.is_active and is_within_window(self.start_time, self.active_until)
+
+    @property
+    def days_left(self):
+        from companies.guidelines import days_left
+        return days_left(self.active_until)
 
 
 class SectionInternalGuidelineRecipient(models.Model):
@@ -771,6 +815,11 @@ class WorkPracticeTest(models.Model):
     duration = models.PositiveIntegerField(verbose_name="Davomiyligi (daqiqa)")
     attempts_allowed = models.PositiveIntegerField(verbose_name="Urinishlar soni")
     questions_count = models.PositiveIntegerField(verbose_name="Savollar soni")
+    pass_percentage = models.PositiveIntegerField(
+        default=70,
+        validators=[MinValueValidator(1), MaxValueValidator(100)],
+        verbose_name="O'tish bali (%)",
+    )
     is_active = models.BooleanField(default=True, verbose_name="Status")
     start_time = models.DateTimeField(null=True, blank=True, verbose_name="Boshlanish vaqti")
     end_time = models.DateTimeField(null=True, blank=True, verbose_name="Tugash vaqti")
@@ -851,8 +900,28 @@ class WorkPracticeTestAttempt(models.Model):
         related_name='attempts'
     )
     score = models.IntegerField(null=True, blank=True)
+    question_ids = models.JSONField(default=list, blank=True)
     started_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+
+    # Vaqt tugagach javob yuborish uchun beriladigan qo'shimcha muhlat (tarmoq kechikishi)
+    SUBMIT_GRACE_SECONDS = 60
+
+    @property
+    def deadline(self):
+        return self.started_at + timezone.timedelta(minutes=self.test.duration)
+
+    @property
+    def remaining_seconds(self):
+        return max(int((self.deadline - timezone.now()).total_seconds()), 0)
+
+    @property
+    def is_passed(self):
+        return (
+            self.finished_at is not None
+            and self.score is not None
+            and self.score >= self.test.pass_percentage
+        )
 
     class Meta:
         ordering = ['-started_at']

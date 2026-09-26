@@ -9,8 +9,12 @@ def get_unread_notifications_count(user):
     )
     from accounts.models import SystemNotification
 
-    dept_count = GuidelineDispatchRecipient.objects.filter(user=user, is_acknowledged=False).count()
-    internal_count = SectionInternalGuidelineRecipient.objects.filter(user=user, is_acknowledged=False).count()
+    from companies.guidelines import current_entry_receipt, current_internal_receipts
+
+    # Faqat joriy (eng so'nggi faol) yo'riqnomalar — eski versiyalar dublikat sanalmaydi
+    entry_receipt = current_entry_receipt(user)
+    dept_count = 1 if entry_receipt and not entry_receipt.is_acknowledged else 0
+    internal_count = sum(1 for receipt in current_internal_receipts(user) if not receipt.is_acknowledged)
     assessment_count = DepartmentAssessmentNotification.objects.filter(user=user, is_confirmed=False).count()
     practice_msg_count = SectionWorkPracticeMessageReceipt.objects.filter(user=user, is_read=False).count()
     system_count = SystemNotification.objects.filter(user=user, is_read=False).count()
@@ -41,7 +45,10 @@ def get_all_notifications(user):
     notifications = []
     
     # 1. Guideline Dispatch
-    for r in GuidelineDispatchRecipient.objects.filter(user=user).select_related('dispatch__guideline'):
+    from companies.guidelines import current_entry_receipt, current_internal_receipts
+
+    entry_receipt = current_entry_receipt(user)
+    for r in ([entry_receipt] if entry_receipt else []):
         notifications.append({
             'id': f"gd_{r.id}",
             'title': "Kirish yo'riqnomasi qabul qiling",
@@ -54,7 +61,7 @@ def get_all_notifications(user):
         })
         
     # 2. Internal Guidelines
-    for r in SectionInternalGuidelineRecipient.objects.filter(user=user).select_related('dispatch__guideline'):
+    for r in current_internal_receipts(user):
         notifications.append({
             'id': f"ig_{r.id}",
             'title': "Ichki yo'riqnoma qabul qiling",

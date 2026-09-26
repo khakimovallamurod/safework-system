@@ -71,9 +71,12 @@ class Command(BaseCommand):
         ).distinct()
 
     def check_mandatory_guidelines(self, target_date, days_ahead):
+        # To'xtatilgan va arxivga o'tgan (eski) versiyalar uchun ogohlantirish yuborilmaydi
         guidelines = MandatoryGuideline.objects.filter(
-            active_until__date=target_date
-        )
+            active_until__date=target_date,
+            is_active=True,
+            is_stopped=False,
+        ).select_related('department')
         for g in guidelines:
             title = self._get_title("Majburiy yo'riqnoma", days_ahead)
             message = f"'{g.name}' yo'riqnomasining {self._get_message_suffix(days_ahead)}."

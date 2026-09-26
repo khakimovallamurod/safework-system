@@ -1,5 +1,6 @@
 from django import forms
 
+from companies.guidelines import normalize_end_of_day
 from professions.models import Profession
 
 
@@ -22,7 +23,10 @@ class ProfessionForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         start = cleaned.get('start_time')
-        active_until = cleaned.get('active_until')
+        active_until = normalize_end_of_day(cleaned.get('active_until'))
+        if active_until:
+            # Sana tanlanganda tugash kuni oxirigacha (23:59:59) faol bo'ladi
+            cleaned['active_until'] = active_until
         if start and active_until and active_until <= start:
             raise forms.ValidationError("Faollik tugashi boshlanish sanasidan keyin bo‘lishi kerak.")
         return cleaned

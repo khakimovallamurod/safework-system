@@ -1,0 +1,46 @@
+{# Inspeksiya sahifalari uchun umumiy sarlavha. Kutiladi: heading, subtitle, icon #}
+<div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-7 text-white shadow-xl border border-indigo-900/40">
+    <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+        <div class="min-w-0">
+            <div class="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-3 py-1 text-[11px] font-semibold text-indigo-200 border border-indigo-400/25 mb-3">
+                <i class="bi bi-eye"></i> Davlat mehnat inspeksiyasi · faqat kuzatish rejimi
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-3">
+                <i class="bi {{ icon|default:'bi-shield-shaded' }} text-indigo-300"></i>
+                <span>{{ heading }}</span>
+            </h1>
+            {% if subtitle %}<p class="mt-2 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">{{ subtitle }}</p>{% endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            {% if scope.is_super_admin %}
+            <form method="get" class="m-0">
+                <label class="sr-only" for="insp-region">Viloyat</label>
+                <select id="insp-region" name="region" onchange="this.form.submit()" class="rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none">
+                    <option value="" class="text-slate-800">Barcha viloyatlar</option>
+                    {% for reg in available_regions %}
+                    <option value="{{ reg.id }}" {% if inspector_region and inspector_region.id == reg.id %}selected{% endif %} class="text-slate-800">{{ reg.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% elif inspector_region %}
+            <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-right">
+                <div class="text-[10px] uppercase font-bold tracking-wider text-indigo-300">Biriktirilgan hudud</div>
+                <div class="text-sm font-black flex items-center gap-1.5 justify-end mt-0.5">
+                    <i class="bi bi-geo-alt-fill text-indigo-300"></i> {{ inspector_region.name }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="absolute -right-20 -top-20 w-72 h-72 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+</div>
+
+{% if region_missing %}
+<div class="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 flex items-start gap-3">
+    <i class="bi bi-exclamation-triangle-fill text-amber-500 text-lg"></i>
+    <div>
+        <div class="font-bold">Sizga viloyat biriktirilmagan</div>
+        <div class="text-xs mt-0.5">Hududiy izolyatsiya sababli ma’lumotlar ko‘rsatilmaydi. Tizim administratoriga murojaat qiling.</div>
+    </div>
+</div>
+{% endif %}

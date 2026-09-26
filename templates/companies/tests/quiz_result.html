@@ -5,11 +5,15 @@
 
   {# ── Natija xulosa kartasi ── #}
   <div class="bg-white rounded-2xl border shadow-sm overflow-hidden
-              {% if attempt.score >= 60 %}border-emerald-200{% else %}border-rose-200{% endif %}">
+              {% if attempt.is_passed %}border-emerald-200{% else %}border-rose-200{% endif %}">
 
-    <div class="{% if attempt.score >= 80 %}bg-emerald-500{% elif attempt.score >= 60 %}bg-emerald-400{% else %}bg-rose-500{% endif %} px-6 py-5 text-white text-center">
+    <div class="{% if attempt.is_passed and attempt.score >= 80 %}bg-emerald-500{% elif attempt.is_passed %}bg-emerald-400{% else %}bg-rose-500{% endif %} px-6 py-5 text-white text-center">
       <div class="text-5xl font-black mb-1">{{ attempt.score }}%</div>
       <div class="text-sm font-semibold opacity-90">{{ test.name }}</div>
+      <div class="text-xs opacity-80 mt-1">{{ attempt.practice.name }} · O'tish bali: {{ test.pass_percentage }}%</div>
+      {% if not is_owner %}
+      <div class="text-xs opacity-90 mt-1"><i class="bi bi-person"></i> {{ attempt.user.profile.full_name|default:attempt.user.username }}</div>
+      {% endif %}
     </div>
 
     <div class="px-6 py-5">
@@ -20,7 +24,7 @@
         </div>
         <div class="w-px h-10 bg-slate-100"></div>
         <div class="text-center flex-1">
-          <div class="text-2xl font-bold text-rose-500">{{ total|add:"-"|add:correct_count }}</div>
+          <div class="text-2xl font-bold text-rose-500">{{ wrong_count }}</div>
           <div class="text-xs text-slate-500 mt-0.5">Xato</div>
         </div>
         <div class="w-px h-10 bg-slate-100"></div>
@@ -30,12 +34,12 @@
         </div>
       </div>
 
-      {% if attempt.score >= 60 %}
+      {% if attempt.is_passed %}
       <div class="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
         <i class="bi bi-patch-check-fill text-emerald-500 text-xl flex-shrink-0"></i>
         <div>
           <p class="text-sm font-bold text-emerald-800">Ishlashga yaroqli!</p>
-          <p class="text-xs text-emerald-600">Siz amaliyotdan muvaffaqiyatli o'tdingiz.</p>
+          <p class="text-xs text-emerald-600">{% if is_owner %}Siz amaliyotdan muvaffaqiyatli o'tdingiz. Mustaqil ishlashga ruxsat berildi.{% else %}Amaliyotchi amaliyotdan muvaffaqiyatli o'tdi.{% endif %}</p>
         </div>
       </div>
       {% else %}
@@ -43,12 +47,18 @@
         <i class="bi bi-x-circle-fill text-rose-400 text-xl flex-shrink-0"></i>
         <div>
           <p class="text-sm font-bold text-rose-800">Amaliyot o'tilmadi</p>
-          <p class="text-xs text-rose-600">O'tish uchun 60% va undan yuqori ball kerak.</p>
+          <p class="text-xs text-rose-600">O'tish uchun {{ test.pass_percentage }}% va undan yuqori ball kerak.</p>
         </div>
       </div>
       {% endif %}
 
-      <div class="mt-4 flex gap-3 justify-end">
+      <div class="mt-4 flex flex-wrap gap-3 justify-end">
+        {% if attempt.is_passed %}
+        <a href="{% url 'companies:quiz_certificate' attempt_pk=attempt.id %}"
+           class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition">
+          <i class="bi bi-file-earmark-check"></i> Ruxsatnoma
+        </a>
+        {% endif %}
         <a href="{% url 'work-practices' %}"
            class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
           <i class="bi bi-briefcase"></i> Amaliyotlarga

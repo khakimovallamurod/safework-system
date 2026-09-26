@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-5">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'inspection:companies' %}" class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 transition shadow-sm" aria-label="Orqaga">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="min-w-0">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-600">Korxona kartasi · faqat kuzatish</div>
+            <h1 class="text-xl sm:text-2xl font-black text-slate-900 truncate">{{ metrics.organization_name }}</h1>
+        </div>
+        <span class="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset {{ metrics.badge_class }}">
+            <i class="bi bi-shield-check"></i> {{ metrics.status_label }}
+        </span>
+    </div>
+
+    {# ── Rekvizitlar va indeks ── #}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Rahbar</dt>
+                    <dd class="mt-0.5 font-semibold text-slate-900">{{ metrics.leader_name }}</dd>
+                    <dd><a href="tel:{{ metrics.leader_phone }}" class="text-xs font-mono text-indigo-600 hover:underline">{{ metrics.leader_phone }}</a></dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mas’ul nazoratchi</dt>
+                    <dd class="mt-0.5 font-semibold text-slate-900">{{ metrics.supervisor_name|default:"Tayinlanmagan" }}</dd>
+                    {% if metrics.supervisor_phone %}<dd><a href="tel:{{ metrics.supervisor_phone }}" class="text-xs font-mono text-indigo-600 hover:underline">{{ metrics.supervisor_phone }}</a></dd>{% endif %}
+                </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Soha</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ metrics.industry_name }}</dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Hudud / Manzil</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ metrics.region_name }}{% if org_profile.address %} · {{ org_profile.address }}{% endif %}</dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Tuzilma</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ metrics.departments_count }} boshqarma · {{ metrics.total_workers }} nafar xodim</dd>
+                </div>
+                <div>
+                    <dt class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Qoidabuzarliklar / Sertifikatlar</dt>
+                    <dd class="mt-0.5 text-slate-800">{{ metrics.active_violations }} faol ({{ metrics.total_violations }} jami) · {{ metrics.total_certs }} sertifikat</dd>
+                </div>
+            </dl>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mehnat muhofazasi indeksi</div>
+            <div class="mt-1 text-4xl font-black tabular-nums {% if metrics.status_tone == 'emerald' %}text-emerald-600{% elif metrics.status_tone == 'amber' %}text-amber-600{% elif metrics.status_tone == 'rose' %}text-rose-600{% else %}text-slate-400{% endif %}">{{ metrics.safety_index }}%</div>
+            <div class="mt-4 space-y-3">
+                {% for item in coverage %}
+                <a href="{% url item.url %}?org={{ org_profile.pk }}" class="block group">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-700 group-hover:text-indigo-700">{{ item.label }}</span>
+                        <span class="font-bold tabular-nums text-slate-900">{{ item.value }}%</span>
+                    </div>
+                    <div class="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full {% if item.value >= 85 %}bg-emerald-500{% elif item.value >= 60 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ item.value }}%"></div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# ── Ushbu korxona bo'yicha bo'limlarga tezkor o'tish ── #}
+    <div class="flex flex-wrap gap-2">
+        {% url 'inspection:violations' as u %}<a href="{{ u }}?org={{ org_profile.pk }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300"><i class="bi bi-exclamation-octagon text-rose-500"></i> Qoidabuzarliklar</a>
+        {% url 'inspection:practices' as u %}<a href="{{ u }}?org={{ org_profile.pk }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300"><i class="bi bi-briefcase text-sky-500"></i> Stajirovkalar</a>
+        {% url 'inspection:tests' as u %}<a href="{{ u }}?org={{ org_profile.pk }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300"><i class="bi bi-clipboard2-check text-indigo-500"></i> Test natijalari</a>
+        {% url 'inspection:guidelines-internal' as u %}<a href="{{ u }}?org={{ org_profile.pk }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300"><i class="bi bi-journal-text text-slate-500"></i> Ichki yo‘riqnomalar</a>
+        {% url 'inspection:guidelines-profession' as u %}<a href="{{ u }}?org={{ org_profile.pk }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300"><i class="bi bi-person-lines-fill text-slate-500"></i> Kasbiy yo‘riqnomalar</a>
+        {% url 'inspection:certificates' as u %}<a href="{{ u }}?org={{ org_profile.pk }}" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300"><i class="bi bi-award text-amber-500"></i> Sertifikatlar</a>
+    </div>
+
+    {# ── Boshqarma va bo'limlar ── #}
+    {% if departments %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="text-sm font-black text-slate-900 flex items-center gap-2"><i class="bi bi-diagram-3 text-indigo-500"></i> Boshqarmalar va bo‘limlar</h2>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {% for d in departments %}
+            <div class="rounded-xl border border-slate-200 p-4">
+                <div class="font-bold text-slate-900 text-sm">{{ d.dept.name }}</div>
+                <div class="mt-1 text-xs text-slate-600">Nazoratchi: <strong>{{ d.supervisor|default:"Tayinlanmagan" }}</strong>{% if d.supervisor_phone %} · <span class="font-mono">{{ d.supervisor_phone }}</span>{% endif %}</div>
+                <div class="mt-2 flex flex-wrap gap-1">
+                    {% for s in d.sections %}<span class="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">{{ s.name }}</span>{% empty %}<span class="text-[11px] italic text-slate-400">Bo‘limlar yo‘q</span>{% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ── Xodimlar tarkibi ── #}
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="border-b border-slate-100 px-5 py-4">
+            <h2 class="text-sm font-black text-slate-900 flex items-center gap-2"><i class="bi bi-people text-indigo-500"></i> Xodimlar tarkibi ({{ staff_rows|length }})</h2>
+        </div>
+        {% with rows=staff_rows empty_text="Ushbu korxonada xodimlar mavjud emas." %}
+            {% include 'inspection/_table.html' %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}

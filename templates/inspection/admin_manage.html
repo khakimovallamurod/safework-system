@@ -1,0 +1,433 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+
+    {# ── HEADER ── #}
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-xl relative overflow-hidden">
+        <div class="relative z-10">
+            <div class="inline-flex items-center gap-2 rounded-lg bg-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-300 border border-indigo-400/20 mb-2">
+                <i class="bi bi-shield-check"></i> Davlat nazorati
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+                <i class="bi bi-person-badge-fill text-indigo-400"></i> Mehnat Inspeksiyasi Nazoratchilari
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
+                Hududiy mehnat inspektorlari hisobini yuritish, login-parol berish, viloyatga biriktirish va ularning tizimga kirish huquqini tezkor boshqarish.
+            </p>
+        </div>
+        <div class="relative z-10 flex items-center gap-2 flex-shrink-0">
+            <a href="{% url 'inspection:dashboard' %}" class="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-semibold text-white hover:bg-white/20 transition backdrop-blur-sm">
+                <i class="bi bi-speedometer2"></i> Inspeksiya kabineti
+            </a>
+            <button type="button" data-bs-toggle="modal" data-bs-target="#addInspectorModal"
+                    class="inline-flex items-center gap-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/30 transition">
+                <i class="bi bi-person-plus-fill text-sm"></i> Yangi inspektor qo‘shish
+            </button>
+        </div>
+        {# Background decorative glow #}
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    </div>
+
+    {# ── STATS CARDS ── #}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 text-xl font-bold">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Jami inspektorlar</div>
+                <div class="text-2xl font-black text-slate-800">{{ inspectors|length }} nafar</div>
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 text-xl font-bold">
+                <i class="bi bi-check-circle-fill"></i>
+            </div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Faol akkauntlar</div>
+                <div class="text-2xl font-black text-emerald-600">
+                    {{ inspectors|dictsort:"user.is_active"|length }} ta
+                </div>
+            </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-50 text-violet-600 text-xl font-bold">
+                <i class="bi bi-geo-alt-fill"></i>
+            </div>
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Qamrab olingan viloyatlar</div>
+                <div class="text-2xl font-black text-violet-600">{{ regions|length }} ta hudud</div>
+            </div>
+        </div>
+    </div>
+
+    {# ── TABLE OF INSPECTORS ── #}
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="bi bi-table text-indigo-600"></i> Inspektorlar ro‘yxati va vakolatlari
+                </h2>
+                <p class="text-xs text-slate-500 mt-0.5">Har bir inspektor faqat o‘zining biriktirilgan viloyatidagi korxonalarni kuzatish vakolatiga ega.</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm divide-y divide-slate-200">
+                <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <tr>
+                        <th class="px-5 py-3 w-12 text-center">#</th>
+                        <th class="px-5 py-3 min-w-[200px]">Inspektor F.I.SH</th>
+                        <th class="px-5 py-3 min-w-[160px]">Telefon (Login)</th>
+                        <th class="px-5 py-3 min-w-[150px]">Biriktirilgan Viloyat</th>
+                        <th class="px-5 py-3 text-center min-w-[140px]">Holat (On/Off)</th>
+                        <th class="px-5 py-3 text-center">Qo‘shilgan sana</th>
+                        <th class="px-5 py-3 text-right w-28">Amallar</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for ins in inspectors %}
+                    <tr class="hover:bg-slate-50/80 transition" id="row-inspector-{{ ins.id }}">
+                        <td class="px-5 py-3.5 text-center text-xs font-bold text-slate-400">
+                            {{ forloop.counter }}
+                        </td>
+                        <td class="px-5 py-3.5">
+                            <div class="font-bold text-slate-900">{{ ins.full_name }}</div>
+                            <div class="text-[11px] text-slate-400">{{ ins.position|default:"Davlat mehnat inspektori" }}</div>
+                        </td>
+                        <td class="px-5 py-3.5">
+                            <span class="inline-flex items-center gap-1.5 font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                <i class="bi bi-telephone-fill text-indigo-500"></i> {{ ins.phone_number|default:ins.user.username }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-3.5">
+                            {% if ins.region %}
+                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-xs font-semibold text-indigo-700">
+                                <i class="bi bi-geo-alt-fill text-indigo-500"></i> {{ ins.region.name }}
+                            </span>
+                            {% else %}
+                            <span class="text-xs text-rose-500 font-semibold italic">Viloyat biriktirilmagan</span>
+                            {% endif %}
+                        </td>
+                        {# ON/OFF TOGGLE SWITCH (AJAX) #}
+                        <td class="px-5 py-3.5 text-center">
+                            <div class="inline-flex items-center gap-2">
+                                <button type="button"
+                                        onclick="toggleInspectorStatus({{ ins.id }})"
+                                        id="toggle-btn-{{ ins.id }}"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {% if ins.user.is_active %}bg-emerald-500{% else %}bg-slate-300{% endif %}"
+                                        role="switch"
+                                        aria-checked="{% if ins.user.is_active %}true{% else %}false{% endif %}"
+                                        title="{% if ins.user.is_active %}Bloklash uchun bosing{% else %}Faollashtirish uchun bosing{% endif %}">
+                                    <span aria-hidden="true"
+                                          id="toggle-dot-{{ ins.id }}"
+                                          class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {% if ins.user.is_active %}translate-x-5{% else %}translate-x-0{% endif %}"></span>
+                                </button>
+                                <span id="status-badge-{{ ins.id }}"
+                                      class="inline-flex items-center gap-1 text-[11px] font-bold {% if ins.user.is_active %}text-emerald-700{% else %}text-rose-600{% endif %}">
+                                    {% if ins.user.is_active %}Faol{% else %}Bloklangan{% endif %}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-5 py-3.5 text-center text-xs text-slate-500">
+                            {{ ins.user.date_joined|date:"d.m.Y H:i" }}
+                        </td>
+                        <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1">
+                                <button type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editInspectorModal{{ ins.id }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-300 text-amber-600 hover:bg-amber-50 transition"
+                                        title="Tahrirlash">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteInspectorModal{{ ins.id }}"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300 text-rose-600 hover:bg-rose-50 transition"
+                                        title="O‘chirish">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-5 py-12 text-center text-slate-400">
+                            <i class="bi bi-person-x text-3xl mb-2 block text-slate-300"></i>
+                            Hozircha tizimda mehnat inspektorlari mavjud emas. Yuqoridagi tugma orqali yangi inspektor qo‘shing.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ── MODAL: YANGI INSPEKTOR QO'SHISH ── #}
+<div class="modal fade" id="addInspectorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-2xl border-0 shadow-2xl overflow-hidden">
+            <form method="post" action="{% url 'inspection:admin-manage' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+
+                <div class="modal-header bg-slate-900 text-white px-6 py-4 border-0">
+                    <h5 class="modal-title font-bold text-base flex items-center gap-2">
+                        <i class="bi bi-person-plus-fill text-indigo-400"></i> Yangi Mehnat Inspektori
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            F.I.SH (To‘liq ismi) <span class="text-rose-500">*</span>
+                        </label>
+                        <input type="text" name="full_name" required placeholder="Masalan: Karim Olimovich Karimov"
+                               class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Biriktirilgan Viloyat / Hudud <span class="text-rose-500">*</span>
+                        </label>
+                        <select name="region_id" required
+                                class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none bg-white">
+                            <option value="">Viloyatni tanlang...</option>
+                            {% for reg in regions %}
+                            <option value="{{ reg.id }}">{{ reg.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1">Ushbu inspektor faqat tanlangan viloyatdagi korxonalarni ko‘ra oladi.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Telefon raqami (Login sifatida ishlatiladi) <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative flex items-center">
+                            <span class="inline-flex items-center px-3.5 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-bold text-sm select-none">
+                                +998
+                            </span>
+                            <input type="text" name="phone_number" required placeholder="93 855 46 50" maxlength="14"
+                                   class="w-full rounded-r-xl border border-slate-300 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">Davlat kodi (+998) avtomatik olinadi, faqat 9 ta raqamni kiriting.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Parol <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="addInspectorPassword" name="password" required placeholder="Kamida 6 ta belgi"
+                                   class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 pr-11 text-sm text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none">
+                            <button type="button" onclick="togglePasswordVisibility('addInspectorPassword', this)"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-indigo-600 transition"
+                                    title="Parolni ko'rsatish/yashirish">
+                                <i class="bi bi-eye text-base"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-white" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2 text-xs font-bold text-white shadow-sm transition">
+                        <i class="bi bi-check-lg mr-1"></i> Saqlash va Akkaunt ochish
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ── EDIT & DELETE MODALS FOR EACH INSPECTOR ── #}
+{% for ins in inspectors %}
+{# Edit Modal #}
+<div class="modal fade" id="editInspectorModal{{ ins.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-2xl border-0 shadow-2xl overflow-hidden">
+            <form method="post" action="{% url 'inspection:admin-manage' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit">
+                <input type="hidden" name="inspector_id" value="{{ ins.id }}">
+
+                <div class="modal-header bg-slate-900 text-white px-6 py-4 border-0">
+                    <h5 class="modal-title font-bold text-base flex items-center gap-2">
+                        <i class="bi bi-pencil-square text-amber-400"></i> Inspektorni Tahrirlash: {{ ins.user.username }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">F.I.SH</label>
+                        <input type="text" name="full_name" value="{{ ins.full_name }}" required
+                               class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Biriktirilgan Viloyat</label>
+                        <select name="region_id" required
+                                class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-800 outline-none bg-white">
+                            {% for reg in regions %}
+                            <option value="{{ reg.id }}" {% if ins.region_id == reg.id %}selected{% endif %}>{{ reg.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Telefon raqami (Login) <span class="text-rose-500">*</span></label>
+                        <div class="relative flex items-center">
+                            <span class="inline-flex items-center px-3.5 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-bold text-sm select-none">
+                                +998
+                            </span>
+                            <input type="text" name="phone_number" value="{{ ins.phone_number|cut:'+998' }}" required placeholder="93 855 46 50" maxlength="14"
+                                   class="w-full rounded-r-xl border border-slate-300 px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none">
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 pt-3">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            Yangi Parol <span class="text-slate-400 font-normal">(O‘zgartirmaslik uchun bo‘sh qoldiring)</span>
+                        </label>
+                        <div class="relative">
+                            <input type="password" id="editPassword{{ ins.id }}" name="new_password" placeholder="Yangi parol..."
+                                   class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 pr-11 text-sm text-slate-800 outline-none">
+                            <button type="button" onclick="togglePasswordVisibility('editPassword{{ ins.id }}', this)"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-amber-600 transition"
+                                    title="Parolni ko'rsatish/yashirish">
+                                <i class="bi bi-eye text-base"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+                    <button type="button" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-white" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-amber-600 hover:bg-amber-700 px-5 py-2 text-xs font-bold text-white shadow-sm transition">
+                        <i class="bi bi-check-lg mr-1"></i> Yangilash
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Delete Modal #}
+<div class="modal fade" id="deleteInspectorModal{{ ins.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-2xl border-0 shadow-2xl p-6 text-center">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-2xl mb-4">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-900 mb-1">Inspektor akkauntini o‘chirish</h3>
+            <p class="text-xs text-slate-500 mb-5">
+                Haqiqatan ham «<strong>{{ ins.full_name }}</strong>» (@{{ ins.user.username }}) akkauntini o‘chirib tashlamoqchimisiz? Ushbu amal qaytarilmaydi.
+            </p>
+            <form method="post" action="{% url 'inspection:admin-manage' %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="inspector_id" value="{{ ins.id }}">
+                <div class="flex justify-center gap-3">
+                    <button type="button" class="rounded-xl border border-slate-200 px-5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="submit" class="rounded-xl bg-rose-600 hover:bg-rose-700 px-5 py-2 text-xs font-bold text-white shadow-sm transition">
+                        Ha, o‘chirilsin
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{# ── AJAX TOGGLE STATUS SCRIPT ── #}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function toggleInspectorStatus(inspectorId) {
+    const btn = document.getElementById(`toggle-btn-${inspectorId}`);
+    const dot = document.getElementById(`toggle-dot-${inspectorId}`);
+    const badge = document.getElementById(`status-badge-${inspectorId}`);
+    
+    // Disable temporarily
+    btn.disabled = true;
+
+    fetch(`/inspeksiya/toggle-status/${inspectorId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        if (data.success) {
+            if (data.is_active) {
+                btn.classList.remove('bg-slate-300');
+                btn.classList.add('bg-emerald-500');
+                dot.classList.remove('translate-x-0');
+                dot.classList.add('translate-x-5');
+                btn.setAttribute('aria-checked', 'true');
+                btn.setAttribute('title', 'Bloklash uchun bosing');
+                badge.className = 'inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700';
+                badge.innerText = 'Faol';
+            } else {
+                btn.classList.remove('bg-emerald-500');
+                btn.classList.add('bg-slate-300');
+                dot.classList.remove('translate-x-5');
+                dot.classList.add('translate-x-0');
+                btn.setAttribute('aria-checked', 'false');
+                btn.setAttribute('title', 'Faollashtirish uchun bosing');
+                badge.className = 'inline-flex items-center gap-1 text-[11px] font-bold text-rose-600';
+                badge.innerText = 'Bloklangan';
+            }
+        } else {
+            alert('Xatolik yuz berdi.');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        console.error(err);
+        alert('Server bilan bog‘lanishda xatolik.');
+    });
+}
+
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        }
+    } else {
+        input.type = 'password';
+        if (icon) {
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+}
+</script>
+{% endblock %}

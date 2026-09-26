@@ -1,0 +1,65 @@
+{# Yagona read-only jadval: #, Korxona/Xodim, Soha/Kasb, Mas'ul/Telefon, Ko'rsatkich, Holat, Amallar. #}
+{# Kutiladi: rows, columns, row_offset (ixtiyoriy), empty_text (ixtiyoriy) #}
+<div class="overflow-x-auto">
+    <table class="w-full min-w-[900px] text-left text-sm">
+        <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+            <tr>
+                <th scope="col" class="px-4 py-3 w-12 text-center">#</th>
+                <th scope="col" class="px-4 py-3">{{ columns.primary }}</th>
+                <th scope="col" class="px-4 py-3">{{ columns.category }}</th>
+                <th scope="col" class="px-4 py-3">{{ columns.supervisor }}</th>
+                <th scope="col" class="px-4 py-3">{{ columns.metric }}</th>
+                <th scope="col" class="px-4 py-3">Holat</th>
+                <th scope="col" class="px-4 py-3 text-right">Amallar</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            {% for row in rows %}
+            <tr class="hover:bg-indigo-50/40 transition">
+                <td class="px-4 py-3 text-center text-xs font-bold text-slate-400 tabular-nums">{% if row_offset %}{{ forloop.counter|add:row_offset }}{% else %}{{ forloop.counter }}{% endif %}</td>
+                <td class="px-4 py-3 max-w-[260px]">
+                    <div class="font-semibold text-slate-900 truncate" title="{{ row.primary }}">{{ row.primary }}</div>
+                    {% if row.primary_sub %}<div class="text-[11px] text-slate-500 truncate" title="{{ row.primary_sub }}">{{ row.primary_sub }}</div>{% endif %}
+                </td>
+                <td class="px-4 py-3 max-w-[220px]">
+                    <div class="text-slate-800 truncate" title="{{ row.category }}">{{ row.category }}</div>
+                    {% if row.category_sub %}<div class="text-[11px] text-slate-500 truncate" title="{{ row.category_sub }}">{{ row.category_sub }}</div>{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    <div class="text-slate-800 {% if row.supervisor == 'Tayinlanmagan' %}text-slate-400 italic{% endif %}">{{ row.supervisor }}</div>
+                    {% if row.supervisor_phone %}<a href="tel:{{ row.supervisor_phone }}" class="text-[11px] font-mono text-indigo-600 hover:underline">{{ row.supervisor_phone }}</a>{% endif %}
+                </td>
+                <td class="px-4 py-3 min-w-[150px] max-w-[260px]">
+                    <div class="font-bold text-slate-900 tabular-nums">{{ row.metric }}</div>
+                    {% if row.progress is not None %}
+                    <div class="mt-1 h-1.5 w-full max-w-[140px] rounded-full bg-slate-100 overflow-hidden">
+                        <div class="h-full rounded-full {% if row.progress >= 85 %}bg-emerald-500{% elif row.progress >= 60 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width: {{ row.progress }}%"></div>
+                    </div>
+                    {% endif %}
+                    {% if row.metric_sub %}<div class="text-[11px] text-slate-500 mt-0.5 line-clamp-2" title="{{ row.metric_sub }}">{{ row.metric_sub }}</div>{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset {{ row.badge_class }}">
+                        <span class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ row.status_label }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {% if row.detail_url %}
+                    <a href="{{ row.detail_url }}" {% if row.detail_external %}target="_blank" rel="noopener"{% endif %}
+                       class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-700 transition">
+                        <i class="bi bi-eye"></i> Ko‘rish
+                    </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="px-5 py-12 text-center">
+                    <i class="bi bi-inbox text-3xl text-slate-300"></i>
+                    <div class="mt-2 text-sm text-slate-500">{{ empty_text|default:"Ma’lumot topilmadi." }}</div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

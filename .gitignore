@@ -1,5 +1,16 @@
 venv/
 venv
 .env
-uploads
-documents
+uploads/
+documents/
+media/
+db.sqlite3
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django Migrations 
+*/migrations/
+**/migrations/

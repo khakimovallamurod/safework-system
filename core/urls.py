@@ -19,6 +19,7 @@ urlpatterns = [
     path('professions/', include('professions.urls')),
     path('ppe/', include('ppe.urls')),
     path('violations/', include('violations.urls')),
+    path('inspeksiya/', include('inspection.urls')),
     path('.well-known/appspecific/com.chrome.devtools.json', lambda r: JsonResponse({})),
 ]
 
